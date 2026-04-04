@@ -1,0 +1,65 @@
+# =====================
+# Maven / Java
+# =====================
+target/
+bin/
+build/
+*.class
+*.log
+.mvn/
+mvnw
+mvnw.cmd
+
+# =====================
+# IDE / Editor
+# =====================
+# Eclipse / STS
+.project
+.classpath
+.settings/
+.apt_generated
+.springBeans
+.factorypath
+.sts4-cache
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code
+.vscode/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# =====================
+# OS
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# Node / Frontend
+# =====================
+node_modules/
+DuAnBanSach/node_modules/
+DuAnBanSach_FE/
+
+# =====================
+# Config / Secrets
+# =====================
+# Chặn file config chứa secrets
+src/main/resources/application.properties
+
+# =====================
+# Misc
+# =====================
+React.txt
+.metadata/

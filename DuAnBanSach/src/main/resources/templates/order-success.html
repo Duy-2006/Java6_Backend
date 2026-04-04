@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Đặt hàng thành công</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+
+<style>
+body { font-family: 'Manrope', sans-serif; }
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 1;
+}
+</style>
+</head>
+
+<body class="bg-[#f5f5f5] min-h-screen text-[#222]">
+
+<main class="max-w-[1200px] mx-auto px-4 py-10 space-y-8">
+
+<!-- ================= SUCCESS HEADER ================= -->
+<section class="bg-white rounded-3xl p-8 md:p-10 shadow-sm border flex flex-col md:flex-row gap-6 md:items-center md:justify-between">
+
+  <div class="flex items-center gap-5">
+    <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-green-100 flex items-center justify-center">
+      <span class="material-symbols-outlined text-green-600 text-5xl">
+        check_circle
+      </span>
+    </div>
+
+    <div>
+      <h1 class="text-2xl md:text-3xl font-extrabold">
+        Đặt hàng thành công!
+      </h1>
+      <p class="text-gray-500 mt-1">
+        Cảm ơn bạn đã mua sắm tại cửa hàng của chúng tôi.
+      </p>
+    </div>
+  </div>
+
+  <div class="bg-gray-50 border rounded-2xl px-6 py-4 text-center">
+    <p class="text-xs uppercase text-gray-500 font-bold">Mã đơn hàng</p>
+    <p class="text-xl font-extrabold text-green-600"
+       th:text="${order.orderCode}"></p>
+  </div>
+
+</section>
+
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+<!-- ================= ORDER ITEMS ================= -->
+<section class="lg:col-span-8 bg-white rounded-3xl shadow-sm border overflow-hidden">
+
+  <div class="px-6 py-5 border-b flex justify-between items-center">
+    <h2 class="text-lg font-extrabold">📦 Chi tiết đơn hàng</h2>
+    <span class="text-sm text-gray-500 font-bold"
+          th:text="${#lists.size(order.orderDetails)} + ' sản phẩm'"></span>
+  </div>
+
+  <div class="divide-y">
+
+    <div th:each="item : ${order.orderDetails}"
+         class="grid grid-cols-[1fr_60px_120px_120px]
+                gap-4 items-center px-6 py-5">
+
+      <div class="font-bold"
+           th:text="${item.book.title}"></div>
+
+      <div class="text-center text-sm text-gray-500"
+           th:text="'x' + ${item.quantity}"></div>
+
+      <div class="text-right text-sm"
+           th:text="${item.price} + 'đ'"></div>
+
+      <div class="text-right font-extrabold text-primary"
+           th:text="${item.price * item.quantity} + 'đ'"></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= SIDEBAR ================= -->
+<aside class="lg:col-span-4 space-y-6">
+
+<!-- PAYMENT SUMMARY -->
+<div class="bg-white rounded-3xl p-6 shadow-sm border">
+  <h3 class="text-lg font-extrabold mb-4">💰 Thanh toán</h3>
+
+  <div class="flex justify-between text-sm">
+    <span>Tổng tiền</span>
+    <span th:text="${order.totalAmount} + 'đ'"></span>
+  </div>
+
+  <div class="flex justify-between text-sm mt-2">
+    <span>Phương thức</span>
+    <span th:text="${order.paymentMethod}"></span>
+  </div>
+
+  <div class="flex justify-between font-extrabold text-xl text-primary pt-4 mt-4 border-t">
+    <span>Đã thanh toán</span>
+    <span th:text="${order.totalAmount} + 'đ'"></span>
+  </div>
+</div>
+
+<!-- SHIPPING INFO -->
+<div class="bg-white rounded-3xl p-6 shadow-sm border">
+  <h3 class="text-lg font-extrabold mb-4">🚚 Giao hàng</h3>
+
+  <div class="space-y-2 text-sm">
+    <p><b>Người nhận:</b> <span th:text="${order.customerName}"></span></p>
+    <p><b>SĐT:</b> <span th:text="${order.customerPhone}"></span></p>
+    <p><b>Địa chỉ:</b> <span th:text="${order.customerAddress}"></span></p>
+  </div>
+</div>
+
+<!-- ACTION -->
+<div class="flex gap-3">
+  <a th:href="@{/home}"
+     class="flex-1 border rounded-xl py-3 font-bold text-center hover:bg-gray-50 transition">
+     Tiếp tục mua
+  </a>
+
+  <a th:href="@{/orders/detail(code=${order.orderCode})}"
+     class="flex-1 bg-primary text-white rounded-xl py-3 font-bold text-center hover:opacity-90 transition">
+     Xem đơn hàng
+  </a>
+</div>
+
+</aside>
+
+</div>
+
+</main>
+</body>
+</html>

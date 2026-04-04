@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+	th:fragment="admin_layout(content)">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BookStore Admin</title>
+
+<link
+	href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+	rel="stylesheet">
+
+<link
+	href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+	rel="stylesheet">
+
+<link rel="stylesheet"
+	href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+:root {
+	--sidebar-width: 260px;
+	--topbar-height: 60px;
+	--primary-blue: #005c97;
+	--secondary-blue: #363795;
+	--bg-light: #f3f6f9;
+	--text-gray: #b0c4de;
+}
+
+body {
+	font-family: 'Inter', sans-serif;
+	background: var(--bg-light);
+	margin: 0;
+}
+
+/* SIDEBAR */
+.sidebar {
+	width: var(--sidebar-width);
+	height: 100vh;
+	position: fixed;
+	left: 0;
+	top: 0;
+	background: linear-gradient(135deg, var(--primary-blue),
+		var(--secondary-blue));
+	color: white;
+	z-index: 1000;
+	overflow-y: auto;
+}
+
+.sidebar-brand {
+	height: var(--topbar-height);
+	display: flex;
+	align-items: center;
+	padding: 0 20px;
+	font-size: 20px;
+	font-weight: 700;
+	text-decoration: none;
+	color: white;
+	background: rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-content {
+	padding: 20px 12px;
+}
+
+.sidebar-heading {
+	font-size: 12px;
+	text-transform: uppercase;
+	margin: 20px 10px 8px;
+	color: rgba(255, 255, 255, 0.6);
+	font-weight: 600;
+}
+
+/* MENU */
+.nav-link {
+	color: var(--text-gray);
+	padding: 10px 14px;
+	border-radius: 8px;
+	margin-bottom: 4px;
+	display: flex;
+	align-items: center;
+	font-weight: 500;
+	transition: all .25s;
+}
+
+.nav-link i {
+	width: 22px;
+	margin-right: 10px;
+}
+
+.nav-link:hover {
+	background: rgba(255, 255, 255, 0.15);
+	color: white;
+	transform: translateX(5px);
+}
+
+.nav-link.active {
+	background: white;
+	color: var(--primary-blue);
+	font-weight: 700;
+}
+
+/* NAVBAR */
+.topbar {
+	height: var(--topbar-height);
+	margin-left: var(--sidebar-width);
+	background: white;
+	border-bottom: 1px solid #e5e5e5;
+	display: flex;
+	align-items: center;
+	padding: 0 25px;
+	justify-content: space-between;
+}
+
+/* CONTENT */
+.main-content {
+	margin-left: var(--sidebar-width);
+	margin-top: var(--topbar-height);
+	padding: 30px;
+	min-height: calc(100vh - var(--topbar-height));
+}
+
+/* AVATAR */
+.avatar {
+	width: 38px;
+	height: 38px;
+	border-radius: 50%;
+}
+
+/* MOBILE */
+@media ( max-width :768px) {
+	.sidebar {
+		transform: translateX(-100%);
+	}
+	.main-content {
+		margin-left: 0;
+	}
+	.topbar {
+		margin-left: 0;
+	}
+}
+</style>
+
+</head>
+
+<body>
+
+	<!-- SIDEBAR -->
+
+	<div class="sidebar">
+
+		<a class="sidebar-brand" th:href="@{/admin}"> <i
+			class="fa-solid fa-book-open me-2"></i> BOOKSTORE
+		</a>
+
+		<div class="sidebar-content">
+
+			<ul class="nav flex-column" id="adminMenu">
+
+				<li><a class="nav-link" th:href="@{/admin}"> <i
+						class="fa-solid fa-gauge"></i> Dashboard
+				</a></li>
+
+				<div class="sidebar-heading">Danh mục sản phẩm</div>
+
+				<li><a class="nav-link" th:href="@{/admin/categories}"> <i
+						class="fa-solid fa-list"></i> Thể loại
+				</a></li>
+
+				<li><a class="nav-link" th:href="@{/admin/authors}"> <i
+						class="fa-solid fa-pen-nib"></i> Tác giả
+				</a></li>
+
+				<li><a class="nav-link" th:href="@{/admin/books}"> <i
+						class="fa-solid fa-book"></i> Sách
+				</a></li>
+
+				<div class="sidebar-heading">Kinh doanh</div>
+
+				<li><a class="nav-link" th:href="@{/admin/inventory}"> <i
+						class="fa-solid fa-warehouse"></i> Kho hàng
+				</a></li>
+
+				<li><a class="nav-link" th:href="@{/admin/orders}"> <i
+						class="fa-solid fa-cart-shopping"></i> Đơn hàng
+				</a></li>
+
+				<li><a class="nav-link" th:href="@{/admin/customers}"> <i
+						class="fa-solid fa-users"></i> Khách hàng
+				</a></li>
+
+				<div class="sidebar-heading">Thanh toán</div>
+
+				<li><a class="nav-link" th:href="@{/admin/revenue/list}"> <i
+						class="fa-solid fa-coins"></i> Doanh thu
+				</a></li>
+
+				<div class="sidebar-heading">Marketing</div>
+
+				<li><a class="nav-link" th:href="@{/admin/promotions/create}">
+						<i class="fa-solid fa-bullhorn"></i> Tạo khuyến mãi
+				</a></li>
+
+				<li><a class="nav-link" th:href="@{/admin/promotions}"> <i
+						class="fa-solid fa-tags"></i> Danh sách khuyến mãi
+				</a></li>
+
+				<th:block
+					th:if="${session.currentUser != null and session.currentUser.role.name() == 'ADMIN'}">
+
+					<div class="sidebar-heading text-danger">Hệ thống</div>
+
+					<li><a class="nav-link text-danger" th:href="@{/admin/users}">
+							<i class="fa-solid fa-user-gear"></i> Nhân viên
+					</a></li>
+
+				</th:block>
+
+			</ul>
+
+		</div>
+	</div>
+
+	<!-- TOPBAR -->
+
+	<div class="topbar">
+
+		<h5 class="m-0 fw-bold text-secondary">Hệ thống quản trị</h5>
+
+		<div class="dropdown">
+
+			<a
+				class="d-flex align-items-center gap-2 text-decoration-none dropdown-toggle"
+				href="#" data-bs-toggle="dropdown"> <img class="avatar"
+				src="https://ui-avatars.com/api/?name=Admin&background=005c97&color=fff">
+
+				<span class="fw-semibold"
+				th:text="${session.currentUser != null ? session.currentUser.fullName : 'Admin'}">
+					Admin </span>
+
+			</a>
+
+			<ul class="dropdown-menu dropdown-menu-end shadow border-0">
+
+				<li><a class="dropdown-item py-2" th:href="@{/profile}"> <i
+						class="fa-regular fa-user me-2"></i> Hồ sơ
+				</a></li>
+
+				<li><hr class="dropdown-divider"></li>
+
+				<li>
+
+					<form th:action="@{/login/logout}" method="post">
+
+						<button class="dropdown-item text-danger fw-bold">
+							<i class="fa-solid fa-power-off me-2"></i> Đăng xuất
+						</button>
+
+					</form>
+
+				</li>
+
+			</ul>
+
+		</div>
+
+	</div>
+
+	<!-- MAIN CONTENT -->
+
+	<div class="main-content">
+
+		<div th:replace="${content}"></div>
+
+	</div>
+
+	<script
+		src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+	<script>
+		document.addEventListener("DOMContentLoaded", function() {
+
+			var path = window.location.pathname;
+
+			document.querySelectorAll("#adminMenu .nav-link").forEach(
+					function(link) {
+
+						if (path.startsWith(link.getAttribute("href"))) {
+							link.classList.add("active");
+						}
+
+					});
+
+		});
+	</script>
+
+</body>
+
+</html>

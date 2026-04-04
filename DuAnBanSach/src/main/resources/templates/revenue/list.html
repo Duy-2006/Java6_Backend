@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/layout :: admin_layout(~{::content})}">
+
+<th:block th:fragment="content">
+
+<style>
+    .card-box {
+        background: #fff;
+        border-radius: 16px;
+        padding: 22px;
+        box-shadow: 0 15px 30px rgba(0,0,0,0.06);
+    }
+
+    .card-title {
+        font-size: 14px;
+        color: #6b7280;
+    }
+
+    .card-value {
+        font-size: 26px;
+        font-weight: 700;
+        margin-top: 6px;
+    }
+
+    .green { color: #16a34a; }
+    .red { color: #dc2626; }
+    .blue { color: #2563eb; }
+</style>
+
+<div class="container-fluid">
+
+    <h3 class="mb-4 fw-bold">
+        Dashboard doanh thu
+    </h3>
+
+    <!-- CARD DOANH THU -->
+    <div class="row g-4 mb-4">
+
+        <div class="col-md-3">
+            <div class="card-box">
+                <div class="card-title">Tổng doanh thu</div>
+                <div class="card-value green"
+                     th:text="${#numbers.formatDecimal(dashboard.totalRevenue,0,'COMMA',0,'POINT')} + ' đ'">
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card-box">
+                <div class="card-title">Doanh thu hôm nay</div>
+                <div class="card-value blue"
+                     th:text="${#numbers.formatDecimal(dashboard.todayRevenue,0,'COMMA',0,'POINT')} + ' đ'">
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card-box">
+                <div class="card-title">Đơn hôm nay</div>
+                <div class="card-value"
+                     th:text="${dashboard.todayOrders}">
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card-box">
+                <div class="card-title">Đơn đã giao</div>
+                <div class="card-value green"
+                     th:text="${dashboard.deliveredOrders}">
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- TOP SÁCH -->
+    <div class="card-box">
+
+        <h5 class="mb-3 fw-semibold">
+            Top sách bán chạy
+        </h5>
+
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID sách</th>
+                    <th>Tên sách</th>
+                    <th>Đã bán</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <tr th:each="b : ${dashboard.topBooks}">
+                    <td th:text="${b.bookId}"></td>
+                    <td th:text="${b.title}"></td>
+                    <td class="fw-bold text-success"
+                        th:text="${b.sold}">
+                    </td>
+                </tr>
+            </tbody>
+
+        </table>
+    </div>
+
+</div>
+
+</th:block>
+</html>

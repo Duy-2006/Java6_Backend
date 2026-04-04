@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/seller-layout}">
+<head>
+    <title>Dashboard - BOOKSTORE</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <h4 class="fw-bold text-primary mb-4">Bảng Tổng Quát</h4>
+
+        <div class="row g-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h6 class="text-muted">Tổng sách</h6>
+                        <h3 class="fw-bold text-primary">120</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h6 class="text-muted">Đơn hàng</h6>
+                        <h3 class="fw-bold text-success">35</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

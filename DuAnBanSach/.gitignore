@@ -1,0 +1,55 @@
+HELP.md
+
+# =====================
+# Maven
+# =====================
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# =====================
+# Build files
+# =====================
+bin/
+build/
+*.class
+*.log
+
+# =====================
+# OS files
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# STS / Eclipse
+# =====================
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+
+# =====================
+# IntelliJ
+# =====================
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# =====================
+# NetBeans
+# =====================
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# =====================
+# VS Code
+# =====================
+.vscode/

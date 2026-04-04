@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/layout :: admin_layout(~{::body})}">
+<head>
+    <title>Tổng quan hệ thống</title>
+</head>
+<body>
+
+<section class="container-fluid p-0 animate__animated animate__fadeIn">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold text-primary m-0 text-uppercase">
+                <i class="fa-solid fa-chart-line me-2"></i>Tổng quan hệ thống
+            </h4>
+            <small class="text-muted">Chào mừng trở lại, quản trị viên!</small>
+        </div>
+        <div class="text-end text-muted small">
+            <i class="fa-regular fa-calendar me-1"></i> <span th:text="${#temporals.format(#temporals.createNow(), 'dd/MM/yyyy')}"></span>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-primary">
+                <div class="card-body d-flex align-items-center justify-content-between p-4">
+                    <div>
+                        <span class="text-uppercase text-muted small fw-bold ls-1">Tổng số sách</span>
+                        <h2 class="fw-bold text-dark mt-2 mb-0" th:text="${totalBooks}">0</h2>
+                        <small class="text-success"><i class="fa-solid fa-arrow-trend-up me-1"></i>Đang kinh doanh</small>
+                    </div>
+                    <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" 
+                         style="width: 60px; height: 60px;">
+                        <i class="fa-solid fa-book fa-xl text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-success">
+                <div class="card-body d-flex align-items-center justify-content-between p-4">
+                    <div>
+                        <span class="text-uppercase text-muted small fw-bold ls-1">Đơn hàng mới</span>
+                        <h2 class="fw-bold text-dark mt-2 mb-0" th:text="${totalOrders}">0</h2>
+                        <small class="text-muted">Chờ xử lý ngay</small>
+                    </div>
+                    <div class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center" 
+                         style="width: 60px; height: 60px;">
+                        <i class="fa-solid fa-cart-shopping fa-xl text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning">
+                <div class="card-body d-flex align-items-center justify-content-between p-4">
+                    <div>
+                        <span class="text-uppercase text-muted small fw-bold ls-1">Khách hàng</span>
+                        <h2 class="fw-bold text-dark mt-2 mb-0" th:text="${totalUsers}">0</h2>
+                        <small class="text-info"><i class="fa-solid fa-user-plus me-1"></i>Đã đăng ký</small>
+                    </div>
+                    <div class="rounded-circle bg-warning bg-opacity-10 d-flex align-items-center justify-content-center" 
+                         style="width: 60px; height: 60px;">
+                        <i class="fa-solid fa-users fa-xl text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 py-3">
+            <h6 class="m-0 fw-bold text-secondary"><i class="fa-solid fa-rocket me-2"></i>Thao tác nhanh</h6>
+        </div>
+        <div class="card-body">
+            <div class="d-flex gap-3">
+                <a href="/admin/books/create" class="btn btn-outline-primary">
+                    <i class="fa-solid fa-plus me-1"></i> Thêm sách mới
+                </a>
+                <a href="/admin/inventory" class="btn btn-outline-success">
+                    <i class="fa-solid fa-boxes-stacked me-1"></i> Nhập kho
+                </a>
+                <a href="/admin/orders" class="btn btn-outline-dark">
+                    <i class="fa-solid fa-list-check me-1"></i> Duyệt đơn hàng
+                </a>
+            </div>
+        </div>
+    </div>
+
+</section>
+
+</body>
+</html>

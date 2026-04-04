@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+	th:replace="admin/layout :: admin_layout(~{::content})">
+
+<th:block th:fragment="content">
+
+	<style>
+.promo-container {
+	max-width: 1100px;
+	margin: auto;
+}
+
+.promo-card {
+	background: #fff;
+	border-radius: 14px;
+	box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+	padding: 24px;
+}
+
+.promo-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+}
+
+.promo-header h3 {
+	font-size: 20px;
+	font-weight: 600;
+	color: #111827;
+	margin: 0;
+}
+
+.btn-create {
+	background: linear-gradient(135deg, #6366f1, #22c55e);
+	color: #fff;
+	padding: 10px 16px;
+	border-radius: 10px;
+	text-decoration: none;
+	font-size: 14px;
+	font-weight: 500;
+}
+
+table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 14px;
+}
+
+thead {
+	background: #f9fafb;
+}
+
+th, td {
+	padding: 14px 12px;
+	border-bottom: 1px solid #e5e7eb;
+}
+
+th {
+	font-weight: 600;
+	color: #374151;
+}
+
+tbody tr:hover {
+	background: #f3f4f6;
+}
+
+.badge {
+	padding: 4px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+/* Trạng thái theo thời gian thực */
+.badge-active {
+	background: #dcfce7;
+	color: #166534;
+} /* Đang chạy  */
+.badge-upcoming {
+	background: #dbeafe;
+	color: #1e40af;
+} /* Sắp diễn ra */
+.badge-expired {
+	background: #fee2e2;
+	color: #991b1b;
+} /* Đã kết thúc */
+
+/* Loại áp dụng */
+.badge-all {
+	background: #f3f4f6;
+	color: #374151;
+}
+
+.badge-book {
+	background: #fef9c3;
+	color: #854d0e;
+}
+
+.badge-cat {
+	background: #ede9fe;
+	color: #5b21b6;
+}
+
+.actions a {
+	margin-right: 6px;
+	font-size: 13px;
+	padding: 6px 10px;
+	border-radius: 8px;
+	border: 1px solid #d1d5db;
+	color: #374151;
+	text-decoration: none;
+}
+
+.actions a:hover {
+	background: #111827;
+	color: #fff;
+}
+
+.empty {
+	text-align: center;
+	padding: 40px;
+	color: #6b7280;
+	font-size: 15px;
+}
+</style>
+
+	<div class="promo-container">
+		<div class="promo-card">
+
+			<div class="promo-header">
+				<h3>Danh sách chương trình khuyến mãi</h3>
+				<a th:href="@{/admin/promotions/create}" class="btn-create">+
+					Tạo mới</a>
+			</div>
+
+			<table>
+				<thead>
+					<tr>
+						<th>ID</th>
+						<th>Tên</th>
+						<th>Giá trị giảm</th>
+						<th>Loại áp dụng</th>
+						<th>Ngày bắt đầu</th>
+						<th>Ngày kết thúc</th>
+						<th>Trạng thái</th>
+						<th>Hành động</th>
+					</tr>
+				</thead>
+
+				<tbody>
+
+					<!-- Chưa có dữ liệu -->
+					<tr th:if="${#lists.isEmpty(promotions)}">
+						<td colspan="8" class="empty">Chưa có chương trình khuyến mãi
+							nào</td>
+					</tr>
+
+					<tr th:each="p : ${promotions}">
+						<td th:text="${p.id}"></td>
+						<td th:text="${p.name}"></td>
+
+						<!-- Giá trị giảm -->
+						<td th:text="${p.discountValue + '%'}"></td>
+
+						<!-- Loại áp dụng: ALL / BOOK / CATEGORY -->
+						<td><span th:if="${p.applyType == 'ALL'}"
+							class="badge badge-all"> Toàn sàn</span> <span
+							th:if="${p.applyType == 'BOOK'}" class="badge badge-book">📚
+								Theo sách</span> <span th:if="${p.applyType == 'CATEGORY'}"
+							class="badge badge-cat"> Theo thể loại</span> <span
+							th:if="${p.applyType == null}" class="badge"
+							style="background: #f3f4f6; color: #9ca3af">—</span></td>
+
+						<td th:text="${p.startDate}"></td>
+						<td th:text="${p.endDate}"></td>
+
+						
+						<td><span th:if="${p.computedStatus == 'UPCOMING'}"
+							class="badge badge-upcoming"> Sắp diễn ra</span> <span
+							th:if="${p.computedStatus == 'ACTIVE'}"
+							class="badge badge-active"> Đang chạy</span> <span
+							th:if="${p.computedStatus == 'EXPIRED'}"
+							class="badge badge-expired"> Đã kết thúc</span> <span
+							th:if="${p.computedStatus == 'UNKNOWN'}" class="badge"
+							style="background: #f3f4f6; color: #6b7280;">⚠ Chưa đặt
+								ngày</span></td>
+
+						<td class="actions"><a
+							th:href="@{/admin/promotions/edit/{id}(id=${p.id})}">Sửa</a> <a
+							th:href="@{/admin/promotions/delete/{id}(id=${p.id})}"
+							onclick="return confirm('Bạn có chắc muốn xóa?')"> Xóa </a></td>
+					</tr>
+
+				</tbody>
+			</table>
+
+		</div>
+	</div>
+
+</th:block>
+</html>

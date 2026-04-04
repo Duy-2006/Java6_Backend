@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{head :: head}"></head>
+
+<body class="bg-gray-100 font-display text-gray-800">
+
+	<div th:replace="~{menu :: menu}"></div>
+
+	<main class="max-w-6xl mx-auto px-6 py-10">
+
+		<div
+			class="bg-white rounded-2xl shadow-xl p-8 grid md:grid-cols-2 gap-10">
+
+			<!-- ================= ẢNH SÁCH ================= -->
+			<div class="relative">
+
+				<img
+					th:src="${#strings.isEmpty(book.imageUrl)}
+                    ? @{/images/book-default.jpg}
+                    : @{/uploads/{img}(img=${book.imageUrl})}"
+					class="w-full h-[500px] object-cover rounded-xl shadow-md">
+
+				<!-- Badge giảm giá -->
+				<div
+					th:if="${book.tempDiscountPercent != null and book.tempDiscountPercent > 0}"
+					class="absolute top-4 left-4 bg-red-600 text-white px-4 py-2 rounded-full font-bold shadow-lg">
+					-<span th:text="${book.tempDiscountPercent}"></span>%
+				</div>
+			</div>
+
+
+			<!-- ================= THÔNG TIN ================= -->
+			<div class="flex flex-col space-y-6">
+
+				<h1 class="text-3xl font-extrabold" th:text="${book.title}">Tên
+					sách</h1>
+
+				<p class="text-gray-600">
+					Tác giả: <span class="font-semibold" th:text="${book.author.name}">Tên
+						tác giả</span>
+				</p>
+
+				<p class="text-gray-600">
+					Thể loại: <span class="font-semibold"
+						th:text="${book.category.name}">Tên thể loại</span>
+				</p>
+
+				<p class="text-gray-600">
+					Nhà xuất bản: <span th:text="${book.publisher} ?: 'Đang cập nhật'"></span>
+				</p>
+
+				<p class="text-gray-600">
+					ISBN: <span th:text="${book.isbn}"></span>
+				</p>
+
+				<!-- ================= GIÁ ================= -->
+				<div class="flex items-center gap-4">
+
+					<span class="text-4xl font-bold text-red-600"
+						th:text="${#numbers.formatDecimal(book.price,0,'COMMA',0,'POINT')} + ' ₫'">
+					</span> <span
+						th:if="${book.tempDiscountPercent != null and book.tempDiscountPercent > 0}"
+						class="line-through text-gray-400 text-xl"
+						th:text="${#numbers.formatDecimal(
+                          book.price + (book.price * book.tempDiscountPercent / 100),
+                          0,'COMMA',0,'POINT')} + ' ₫'">
+					</span>
+
+				</div>
+
+				<!-- ================= TỒN KHO ================= -->
+				<div>
+					<span th:if="${book.available}"
+						class="text-green-600 font-semibold">✔ Còn hàng</span> <span
+						th:unless="${book.available}" class="text-red-600 font-semibold">✖
+						Hết hàng</span>
+				</div>
+
+				<!-- ================= NÚT ================= -->
+				<div class="flex gap-4 mt-4">
+
+					<button th:attr="data-book-id=${book.id}" onclick="addToCart(this)"
+						class="bg-primary text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition">
+						🛒 Thêm vào giỏ</button>
+
+					<button th:attr="data-book-id=${book.id}" onclick="buyNow(this)"
+						class="bg-red-600 text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition">
+						⚡ Mua ngay</button>
+
+				</div>
+
+			</div>
+		</div>
+
+
+		<!-- ================= MÔ TẢ ================= -->
+		<div class="bg-white rounded-2xl shadow-xl p-8 mt-10">
+
+			<h2 class="text-2xl font-bold mb-4">Giới thiệu sách</h2>
+
+			<p class="leading-relaxed text-gray-700 whitespace-pre-line"
+				th:text="${book.description} ?: 'Chưa có mô tả cho sách này.'">
+			</p>
+
+		</div>
+
+	</main>
+
+
+	<script>
+function addToCart(btn){
+    const id = btn.dataset.bookId;
+
+    fetch('/cart/api/add',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+        body:new URLSearchParams({
+            bookId:id,
+            quantity:1
+        })
+    })
+    .then(res=>res.json())
+    .then(data=>{
+        alert(data.message);
+    })
+    .catch(()=>alert("Lỗi kết nối server!"));
+}
+
+function buyNow(btn){
+    const id = btn.dataset.bookId;
+
+    fetch('/cart/api/add',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+        body:new URLSearchParams({
+            bookId:id,
+            quantity:1
+        })
+    })
+    .then(res=>res.json())
+    .then(data=>{
+        if(data.success){
+            window.location.href = "/checkout";
+        }else{
+            alert(data.message);
+        }
+    })
+    .catch(()=>alert("Lỗi kết nối server!"));
+}
+</script>
+
+	<div th:replace="~{footer :: footer}"></div>
+
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="${layout == 'admin/layout'} ? 
+             ~{admin/layout :: admin_layout(~{::content})} : 
+             ~{menu :: layout(~{::content})}">
+             <div th:fragment="content">
+
+<body>
+
+<div th:fragment="content">
+
+<div class="container mt-4">
+
+    <div class="row">
+
+        <!-- Avatar -->
+        <div class="col-md-4">
+
+            <div class="card shadow-sm text-center p-4">
+
+                <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                     class="rounded-circle mx-auto"
+                     width="120">
+
+                <h4 class="mt-3" th:text="${user.fullName}"></h4>
+
+                <span class="badge bg-primary"
+                      th:text="${user.role}">
+                </span>
+
+                <p class="text-muted mt-2"
+                   th:text="${user.username}">
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- Thông tin -->
+        <div class="col-md-8">
+
+            <div class="card shadow-sm p-4">
+
+                <h4 class="mb-4">Thông tin cá nhân</h4>
+
+                <form th:action="@{/profile/update}"
+                      method="post"
+                      th:object="${user}">
+
+                    <input type="hidden" th:field="*{id}">
+
+                    <div class="mb-3">
+                        <label>Họ tên</label>
+                        <input type="text"
+                               class="form-control"
+                               th:field="*{fullName}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Email</label>
+                        <input type="email"
+                               class="form-control"
+                               th:field="*{email}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Số điện thoại</label>
+                        <input type="text"
+                               class="form-control"
+                               th:field="*{phone}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Username</label>
+                        <input type="text"
+                               class="form-control"
+                               th:field="*{username}"
+                               readonly>
+                    </div>
+
+                    <button class="btn btn-success">
+                        Cập nhật thông tin
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+
+</body>
+</html>

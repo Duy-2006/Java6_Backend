@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/layout :: admin_layout(~{::body})}">
+<head>
+    <title>Tổng quan hệ thống</title>
+</head>
+<body>
+
+<div class="container-fluid p-0 animate__animated animate__fadeIn">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold text-uppercase m-0" style="color: var(--primary-blue);">
+                <i class="fa-solid fa-chart-line me-2"></i>Tổng quan hệ thống
+            </h4>
+            <small class="text-muted">Số liệu cập nhật mới nhất ngày hôm nay.</small>
+        </div>
+        <div class="d-flex align-items-center bg-white px-3 py-2 rounded shadow-sm border">
+            <i class="fa-regular fa-clock me-2 text-primary"></i>
+            <span class="fw-bold text-dark" th:text="${#temporals.format(#temporals.createNow(), 'dd/MM/yyyy - HH:mm')}"></span>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        
+        <div class="col-md-4">
+            <div class="card border-0 shadow h-100 overflow-hidden text-white"
+                 style="background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue)); transition: transform 0.3s;">
+                <div class="card-body p-4 position-relative">
+                    <div class="d-flex justify-content-between align-items-start position-relative" style="z-index: 2;">
+                        <div>
+                            <div class="text-uppercase fw-bold opacity-75 small mb-1">Tổng số sách</div>
+                            <h2 class="fw-bold mb-0 display-5" th:text="${totalBooks}">0</h2>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center" 
+                             style="width: 50px; height: 50px;">
+                            <i class="fa-solid fa-book fs-4 text-white"></i>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-book position-absolute opacity-25" 
+                       style="font-size: 100px; bottom: -20px; right: -20px; transform: rotate(-15deg);"></i>
+                </div>
+                <a href="/admin/books" class="card-footer border-0 bg-black bg-opacity-10 py-2 text-white text-decoration-none d-flex justify-content-between align-items-center small">
+                    <span>Xem chi tiết kho sách</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow h-100 overflow-hidden text-white"
+                 style="background: linear-gradient(135deg, #198754, #20c997); transition: transform 0.3s;">
+                <div class="card-body p-4 position-relative">
+                    <div class="d-flex justify-content-between align-items-start position-relative" style="z-index: 2;">
+                        <div>
+                            <div class="text-uppercase fw-bold opacity-75 small mb-1">Đơn hàng</div>
+                            <h2 class="fw-bold mb-0 display-5" th:text="${totalOrders}">0</h2>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center" 
+                             style="width: 50px; height: 50px;">
+                            <i class="fa-solid fa-cart-shopping fs-4 text-white"></i>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-cart-shopping position-absolute opacity-25" 
+                       style="font-size: 100px; bottom: -20px; right: -20px; transform: rotate(-15deg);"></i>
+                </div>
+                <a href="/admin/orders" class="card-footer border-0 bg-black bg-opacity-10 py-2 text-white text-decoration-none d-flex justify-content-between align-items-center small">
+                    <span>Xử lý đơn hàng</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow h-100 overflow-hidden text-white"
+                 style="background: linear-gradient(135deg, #fd7e14, #ffc107); transition: transform 0.3s;">
+                <div class="card-body p-4 position-relative">
+                    <div class="d-flex justify-content-between align-items-start position-relative" style="z-index: 2;">
+                        <div>
+                            <div class="text-uppercase fw-bold opacity-75 small mb-1">Khách hàng</div>
+                            <h2 class="fw-bold mb-0 display-5" th:text="${totalUsers}">0</h2>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center" 
+                             style="width: 50px; height: 50px;">
+                            <i class="fa-solid fa-users fs-4 text-white"></i>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-users position-absolute opacity-25" 
+                       style="font-size: 100px; bottom: -20px; right: -20px; transform: rotate(-15deg);"></i>
+                </div>
+                <a href="/admin/customers" class="card-footer border-0 bg-black bg-opacity-10 py-2 text-white text-decoration-none d-flex justify-content-between align-items-center small">
+                    <span>Quản lý người dùng</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-header text-white py-3 border-0"
+             style="background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue)); border-radius: 0.5rem 0.5rem 0 0;">
+            <h6 class="m-0 fw-bold text-uppercase"><i class="fa-solid fa-rocket me-2"></i>Truy cập nhanh</h6>
+        </div>
+        
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <a href="/admin/books/create" class="btn btn-outline-primary w-100 py-3 d-flex flex-column align-items-center shadow-sm hover-scale">
+                        <i class="fa-solid fa-plus-circle fa-2x mb-2"></i>
+                        <span class="fw-bold">Thêm Sách Mới</span>
+                    </a>
+                </div>
+                <div class="col-md-3">
+                    <a href="/admin/inventory" class="btn btn-outline-success w-100 py-3 d-flex flex-column align-items-center shadow-sm hover-scale">
+                        <i class="fa-solid fa-dolly fa-2x mb-2"></i>
+                        <span class="fw-bold">Nhập Kho Hàng</span>
+                    </a>
+                </div>
+                <div class="col-md-3">
+                    <a href="/admin/orders" class="btn btn-outline-danger w-100 py-3 d-flex flex-column align-items-center shadow-sm hover-scale">
+                        <i class="fa-solid fa-clipboard-check fa-2x mb-2"></i>
+                        <span class="fw-bold">Duyệt Đơn Hàng</span>
+                    </a>
+                </div>
+                <div class="col-md-3">
+                    <a href="/admin/categories" class="btn btn-outline-secondary w-100 py-3 d-flex flex-column align-items-center shadow-sm hover-scale">
+                        <i class="fa-solid fa-layer-group fa-2x mb-2"></i>
+                        <span class="fw-bold">Quản lý Thể loại</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

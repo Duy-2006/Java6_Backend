@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/layout :: admin_layout(~{::body})}">
+<body>
+
+<h3 class="mb-3">Danh sách đơn hàng</h3>
+
+<table class="table table-bordered mt-3">
+    <thead class="table-dark">
+        <tr>
+            <th>Mã đơn</th>
+            <th>Khách hàng</th>
+            <th>Ngày đặt</th>
+            <th>Trạng thái</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr th:each="o : ${orders}">
+            <td th:text="${o.orderCode}"></td>
+            <td th:text="${o.customerName}"></td>
+            <td th:text="${#dates.format(o.orderDate,'dd/MM/yyyy')}"></td>
+            <td>
+                <span class="badge bg-warning" th:text="${o.status}"></span>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+</body>
+</html>
+
