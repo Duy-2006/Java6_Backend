@@ -75,4 +75,10 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     	
 
 
+    	// Tổng chi tiêu
+   	 @Query("SELECT SUM(o.totalAmount) FROM Order o WHERE o.user.username = :username AND o.status = 'COMPLETED'")
+   	 Double sumSpendingByUsername(@Param("username") String username);
+   	 
+   	// Đơn hàng theo username
+   	 List<Order> findByUserUsernameOrderByOrderDateDesc(String username);
 }

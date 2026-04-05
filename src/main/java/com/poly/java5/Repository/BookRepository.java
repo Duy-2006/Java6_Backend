@@ -12,4 +12,10 @@ public interface BookRepository extends JpaRepository<Book, Integer> {
     List<Book> findByDeletedFalse();
     
     List<Book> findTop10ByOrderByCreatedDateDesc();
+    
+ // Sách dưới ngưỡng tồn kho
+    List<Book> findByQuantityLessThan(int threshold);
+ 
+    // Đếm sách đang kinh doanh
+    long countByActiveTrue();
 }

@@ -2,10 +2,16 @@ package com.poly.java5.Service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.poly.java5.Entity.Author;
 import com.poly.java5.Entity.Book;
+import com.poly.java5.Repository.AuthorRepository;
+import com.poly.java5.Repository.BookRepository;
+import com.poly.java5.Repository.CategoryRepository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -23,6 +29,15 @@ import java.util.List;
 public class BookService {
 	@PersistenceContext
     private EntityManager entityManager;
+	
+	@Autowired
+    private BookRepository bookRepository;
+ 
+    @Autowired
+    private AuthorRepository authorRepository;
+ 
+    @Autowired
+    private CategoryRepository categoryRepository;
     
     // 1️⃣ LẤY TẤT CẢ SÁCH
     public List<Book> getAllBooks() {
@@ -128,5 +143,43 @@ public List<Book> searchBooks(String keyword) {
             log.error(" Lỗi khi lấy sách mới: ", e);
             throw new RuntimeException("Lỗi khi lấy sách mới");
         }
+    }
+    
+    public Book save(Book book) {
+        return bookRepository.save(book);
+    }
+ 
+    // Xóa sách theo ID
+    public void deleteById(Integer id) {
+        bookRepository.deleteById(id);
+    }
+    
+ // Tìm sách theo ID — thêm method này để dùng trong AdminBooksApiController
+    public Book findById(Long id) {
+        return bookRepository.findById(id.intValue()).orElse(null);
+    }
+     
+    // Lấy tác giả theo ID (dùng khi tạo/sửa sách)
+    public Author findAuthorById(Long authorId) {
+        if (authorId == null) {
+            return null;
+        }
+        return authorRepository.findById(authorId)   // ← Truyền trực tiếp Long
+                .orElse(null);
+    }
+     
+    // Lấy thể loại theo ID (dùng khi tạo/sửa sách)
+    public com.poly.java5.Entity.Category findCategoryById(Long categoryId) {
+        return categoryRepository.findById(categoryId.intValue()).orElse(null);
+    }
+ 
+    // Sách dưới mức tồn kho tối thiểu
+    public List<Book> findLowStock(int threshold) {
+        return bookRepository.findByQuantityLessThan(threshold);
+    }
+ 
+    // Đếm sách đang kinh doanh (dùng cho dashboard)
+    public long countActive() {
+        return bookRepository.countByActiveTrue();
     }
 }

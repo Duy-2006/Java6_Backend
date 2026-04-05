@@ -28,4 +28,15 @@ public class CategoryService {
                 .orElseThrow(() ->
                         new RuntimeException("Không tìm thấy thể loại"));
     }
+    
+    public void deleteById(Integer id) {
+        categoryRepository.deleteById(id);   // Spring tự ignore nếu không tồn tại
+    }
+    
+    public Category save(Category category) {
+        if (category == null) {
+            throw new IllegalArgumentException("Category không được null");
+        }
+        return categoryRepository.save(category);
+    }
 }
