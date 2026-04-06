@@ -1,0 +1,36 @@
+@charset "UTF-8";
+.footer-link {
+  color: #9ca3af;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.footer-link:hover {
+  color: #1a8a4d;
+  transform: translateX(4px);
+}
+
+.social-btn {
+  height: 40px;
+  width: 40px;
+  border-radius: 9999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+.social-btn:hover {
+  background: #1a8a4d;
+  border-color: #1a8a4d;
+  
+}
+.action-btn {
+	@apply w-9 h-9 flex items-center justify-center
+		   rounded-full bg-white/80 backdrop-blur
+		   text-gray-700 text-sm
+		   hover:bg-primary hover:text-white
+		   transition shadow;
+}

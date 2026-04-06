@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Quản lý sách</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 p-10">
+
+	<div class="max-w-6xl mx-auto bg-white p-8 rounded-2xl shadow">
+
+		<h1 class="text-2xl font-bold mb-6">Danh sách Sách</h1>
+
+		<a th:href="@{/books/add}"
+			class="bg-green-600 text-white px-4 py-2 rounded-lg"> + Thêm sách
+		</a>
+
+		<table class="w-full mt-6 border">
+			<thead class="bg-gray-200">
+				<tr>
+					<th class="p-3">ID</th>
+					<th>Tên sách</th>
+					<th>Giá</th>
+					<th>Tác giả</th>
+					<th>Thao tác</th>
+				</tr>
+			</thead>
+
+			<tbody>
+				<tr th:each="b : ${books}" class="border-t text-center">
+					<td th:text="${b.id}"></td>
+					<td th:text="${b.title}"></td>
+					<td th:text="${b.price} + 'đ'"></td>
+					<td th:text="${b.author}"></td>
+					<td><a th:href="@{/books/edit/{id}(id=${b.id})}"
+						class="text-blue-600">Sửa</a> | <a
+						th:href="@{/books/delete/{id}(id=${b.id})}" class="text-red-600">Xóa</a>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+	</div>
+</body>
+</html>

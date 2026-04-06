@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<!-- GỌI HEAD FRAGMENT -->
+<head>
+    <th:block th:replace="~{fragments/head :: head}"></th:block>
+</head>
+<body>
+	<!-- ===== LAYOUT CHO USER ===== -->
+	<div th:fragment="layout(content)">
+
+		<!-- MENU -->
+		<div th:replace="~{menu :: menu}"></div>
+
+		<!-- PAGE CONTENT -->
+		<main class="max-w-[1400px] mx-auto px-6 py-6">
+			<div th:replace="${content}"></div>
+		</main>
+	</div>
+	<header th:fragment="menu" class="bg-primary text-white">
+
+		<!-- ===== TOP HEADER ===== -->
+		<div class="max-w-[1400px] mx-auto flex items-center gap-6 px-6 py-4">
+
+			<!-- LOGO -->
+			<a th:href="@{/home}"
+				class="text-3xl font-black whitespace-nowrap tracking-wide">
+				Book<span class="text-blue-300">Store</span>
+			</a>
+
+			<!-- SEARCH -->
+			<div class="flex-1">
+				<form th:action="@{/search}" method="get">
+					<input name="keyword"
+						class="w-full h-12 rounded-full px-6 text-gray-800 outline-none"
+						placeholder="Tìm kiếm sản phẩm...">
+				</form>
+			</div>
+
+			<!-- ACTION -->
+			<div class="flex items-center gap-6 text-sm font-bold relative">
+
+				<span>📞 1900 6656</span>
+
+				<!-- ================= CHƯA ĐĂNG NHẬP ================= -->
+				<div th:if="${currentUser == null}" class="flex gap-4">
+
+					<a th:href="@{/login}" class="hover:text-blue-300 transition">
+						Đăng nhập </a> <a th:href="@{/register}"
+						class="hover:text-blue-300 transition"> Đăng ký </a>
+
+				</div>
+
+
+				<!-- ================= ĐÃ ĐĂNG NHẬP ================= -->
+				<div th:if="${currentUser != null}"
+					class="relative group cursor-pointer">
+
+					<!-- USER NAME -->
+					<div class="flex items-center gap-1 hover:text-blue-300">
+						👤 <span th:text="${currentUser.fullName}"></span> ▾
+					</div>
+
+					<!-- DROPDOWN -->
+					<div
+						class="absolute right-0 mt-2 w-56
+              bg-white text-gray-800 rounded-lg shadow-lg
+              invisible group-hover:visible
+              opacity-0 group-hover:opacity-100
+              transition-all duration-200 z-50">
+
+						<a th:href="@{/my-orders}"
+							class="block px-4 py-2 hover:bg-gray-100"> 📦 Đơn hàng của
+							tôi </a> <a th:href="@{/profile}"
+							class="block px-4 py-2 hover:bg-gray-100"> 👤 Thông tin cá
+							nhân </a>
+
+						<hr>
+
+						<!-- LOGOUT -->
+						<form th:action="@{/login/logout}" method="post">
+							<button type="submit"
+								class="block w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100">
+								Đăng xuất</button>
+						</form>
+
+					</div>
+				</div>
+
+				<!-- CART -->
+				<a th:href="@{/cart}" class="hover:text-blue-300 transition"> 🛒
+					Giỏ hàng </a>
+
+			</div>
+		</div>
+
+		<!-- ===== CATEGORY BAR ===== -->
+		<nav class="bg-white border-t text-gray-800">
+			<div class="max-w-[1400px] mx-auto px-6">
+				<ul class="flex gap-10 py-4 font-bold text-base">
+
+					<li th:each="c : ${categories}"
+						class="cursor-pointer flex items-center gap-2
+                   hover:text-primary
+                   hover:-translate-y-0.5
+                   transition-all duration-200">
+
+						<a th:href="@{/category/{id}(id=${c.id})}" th:text="${c.name}">
+					</a>
+
+					</li>
+
+				</ul>
+			</div>
+		</nav>
+
+	</header>
+
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="head :: head"></head>
+
+<body class="bg-gray-100">
+
+<div th:replace="menu :: menu"></div>
+
+<div class="max-w-[1400px] mx-auto px-6 mt-6">
+
+    <h2 class="text-2xl font-bold mb-6"
+        th:text="'Danh mục: ' + ${category.name}">
+    </h2>
+
+    <div th:if="${#lists.isEmpty(books)}"
+         class="text-gray-600">
+        Không có sách trong danh mục này.
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6"
+         th:unless="${#lists.isEmpty(books)}">
+
+        <div th:each="b : ${books}"
+             class="bg-white p-4 rounded-xl shadow hover:shadow-lg">
+
+            <img th:src="${#strings.isEmpty(b.imageUrl)}
+                ? @{/images/book-default.jpg}
+                : @{/uploads/{img}(img=${b.imageUrl})}"
+                 class="h-[220px] w-full object-cover rounded">
+
+            <p class="font-bold mt-2"
+               th:text="${b.title}">
+            </p>
+
+            <p class="text-sm text-gray-500"
+               th:text="${b.author.name}">
+            </p>
+
+            <span class="text-red-600 font-bold"
+                  th:text="${#numbers.formatDecimal(b.price, 0, 'COMMA', 0, 'POINT')} + ' ₫'">
+            </span>
+
+        </div>
+    </div>
+
+</div>
+
+<div th:replace="footer :: footer"></div>
+
+</body>
+</html>

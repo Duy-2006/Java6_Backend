@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/seller-layout}">
+<head>
+    <title>Tạo chương trình khuyến mãi - BOOKSTORE</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <h3>Tạo chương trình khuyến mãi</h3>
+        <div class="card mt-4">
+            <div class="card-header bg-danger text-white">Thông tin khuyến mãi</div>
+            <div class="card-body">
+                <form th:action="@{/seller/promotion/add}" method="post">
+                    <div class="mb-3">
+                        <label>Tên khuyến mãi</label>
+                        <input class="form-control" name="name" />
+                    </div>
+                    <div class="mb-3">
+                        <label>Giảm giá (%)</label>
+                        <input type="number" class="form-control" name="discount" />
+                    </div>
+                    <div class="mb-3">
+                        <label>Ngày bắt đầu</label>
+                        <input type="date" class="form-control" name="startDate" />
+                    </div>
+                    <div class="mb-3">
+                        <label>Ngày kết thúc</label>
+                        <input type="date" class="form-control" name="endDate" />
+                    </div>
+                    <button type="submit" class="btn btn-danger">Lưu khuyến mãi</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: admin_layout(~{::body})}">
+<head><title>Cập nhật Nhân viên</title></head>
+<body>
+    <section>
+        <div class="card w-75 mx-auto border-dark">
+            <div class="card-header bg-dark text-white">
+                <h4 class="m-0">Thông tin Nhân viên</h4>
+            </div>
+            <div class="card-body">
+                <form th:action="@{/admin/users/save}" th:object="${user}" method="post">
+                    
+                    <div class="mb-3">
+                        <label>Username (*):</label>
+                        <input type="text" class="form-control" th:field="*{username}" 
+                               th:readonly="${user.username != null}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Mật khẩu (*):</label>
+                        <input type="password" class="form-control" th:field="*{password}">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label>Họ và tên:</label>
+                            <input type="text" class="form-control" th:field="*{fullname}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label>Email:</label>
+                            <input type="email" class="form-control" th:field="*{email}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="fw-bold">Phân quyền:</label>
+                        <select class="form-select" th:field="*{role}">
+                            <option value="STAFF">Nhân viên bán hàng (Staff)</option>
+                            <option value="ADMIN">Quản trị hệ thống (Admin)</option>
+                            <option value="USER">Khách hàng (User)</option>
+                        </select>
+                        <small class="text-muted">* Admin: Toàn quyền. Staff: Không được xóa dữ liệu.</small>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" th:field="*{active}">
+                        <label class="form-check-label">Kích hoạt tài khoản</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-dark"><i class="fa-solid fa-save"></i> Lưu lại</button>
+                    <a href="/admin/users" class="btn btn-secondary">Hủy</a>
+                </form>
+            </div>
+        </div>
+    </section>
+</body>
+</html>

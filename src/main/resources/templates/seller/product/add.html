@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/seller-layout}">
+<head>
+    <title>Thêm sách mới - BOOKSTORE</title>
+</head>
+<body>
+    <div layout:fragment="content">
+        <h3>Thêm sách mới</h3>
+        <div class="card mt-4">
+            <div class="card-header bg-primary text-white">Thông tin sách</div>
+            <div class="card-body">
+                <form th:object="${book}" th:action="@{/seller/product/add}" method="post">
+                    <div class="mb-3">
+                        <label>Mã ISBN</label>
+                        <input th:field="*{isbn}" class="form-control" />
+                        <small class="text-danger" th:errors="*{isbn}"></small>
+                    </div>
+                    <div class="mb-3">
+                        <label>Tên sách</label>
+                        <input th:field="*{title}" class="form-control" />
+                        <small class="text-danger" th:errors="*{title}"></small>
+                    </div>
+                    <div class="mb-3">
+                        <label>Tác giả</label>
+                        <input th:field="*{author}" class="form-control" />
+                    </div>
+                    <div class="mb-3">
+                        <label>Nhà xuất bản</label>
+                        <input th:field="*{publisher}" class="form-control" />
+                    </div>
+                    <div class="mb-3">
+                        <label>Giá bán</label>
+                        <input type="number" th:field="*{price}" class="form-control" />
+                        <small class="text-danger" th:errors="*{price}"></small>
+                    </div>
+                    <div class="mb-3">
+                        <label>Số lượng tồn kho</label>
+                        <input type="number" th:field="*{quantity}" class="form-control" />
+                    </div>
+                    <button type="submit" class="btn btn-success">Lưu sách</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/layout :: admin_layout(~{::content})}">
+
+<th:block th:fragment="content">
+
+<section>
+    <div class="container-fluid p-0 animate__animated animate__fadeIn">
+        
+        <div class="card border-0 shadow-sm">
+            <div class="card-header text-white py-3 d-flex justify-content-between align-items-center"
+                 style="background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-file-invoice-dollar fs-5"></i>
+                    <h5 class="m-0 fw-bold text-uppercase">Danh sách Đơn Hàng</h5>
+                </div>
+                
+            </div>
+
+            <div class="card-body p-0">
+                
+                <div th:if="${#lists.isEmpty(orders)}" class="text-center py-5 text-muted">
+                    <i class="fa-solid fa-clipboard-list fa-3x mb-3 opacity-25"></i>
+                    <p class="m-0 fw-bold">Chưa có đơn hàng nào.</p>
+                </div>
+
+                <div class="table-responsive" th:unless="${#lists.isEmpty(orders)}">
+                    <table class="table table-hover table-bordered align-middle mb-0">
+                        <thead class="bg-light text-secondary">
+                            <tr class="text-center text-uppercase small fw-bold" style="background-color: #f8f9fa;">
+                                <th style="width: 120px;">Mã Đơn</th>
+                                <th class="text-start">Khách hàng</th>
+                                <th>Ngày đặt</th>
+                                <th class="text-end">Tổng tiền</th>
+                                <th>Trạng thái</th>
+                                <th style="width: 120px;">Hành động</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                        <tr th:each="order : ${orders}">
+                            <td class="text-center">
+                                <span class="badge bg-light text-secondary border font-monospace" 
+                                      th:text="${order.orderCode}">ORD001</span>
+                            </td>
+
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <strong class="text-primary mb-1">
+                                        <i class="fa-regular fa-user me-1 text-muted small"></i>
+                                        <span th:text="${order.customerName}"></span>
+                                    </strong>
+                                    <small class="text-muted">
+                                        <i class="fa-solid fa-phone me-1 small"></i>
+                                        <span th:text="${order.customerPhone}"></span>
+                                    </small>
+                                </div>
+                            </td>
+
+                            <td class="text-center text-muted">
+                                <i class="fa-regular fa-clock me-1 small"></i>
+                                <span th:text="${#temporals.format(order.orderDate, 'dd-MM-yyyy HH:mm')}"></span>
+                            </td>
+
+                            <td class="text-end fw-bold text-danger fs-6">
+                                <span th:text="${#numbers.formatDecimal(order.totalAmount, 0, 'COMMA', 0, 'POINT')}"></span>
+                                <span class="text-muted small text-decoration-underline">đ</span>
+                            </td>
+
+                            <td class="text-center">
+                                <span th:if="${order.status == 'PENDING'}"
+                                      class="badge rounded-pill bg-warning text-dark shadow-sm border border-warning">
+                                    <i class="fa-solid fa-hourglass-half me-1"></i> Chờ xác nhận
+                                </span>
+                                
+                                <span th:if="${order.status == 'CONFIRMED'}"
+                                      class="badge rounded-pill bg-info text-dark shadow-sm bg-opacity-75">
+                                    <i class="fa-solid fa-check me-1"></i> Đã xác nhận
+                                </span>
+
+                                <span th:if="${order.status == 'SHIPPING'}"
+                                      class="badge rounded-pill bg-primary shadow-sm">
+                                    <i class="fa-solid fa-truck-fast me-1"></i> Đang giao
+                                </span>
+
+                                <span th:if="${order.status == 'COMPLETED'}"
+                                      class="badge rounded-pill bg-success shadow-sm">
+                                    <i class="fa-solid fa-check-double me-1"></i> Hoàn thành
+                                </span>
+
+                                <span th:if="${order.status == 'CANCELLED'}"
+                                      class="badge rounded-pill bg-danger shadow-sm">
+                                    <i class="fa-solid fa-ban me-1"></i> Đã hủy
+                                </span>
+                            </td>
+
+                            <td class="text-center">
+                                <a th:href="@{/admin/orders/detail/{id}(id=${order.id})}"
+                                   class="btn btn-outline-primary btn-sm fw-bold hover-scale"
+                                   title="Xem chi tiết đơn hàng">
+                                    <i class="fa-solid fa-eye me-1"></i> Chi tiết
+                                </a>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card-footer bg-white border-0 py-3" th:unless="${#lists.isEmpty(orders)}">
+                <div class="small text-muted text-center">
+                    Tổng số <strong class="text-dark" th:text="${orders.size()}"></strong> đơn hàng trong hệ thống.
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+</th:block>
+</html>

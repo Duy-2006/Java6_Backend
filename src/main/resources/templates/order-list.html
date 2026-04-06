@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="head :: head"></head>
+
+
+<body class="bg-gray-100 min-h-screen">
+<div th:replace="menu :: menu"></div>
+
+	<div class="max-w-6xl mx-auto px-4 py-10">
+
+		<!-- HEADER -->
+		<div class="flex justify-between items-center mb-8">
+			<div>
+				<h1 class="text-3xl font-extrabold text-gray-800">Đơn hàng của
+					tôi</h1>
+				<p class="text-gray-500 text-sm mt-1">Theo dõi tình trạng đơn
+					hàng của bạn</p>
+			</div>
+
+			<a th:href="@{/home}"
+				class="px-5 py-2 bg-black text-white rounded-xl font-semibold hover:opacity-90">
+				← Tiếp tục mua sắm </a>
+		</div>
+
+		<!-- FILTER -->
+		<form th:action="@{/my-orders}" method="get"
+			class="bg-white rounded-2xl shadow-sm border p-6 mb-8 flex flex-wrap gap-4 items-center">
+
+			<label class="font-semibold text-gray-700"> Lọc theo trạng
+				thái: </label> <select name="status"
+				class="border rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-black">
+
+				<option value="">Tất cả</option>
+
+				<option value="PENDING" th:selected="${currentStatus == 'PENDING'}">
+					Chờ xác nhận</option>
+
+				<option value="CONFIRMED"
+					th:selected="${currentStatus == 'CONFIRMED'}">Đã xác nhận
+				</option>
+
+				<option value="SHIPPING"
+					th:selected="${currentStatus == 'SHIPPING'}">Đang giao</option>
+
+				<option value="COMPLETED"
+					th:selected="${currentStatus == 'COMPLETED'}">Hoàn thành</option>
+
+				<option value="CANCELLED"
+					th:selected="${currentStatus == 'CANCELLED'}">Đã hủy</option>
+
+			</select>
+
+			<button type="submit"
+				class="bg-black text-white px-6 py-2 rounded-xl font-bold hover:opacity-90">
+				Lọc</button>
+		</form>
+
+		<!-- ORDER LIST -->
+		<div class="space-y-6">
+
+			<div th:each="order : ${orders}"
+				class="bg-white rounded-2xl border p-6 card-hover">
+
+				<!-- TOP -->
+				<div class="flex flex-wrap justify-between items-start gap-4">
+
+					<div>
+						<p class="font-bold text-lg text-gray-800">
+							Mã đơn: <span class="text-black" th:text="${order.orderCode}">
+							</span>
+						</p>
+
+						<p class="text-sm text-gray-500 mt-1"
+							th:text="${#temporals.format(order.orderDate,'dd/MM/yyyy HH:mm')}">
+						</p>
+					</div>
+
+					<!-- STATUS BADGE -->
+					<div th:switch="${order.status}">
+
+						<span th:case="'PENDING'"
+							class="px-4 py-1 rounded-full text-sm font-semibold bg-gray-200 text-gray-800">
+							Chờ xác nhận </span> <span th:case="'CONFIRMED'"
+							class="px-4 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-700">
+							Đã xác nhận </span> <span th:case="'SHIPPING'"
+							class="px-4 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-700">
+							Đang giao </span> <span th:case="'COMPLETED'"
+							class="px-4 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700">
+							Hoàn thành </span> <span th:case="'CANCELLED'"
+							class="px-4 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-700">
+							Đã hủy </span>
+
+					</div>
+				</div>
+
+				<!-- BOTTOM -->
+				<div
+					class="flex flex-wrap justify-between items-center mt-6 pt-4 border-t">
+
+					<p class="text-xl font-extrabold text-red-600">
+						<span
+							th:text="${#numbers.formatDecimal(order.totalAmount,0,'COMMA',0,'POINT')}"></span>
+						đ
+					</p>
+
+					<div class="flex gap-4 items-center">
+
+						<!-- Nút hủy đơn -->
+						<form th:if="${order.status == 'PENDING'}"
+							th:action="@{/orders/cancel/{id}(id=${order.id})}" method="post">
+
+							<button type="submit"
+								class="px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600">
+								Hủy đơn</button>
+						</form>
+
+						<!-- Chi tiết -->
+						<a th:href="@{/orders/detail(code=${order.orderCode})}"
+							class="px-4 py-2 bg-black text-white rounded-xl text-sm font-semibold hover:opacity-90">
+							Xem chi tiết → </a>
+
+					</div>
+				</div>
+
+			</div>
+
+			<!-- EMPTY -->
+			<div th:if="${orders == null || orders.isEmpty()}"
+				class="bg-white rounded-2xl border p-12 text-center text-gray-500">
+
+				<p class="text-xl font-semibold mb-2">Bạn chưa có đơn hàng nào</p>
+
+				<a th:href="@{/home}"
+					class="text-blue-600 font-bold hover:underline"> Bắt đầu mua
+					sắm → </a>
+
+			</div>
+
+		</div>
+
+	</div>
+
+</body>
+</html>

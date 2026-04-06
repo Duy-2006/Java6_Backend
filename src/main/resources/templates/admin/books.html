@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: admin_layout(~{::body})}">
+<head>
+    <title>Quản lý Kho Sách</title>
+</head>
+<body>
+    
+    <div class="container-fluid p-0 animate__animated animate__fadeIn">
+        
+        <div th:if="${success}" class="alert alert-success alert-dismissible fade show shadow-sm mb-3" role="alert">
+            <i class="fa-solid fa-circle-check me-2"></i> <span th:text="${success}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header text-white py-3 d-flex justify-content-between align-items-center"
+                 style="background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-book-journal-whills fs-5"></i>
+                    <h5 class="m-0 fw-bold text-uppercase">Kho Sách</h5>
+                </div>
+                <a th:href="@{/admin/books/create}" class="btn btn-light text-primary fw-bold btn-sm shadow-sm hover-scale">
+                    <i class="fa-solid fa-plus circle me-1"></i> Nhập sách mới
+                </a>
+            </div>
+
+            <div class="card-body p-0">
+                <div th:if="${books.empty}" class="text-center py-5 text-muted">
+                    <i class="fa-solid fa-box-open fa-3x mb-3 opacity-25"></i>
+                    <p class="m-0 fw-bold">Kho sách đang trống.</p>
+                    <small>Hãy nhập thêm đầu sách mới để bắt đầu kinh doanh.</small>
+                </div>
+
+                <div class="table-responsive" th:unless="${books.empty}">
+                    <table class="table table-hover table-bordered align-middle mb-0">
+                        <thead class="bg-light text-secondary">
+                            <tr class="text-center text-uppercase small fw-bold" style="background-color: #f8f9fa;">
+                                <th style="width: 80px;">Hình ảnh</th>
+                                <th class="text-start">Thông tin sách</th>
+                                <th style="width: 120px;">Giá bán</th>
+                                <th style="width: 100px;">Tồn kho</th>
+                                <th style="width: 150px;">Thể loại</th>
+                                <th style="width: 120px;">Trạng thái</th>
+                                <th style="width: 120px;">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="book : ${books}">
+                                <td class="text-center">
+                                    <div class="position-relative d-inline-block">
+                                        <img th:src="${#strings.isEmpty(book.imageUrl)} 
+        ? @{/images/book-default.jpg} 
+        : @{/uploads/{img}(img=${book.imageUrl})}"
+     class="rounded shadow-sm border"
+     style="width: 50px; height: 75px; object-fit: cover;"
+     onerror="this.src='https://placehold.co/50x75?text=No+Img'">
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <div class="d-flex flex-column">
+                                        <span class="badge bg-light text-muted border mb-1 w-auto align-self-start" 
+                                              th:text="${book.isbn}">ISBN</span>
+                                        <strong class="text-primary mb-1" style="font-size: 1rem;" th:text="${book.title}"></strong>
+                                        <small class="text-muted">
+                                            <i class="fa-solid fa-pen-nib me-1"></i>
+                                            <span th:text="${book.author.name}"></span>
+                                        </small>
+                                    </div>
+                                </td>
+
+                                <td class="text-end fw-bold text-danger">
+                                    <span th:text="${#numbers.formatDecimal(book.price, 0, 'COMMA', 0, 'POINT')}"></span> 
+                                    <span class="small text-muted text-decoration-underline">đ</span>
+                                </td>
+
+                                <td class="text-center">
+                                    <span th:if="${book.quantity > 10}" class="badge bg-success-subtle text-success border border-success-subtle px-2">
+                                        <span th:text="${book.quantity}"></span>
+                                    </span>
+                                    <span th:if="${book.quantity <= 10 and book.quantity > 0}" class="badge bg-warning-subtle text-warning border border-warning-subtle px-2">
+                                        <i class="fa-solid fa-triangle-exclamation me-1"></i> <span th:text="${book.quantity}"></span>
+                                    </span>
+                                    <span th:if="${book.quantity == 0}" class="badge bg-danger-subtle text-danger border border-danger-subtle px-2">
+                                        Hết hàng
+                                    </span>
+                                </td>
+
+                                <td class="text-center text-muted small">
+                                    <i class="fa-solid fa-layer-group me-1 opacity-50"></i>
+                                    <span th:text="${book.category.name}"></span>
+                                </td>
+
+                                <td class="text-center">
+                                    <span th:if="${book.active}" class="badge rounded-pill text-bg-success bg-gradient shadow-sm" style="font-weight: 500;">
+                                        <i class="fa-solid fa-check me-1"></i> Đang bán
+                                    </span>
+                                    <span th:unless="${book.active}" class="badge rounded-pill text-bg-secondary bg-gradient shadow-sm" style="font-weight: 500;">
+                                        <i class="fa-solid fa-pause me-1"></i> Ngừng bán
+                                    </span>
+                                </td>
+
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm">
+                                        <a th:href="@{/admin/books/edit/{id}(id=${book.id})}"
+                                           class="btn btn-outline-primary" title="Chỉnh sửa">
+                                            <i class="fa-solid fa-pen-to-square"></i>
+                                        </a>
+
+                                        <a th:if="${session.currentUser != null and session.currentUser.role.name() == 'ADMIN'}"
+                                           th:href="@{/admin/books/delete/{id}(id=${book.id})}"
+                                           class="btn btn-outline-danger"
+                                           onclick="return confirm('Cảnh báo: Hành động này sẽ ẩn sách khỏi hệ thống bán hàng. Tiếp tục?');"
+                                           title="Xóa / Ẩn">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="card-footer bg-white border-0 py-3" th:if="${!books.empty}">
+                    <div class="small text-muted text-center">
+                        Hiển thị toàn bộ <strong th:text="${books.size()}"></strong> đầu sách trong kho.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

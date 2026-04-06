@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Danh sách khách hàng</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 p-10">
+
+	<div class="max-w-6xl mx-auto bg-white p-8 rounded-2xl shadow">
+
+		<h1 class="text-2xl font-bold mb-6">Danh sách Khách Hàng</h1>
+
+		<table class="w-full border">
+			<thead class="bg-gray-200">
+				<tr>
+					<th>ID</th>
+					<th>Username</th>
+					<th>Email</th>
+					<th>SĐT</th>
+				</tr>
+			</thead>
+
+			<tbody>
+				<tr th:each="u : ${users}" class="border-t text-center">
+					<td th:text="${u.id}"></td>
+					<td th:text="${u.username}"></td>
+					<td th:text="${u.email}"></td>
+					<td th:text="${u.phone}"></td>
+				</tr>
+			</tbody>
+		</table>
+
+	</div>
+</body>
+</html>

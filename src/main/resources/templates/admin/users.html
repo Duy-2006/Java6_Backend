@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/layout :: admin_layout(~{::body})}">
+<head><title>Quản lý Nhân sự</title></head>
+<body>
+    <section>
+        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+        <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+
+        <div class="card">
+            <div class="card-header bg-dark text-white d-flex justify-content-between">
+                <h4 class="m-0"><i class="fa-solid fa-users-gear"></i> Danh sách Nhân viên</h4>
+                <a href="/admin/users/create" class="btn btn-light btn-sm"><i class="fa-solid fa-user-plus"></i> Thêm mới</a>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Username</th>
+                            <th>Họ tên</th>
+                            <th>Email</th>
+                            <th>Vai trò</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="u : ${users}">
+                            <td th:text="${u.username}" class="fw-bold"></td>
+                            <td th:text="${u.fullname}"></td>
+                            <td th:text="${u.email}"></td>
+                            <td>
+                                <span th:if="${u.role.name() == 'ADMIN'}" class="badge bg-danger">QUẢN TRỊ</span>
+                                <span th:if="${u.role.name() == 'STAFF'}" class="badge bg-primary">NHÂN VIÊN</span>
+                                <span th:if="${u.role.name() == 'USER'}" class="badge bg-secondary">KHÁCH</span>
+                            </td>
+                            <td>
+                                <span th:if="${u.active}" class="text-success"><i class="fa-solid fa-check-circle"></i> Active</span>
+                                <span th:unless="${u.active}" class="text-danger"><i class="fa-solid fa-ban"></i> Locked</span>
+                            </td>
+                            <td>
+                                <a th:href="@{/admin/users/edit/{username}(username=${u.username})}" class="btn btn-warning btn-sm">Sửa</a>
+                                
+                                <a th:if="${session.currentUser.username != u.username}"
+                                   th:href="@{/admin/users/delete/{username}(username=${u.username})}" 
+                                   class="btn btn-danger btn-sm"
+                                   onclick="return confirm('Bạn chắc chắn muốn xóa nhân viên này?')">Xóa</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</body>
+</html>
