@@ -33,14 +33,14 @@ import jakarta.servlet.http.HttpSession;
 @Configuration
 @Component
 public class AuthFilter extends OncePerRequestFilter {
-	 @Autowired
-	    private JWTService jwtService;
-	    
-	    @Autowired
-	    private UserService userService;
+	@Autowired
+	private JWTService jwtService;
 
-	 // Trong AuthFilter.java, sửa lại method doFilterInternal
-	    @Override
+	@Autowired
+	private UserService userService;
+
+	// Trong AuthFilter.java, sửa lại method doFilterInternal
+	@Override
 	    protected void doFilterInternal(HttpServletRequest request,
 	                                    HttpServletResponse response,
 	                                    FilterChain filterChain)
@@ -104,8 +104,12 @@ public class AuthFilter extends OncePerRequestFilter {
 	        } else {
 	            System.out.println("No Bearer token found");
 	            // Nếu không có token và request cần xác thực -> trả về 401
-	            if (!path.startsWith("/api/auth") && !path.startsWith("/api/categories") && 
-	                !path.startsWith("/api/books") && !path.startsWith("/uploads")) {
+	            if (!path.startsWith("/api/auth") && 
+	            	!path.startsWith("/api/categories") && 
+	                !path.startsWith("/api/books") && 
+	                !path.startsWith("/uploads") &&
+	                !path.startsWith("/api/checkout") && // THÊM DÒNG NÀY
+	                !path.startsWith("/api/payment")) {   // THÊM DÒNG NÀY{
 	                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 	                response.getWriter().write("{\"message\":\"Unauthorized\"}");
 	                response.setContentType("application/json");

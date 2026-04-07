@@ -64,22 +64,21 @@ public class SecurityConfig {
 			.csrf(csrf -> csrf.disable())
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(auth -> auth
-				// ✅ PUBLIC ENDPOINTS - ĐẶT CỤ THỂ TRƯỚC
 				.requestMatchers(
 					"/api/auth/forgot-password",
 					"/api/auth/verify-otp",
 					"/api/auth/login",
 					"/api/auth/register"
 				).permitAll()
-				// ✅ Các API public khác
+			
 				.requestMatchers("/api/categories/**", "/api/books/**", "/uploads/**")
 				.permitAll()
-				// ✅ OAuth2 endpoints
+				
 				.requestMatchers("/oauth2/**", "/login/oauth2/**")
 				.permitAll()
-				// ❌ Các request khác cần xác thực
-				 .requestMatchers("/api/payment/**")
-				 .permitAll()  // THÊM DÒNG NÀY
+				
+				 .requestMatchers("/api/payment/**", "/api/checkout/**")
+				 .permitAll()
 				 
 				.anyRequest()
 				.authenticated()
@@ -166,7 +165,7 @@ public class SecurityConfig {
 		String jwtToken = jwtService.create(user, TOKEN_EXPIRY_SECONDS);
 		System.out.println("Generated JWT token: " + jwtToken);
 
-		// ✅ Xóa session để tránh redirect lần sau
+		//  Xóa session 
 		request.getSession().invalidate();
 
 		Map<String, Object> userData = new HashMap<>();
@@ -193,8 +192,8 @@ public class SecurityConfig {
 //	@Bean
 //	public CorsConfigurationSource corsConfigurationSource() {
 //	    CorsConfiguration config = new CorsConfiguration();
-//	    // ❌ SAI: config.setAllowedOrigins(List.of("*"));
-//	    // ✅ ĐÚNG: Dùng allowedOriginPatterns hoặc list cụ thể
+//	    //  SAI: config.setAllowedOrigins(List.of("*"));
+//	    // ĐÚNG: Dùng allowedOriginPatterns hoặc list cụ thể
 //	    config.setAllowedOriginPatterns(List.of("http://localhost:3000"));  // Dùng Pattern
 //	    // Hoặc:
 //	    // config.setAllowedOrigins(List.of("http://localhost:3000"));
