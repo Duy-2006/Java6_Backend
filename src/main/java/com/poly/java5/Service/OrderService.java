@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.poly.java5.Entity.Book;
 import com.poly.java5.Entity.Order;
 import com.poly.java5.Entity.OrderDetail;
+import com.poly.java5.Entity.OrderStatus;
 import com.poly.java5.Entity.User;
 import com.poly.java5.Repository.OrderRepository;
 
@@ -81,4 +82,38 @@ public class OrderService {
 	    return orderRepository.findAll();
 	}
 	
+	// Tìm đơn hàng theo ID
+		public Order findById(Integer id) {        
+		    return orderRepository.findById(id)
+		            .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng ID: " + id));
+		}
+	 
+	    
+	 // Cập nhật trạng thái đơn hàng (dành cho Admin)
+	    public void updateStatus(Integer id, String newStatus) {
+	        Order order = orderRepository.findById(id)
+	                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng ID: " + id));
+
+	        // Kiểm tra trạng thái hợp lệ
+	        try {
+	            OrderStatus.valueOf(newStatus.toUpperCase().trim());  // chỉ để validate
+	        } catch (IllegalArgumentException e) {
+	            throw new RuntimeException("Trạng thái không hợp lệ: " + newStatus 
+	                + ". Các trạng thái cho phép: PENDING, CONFIRMED, SHIPPING, COMPLETED, CANCELLED");
+	        }
+
+	        order.setStatus(newStatus.toUpperCase().trim());
+	        orderRepository.save(order);
+	    }
+	 
+	 // Tổng chi tiêu của 1 khách hàng (dùng cho trang customers)
+	 // ✅ Note: cần thêm query vào OrderRepository (xem bên dưới)
+	 public Double sumSpendingByUsername(String username) {
+	     return orderRepository.sumSpendingByUsername(username);
+	 }
+	  
+	 // Đơn hàng của 1 user — dùng cho lịch sử mua hàng admin
+	 public java.util.List<Order> findByUsername(String username) {
+	     return orderRepository.findByUserUsernameOrderByOrderDateDesc(username);
+	 }
 }

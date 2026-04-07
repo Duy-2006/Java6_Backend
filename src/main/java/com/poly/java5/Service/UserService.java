@@ -2,6 +2,8 @@ package com.poly.java5.Service;
 
 
 import com.poly.java5.Entity.User;
+import com.poly.java5.Entity.UserRole;
+import com.poly.java5.Repository.UserRepository;
 import com.poly.java5.Utils.Utils;
 
 import jakarta.persistence.EntityManager;
@@ -165,5 +167,31 @@ public class UserService implements UserDetailsService {
                 .build();
     }
     
-	  
+ // =========================
+    // FIND BY ID (CHO MENU)
+    // =========================
+   
+
+    private final UserRepository userRepository = null;
+    
+    @Transactional
+    
+	
+    
+ // Thêm vào class UserService
+    public List<User> findByRole(UserRole role) {
+        return userRepository.findByRole(role);
+    }
+
+
+    // Toggle active bằng query trực tiếp (tối ưu hơn)
+    @Transactional
+    public void toggleActive(String username) {
+        User user = findByUsername(username);
+        if (user == null) {
+            throw new RuntimeException("Không tìm thấy user: " + username);
+        }
+        user.setActive(!Boolean.TRUE.equals(user.getActive()));
+        userRepository.save(user);
+    }
 }
