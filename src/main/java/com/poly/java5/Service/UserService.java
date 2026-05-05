@@ -10,7 +10,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 
-
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -27,6 +27,8 @@ import java.util.Map;
 public class UserService implements UserDetailsService {
 	 @PersistenceContext
     private EntityManager manager;
+	 @Autowired
+	    private UserRepository userRepository;   // ← thêm dòng này, bỏ dòng kia
 
     @Transactional
     public Map<String, String> register(User user) {
@@ -172,7 +174,7 @@ public class UserService implements UserDetailsService {
     // =========================
    
 
-    private final UserRepository userRepository = null;
+    
     
     @Transactional
     

@@ -39,7 +39,7 @@ public class AuthFilter extends OncePerRequestFilter {
 	@Autowired
 	private UserService userService;
 
-	// Trong AuthFilter.java, sửa lại method doFilterInternal
+	
 	@Override
 	    protected void doFilterInternal(HttpServletRequest request,
 	                                    HttpServletResponse response,
@@ -50,6 +50,13 @@ public class AuthFilter extends OncePerRequestFilter {
 	        
 	        System.out.println("=== AUTH FILTER CALLED ===");
 	        System.out.println("Path: " + path);
+	        
+	        //  Bỏ qua hoàn toàn cho VNPay callback và IPN
+	        if (path.startsWith("/api/payment/vnpay-return") || path.startsWith("/api/payment/ipn")) {
+	            System.out.println("Skip VNPay callback: " + path);
+	            filterChain.doFilter(request, response);
+	            return;
+	        }
 	        
 	        //  Bỏ qua OAuth2 endpoints
 	        if (path.startsWith("/oauth2/") || path.startsWith("/login/oauth2/")) {
@@ -94,7 +101,7 @@ public class AuthFilter extends OncePerRequestFilter {
 	                        UsernamePasswordAuthenticationToken authentication = 
 	                            new UsernamePasswordAuthenticationToken(username, null, new java.util.ArrayList<>());
 	                        SecurityContextHolder.getContext().setAuthentication(authentication);
-	                        System.out.println("✅ Authentication set for: " + username);
+	                        System.out.println(" Authentication set for: " + username);
 	                    }
 	                } catch (Exception e) {
 	                    System.out.println("Error: " + e.getMessage());
@@ -105,16 +112,26 @@ public class AuthFilter extends OncePerRequestFilter {
 	            System.out.println("No Bearer token found");
 	            // Nếu không có token và request cần xác thực -> trả về 401
 	            if (!path.startsWith("/api/auth") && 
-	            	!path.startsWith("/api/categories") && 
+	            	!path.startsWith("/api/categories") &&
 	                !path.startsWith("/api/books") && 
+	                !path.startsWith("/api/search") &&
 	                !path.startsWith("/uploads") &&
-	                !path.startsWith("/api/checkout") && // THÊM DÒNG NÀY
-	                !path.startsWith("/api/payment")) {   // THÊM DÒNG NÀY{
+	                !path.startsWith("/api/checkout") && 
+	                !path.startsWith("/api/payment")&&
+	                !path.startsWith("/api/admin/authors")&& 
+	                !path.startsWith("/api/admin/customers")&& 
+	                !path.startsWith("/api/admin/books")&& 
+	                !path.startsWith("/api/admin/orders")&& 
+	            	!path.startsWith("/api/orders")){   
 	                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 	                response.getWriter().write("{\"message\":\"Unauthorized\"}");
 	                response.setContentType("application/json");
 	                return;
 	            }
+	            System.out.println("Request path: " + path);
+	            
+	            System.out.println("=== AuthFilter path: '" + path + "'");
+	            System.out.println("  startsWith /api/categories: " + path.startsWith("/api/categories"));
 	        }
 	        
 	        filterChain.doFilter(request, response);

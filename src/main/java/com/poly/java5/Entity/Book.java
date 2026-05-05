@@ -6,6 +6,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -14,25 +16,21 @@ import lombok.*;
 @Data
 @Entity
 @Table(name = "Books")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})  // ✅ THÊM DÒNG NÀY
 public class Book implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    // Giữ lại kiểm tra Tên sách vì đây là trường bắt buộc tối thiểu
     @NotBlank(message = "Tên sách không được để trống")
     @Column(nullable = false, length = 200)
     private String title;
 
-    // --- ĐÃ TẠM TẮT VALIDATION ĐỂ TRÁNH LỖI TRANSACTION KHI CẬP NHẬT KHO ---
-    // @NotBlank(message = "Mã ISBN không được để trống")
     @Column(length = 20)
     private String isbn;
 
-    // @NotNull(message = "Giá bán không được để trống")
-    // @Min(value = 1000, message = "Giá bán phải từ 1.000 VNĐ trở lên")
-    @Column(precision = 10, scale = 2) // Bỏ nullable = false để cho phép dữ liệu cũ
+    @Column(precision = 10, scale = 2)
     private BigDecimal price; 
 
     @NotNull(message = "Số lượng không được để trống")
@@ -58,51 +56,50 @@ public class Book implements Serializable {
     @Transient
     private BigDecimal tempDiscountPercent;
 
-    public BigDecimal getTempDiscountPercent() {
-        return tempDiscountPercent;
-    }
-
-    public void setTempDiscountPercent(BigDecimal tempDiscountPercent) {
-        this.tempDiscountPercent = tempDiscountPercent;
-    }
-
-    // --- ĐÃ TẠM TẮT VALIDATION QUAN HỆ ĐỂ TRÁNH LỖI TRANSACTION ---
-    // @NotNull(message = "Vui lòng chọn tác giả")
+    // ✅ THÊM @JsonBackReference ĐỂ TRÁNH VÒNG LẶP
     @ManyToOne
     @JoinColumn(name = "author_id")
-    @EqualsAndHashCode.Exclude
+    @JsonBackReference  // THÊM DÒNG NÀY
     @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Author author;
 
-    // @NotNull(message = "Vui lòng chọn thể loại")
+    // ✅ THÊM @JsonBackReference ĐỂ TRÁNH VÒNG LẶP
     @ManyToOne
     @JoinColumn(name = "category_id")
-    @JsonBackReference
+    @JsonBackReference  // THÊM DÒNG NÀY
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Category category;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seller_id")
-    @EqualsAndHashCode.Exclude
+    @JsonIgnore  // THÊM DÒNG NÀY
     @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private User seller;
 
-    // 5. CÁC LIST QUAN HỆ (ONE-TO-MANY)
+    // ✅ THÊM @JsonIgnore CHO CÁC LIST
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore  // THÊM DÒNG NÀY
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Review> reviews; 
 
     @OneToMany(mappedBy = "book")
+    @JsonIgnore  // THÊM DÒNG NÀY
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<CartDetail> cartDetails; 
 
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL)
+    @JsonIgnore  // THÊM DÒNG NÀY
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<OrderDetail> orderDetails; 
 
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL)
+    @JsonIgnore  // THÊM DÒNG NÀY
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Wishlist> wishlists; 
@@ -112,8 +109,6 @@ public class Book implements Serializable {
         createdDate = LocalDateTime.now();
     }
 
-    // 7. NGHIỆP VỤ (BUSINESS LOGIC)
-    
     public boolean isAvailable() {
         return quantity != null && quantity > 0 && Boolean.TRUE.equals(active);
     }
@@ -134,5 +129,14 @@ public class Book implements Serializable {
     public BigDecimal calculateTotalPrice(Integer quantity) {
         if (price == null || quantity == null) return BigDecimal.ZERO;
         return price.multiply(BigDecimal.valueOf(quantity));
+    }
+    
+    // Getter và setter cho tempDiscountPercent
+    public BigDecimal getTempDiscountPercent() {
+        return tempDiscountPercent;
+    }
+
+    public void setTempDiscountPercent(BigDecimal tempDiscountPercent) {
+        this.tempDiscountPercent = tempDiscountPercent;
     }
 }

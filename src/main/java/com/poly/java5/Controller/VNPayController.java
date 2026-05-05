@@ -4,13 +4,19 @@ import com.poly.java5.DTO.VNPayIPNResponseDTO;
 import com.poly.java5.DTO.VNPayPaymentRequestDTO;
 import com.poly.java5.DTO.VNPayPaymentResponseDTO;
 import com.poly.java5.Service.VNPayService;
+import com.poly.java5.Utils.VNPayUtil; // ← THÊM IMPORT NÀY
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,72 +26,99 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class VNPayController {
-	 private final VNPayService vnPayService; 
-	 
-	 /**
-	     * API tạo URL thanh toán
-	     * POST /api/payment/create
-	     */
-	    @PostMapping("/create")
-	    public ResponseEntity<?> createPayment(@RequestBody VNPayPaymentRequestDTO request, HttpServletRequest httpRequest) {
-	        try {
-	            log.info("Creating payment for amount: {}", request.getAmount());
-	            
-	            String paymentUrl = vnPayService.createPaymentUrl(request, httpRequest);
-	            
-	            return ResponseEntity.ok(new VNPayPaymentResponseDTO(
-	                paymentUrl, 
-	                request.getOrderId(), 
-	                request.getAmount()
-	            ));
-	        } catch (Exception e) {
-	            log.error("Error creating payment: {}", e.getMessage());
-	            return ResponseEntity.badRequest().body(Map.of(
-	                "error", e.getMessage(),
-	                "success", false
-	            ));
-	        }
-	    }
+	private final VNPayService vnPayService;
 
-	    /**
-	     * API nhận IPN (Instant Payment Notification) từ VNPay
-	     * GET /api/payment/ipn
-	     */
-	    @GetMapping("/ipn")
-	    public ResponseEntity<VNPayIPNResponseDTO> handleIpn(@RequestParam Map<String, String> params) {
-	        log.info("Received IPN with params: {}", params);
-	        
-	        // Xác thực chữ ký
-	        boolean isValid = vnPayService.verifySignature(params);
-	        
-	        if (!isValid) {
-	            log.warn("Invalid IPN signature");
-	            return ResponseEntity.ok(VNPayIPNResponseDTO.builder()
-	                .rspCode("97")
-	                .message("Invalid signature")
-	                .build());
-	        }
-	        
-	        String responseCode = params.get("vnp_ResponseCode");
-	        String transactionNo = params.get("vnp_TransactionNo");
-	        String orderId = params.get("vnp_TxnRef");
-	        String amount = params.get("vnp_Amount");
-	        
-	        log.info("Transaction: orderId={}, transactionNo={}, responseCode={}", orderId, transactionNo, responseCode);
-	        
-	        if ("00".equals(responseCode)) {
-	            // TODO: Cập nhật trạng thái đơn hàng trong database
-	            // orderService.updatePaymentStatus(orderId, "PAID", transactionNo);
-	            
-	            return ResponseEntity.ok(VNPayIPNResponseDTO.builder()
-	                .rspCode("00")
-	                .message("Success")
-	                .build());
-	        }
-	        
-	        return ResponseEntity.ok(VNPayIPNResponseDTO.builder()
-	            .rspCode("01")
-	            .message("Payment failed")
-	            .build());
-	    }
+	/**
+	 * API tạo URL thanh toán POST /api/payment/create
+	 */
+	@PostMapping("/create")
+	public ResponseEntity<?> createPayment(@RequestBody VNPayPaymentRequestDTO request,
+			HttpServletRequest httpRequest) {
+		try {
+			log.info("Creating payment for amount: {}", request.getAmount());
+
+			String paymentUrl = vnPayService.createPaymentUrl(request, httpRequest);
+
+			return ResponseEntity
+					.ok(new VNPayPaymentResponseDTO(paymentUrl, request.getOrderId(), request.getAmount()));
+		} catch (Exception e) {
+			log.error("Error creating payment: {}", e.getMessage());
+			return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "success", false));
+		}
+	}
+
+	/**
+	 * API nhận IPN (Instant Payment Notification) từ VNPay GET /api/payment/ipn
+	 */
+	@GetMapping("/ipn")
+	public ResponseEntity<VNPayIPNResponseDTO> handleIpn(@RequestParam Map<String, String> params) {
+		log.info("Received IPN with params: {}", params);
+
+		// Xác thực chữ ký
+		boolean isValid = vnPayService.verifySignature(params);
+
+		if (!isValid) {
+			log.warn("Invalid IPN signature");
+			return ResponseEntity.ok(VNPayIPNResponseDTO.builder().rspCode("97").message("Invalid signature").build());
+		}
+
+		String responseCode = params.get("vnp_ResponseCode");
+		String transactionNo = params.get("vnp_TransactionNo");
+		String orderId = params.get("vnp_TxnRef");
+		String amount = params.get("vnp_Amount");
+
+		log.info("Transaction: orderId={}, transactionNo={}, responseCode={}", orderId, transactionNo, responseCode);
+
+		if ("00".equals(responseCode)) {
+			// TODO: Cập nhật trạng thái đơn hàng trong database
+			// orderService.updatePaymentStatus(orderId, "PAID", transactionNo);
+
+			return ResponseEntity.ok(VNPayIPNResponseDTO.builder().rspCode("00").message("Success").build());
+		}
+
+		return ResponseEntity.ok(VNPayIPNResponseDTO.builder().rspCode("01").message("Payment failed").build());
+	}
+
+	// trả về fronend 
+	
+	@GetMapping("/vnpay-return")
+	public void vnpayReturn(HttpServletRequest request, HttpServletResponse response) throws IOException {
+		// Log raw params
+		request.getParameterMap().forEach((key, values) -> {
+			log.info("RAW PARAM: {} = {}", key, Arrays.toString(values));
+		});
+
+		// Giải mã params
+		Map<String, String> params = VNPayUtil.decodeVNPayParams(request.getParameterMap());
+		log.info("VNPay return with params (decoded): {}", params);
+
+		// Xác thực chữ ký
+		boolean isValid = vnPayService.verifySignature(params);
+		if (!isValid) {
+			log.error("Invalid VNPay signature for order: {}", params.get("vnp_TxnRef"));
+			String redirectUrl = "http://localhost:3000/user/payment-result?status=failure&message=Ch%E1%BB%AF+k%C3%BD+kh%C3%B4ng+h%E1%BB%A3p+l%E1%BB%87&orderId="
+					+ params.get("vnp_TxnRef");
+			response.sendRedirect(redirectUrl);
+			return;
+		}
+
+		String responseCode = params.get("vnp_ResponseCode");
+		String transactionStatus = params.get("vnp_TransactionStatus");
+		String orderId = params.get("vnp_TxnRef");
+		String amount = params.get("vnp_Amount");
+		long originalAmount = (amount != null && !amount.isEmpty()) ? Long.parseLong(amount) / 100 : 0;
+
+		if ("00".equals(responseCode) && "00".equals(transactionStatus)) {
+			log.info("Payment success for order: {}, amount: {}", orderId, originalAmount);
+			String redirectUrl = String.format(
+					"http://localhost:3000/user/payment-result?status=success&orderId=%s&amount=%d&transactionNo=%s",
+					orderId, originalAmount, params.get("vnp_TransactionNo"));
+			response.sendRedirect(redirectUrl);
+		} else {
+			log.warn("Payment failed for order: {}, ResponseCode: {}", orderId, responseCode);
+			String redirectUrl = "http://localhost:3000/user/payment-result?status=failure&message=Thanh+to%C3%A1n+th%E1%BA%A5t+b%E1%BA%A1i&orderId="
+					+ orderId;
+			response.sendRedirect(redirectUrl);
+		}
+	}
 }

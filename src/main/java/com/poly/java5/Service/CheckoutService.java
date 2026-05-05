@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +17,7 @@ import com.poly.java5.Entity.CartDetail;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,262 +26,277 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional
 @Slf4j
 public class CheckoutService {
-	
-	
-	
+
 	@PersistenceContext
 	private EntityManager em;
-	
+
 	// ================= 1. TẠO MÃ ĐƠN HÀNG =================
 	private String generateOrderCode() {
-	    // Format: ORD + ddMMHHmm (8 số) + 2 số random = 13 ký tự
-	    String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMHHmm"));
-	    int random = (int) (Math.random() * 90) + 10; // 2 số ngẫu nhiên
-	    return "ORD" + timestamp + random;
+		String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMHHmm"));
+		int random = (int) (Math.random() * 90) + 10;
+		return "ORD" + timestamp + random;
 	}
-	
+
 	// ================= 2. LẤY THÔNG TIN GIỎ HÀNG ĐÃ CHỌN =================
 	public List<Map<String, Object>> getSelectedCartItems(Integer userId) {
 		String sql = """
-			SELECT 
-				b.id as bookId,
-				b.title as title,
-				b.image_url as imageUrl,
-				cd.quantity as quantity,
-				cd.price * cd.quantity as itemTotal
-			FROM cart_details cd
-			JOIN books b ON b.id = cd.book_id
-			JOIN carts c ON c.id = cd.cart_id
-			WHERE c.user_id = :userId 
-				AND c.status = 'ACTIVE'
-				AND cd.selected = 1
-		""";
-		
+				    SELECT
+				        b.id as bookId,
+				        b.title as title,
+				        b.image_url as imageUrl,
+				        cd.quantity as quantity,
+				        cd.price as price,
+				        cd.price * cd.quantity as itemTotal
+				    FROM cart_details cd
+				    JOIN books b ON b.id = cd.book_id
+				    JOIN carts c ON c.id = cd.cart_id
+				    WHERE c.user_id = :userId
+				        AND c.status = 'ACTIVE'
+				        AND cd.selected = 1
+				""";
+
 		@SuppressWarnings("unchecked")
-		List<Map<String, Object>> results = em.createNativeQuery(sql)
-			.setParameter("userId", userId)
-			.unwrap(org.hibernate.query.NativeQuery.class)
-			.setResultTransformer(org.hibernate.transform.Transformers.ALIAS_TO_ENTITY_MAP)
-			.getResultList();
-		
+		List<Map<String, Object>> results = em.createNativeQuery(sql).setParameter("userId", userId)
+				.unwrap(org.hibernate.query.NativeQuery.class)
+				.setResultTransformer(org.hibernate.transform.Transformers.ALIAS_TO_ENTITY_MAP).getResultList();
+
+		log.info("Found {} selected items for user: {}", results.size(), userId);
 		return results;
 	}
-	
+
 	// ================= 3. TÍNH TỔNG TIỀN CÁC SẢN PHẨM ĐÃ CHỌN =================
 	public BigDecimal getSelectedTotalAmount(Integer userId) {
 		String sql = """
-			SELECT COALESCE(SUM(cd.price * cd.quantity), 0) as total
-			FROM cart_details cd
-			JOIN carts c ON c.id = cd.cart_id
-			WHERE c.user_id = :userId 
-				AND c.status = 'ACTIVE'
-				AND cd.selected = 1
-		""";
-		
-		BigDecimal total = (BigDecimal) em.createNativeQuery(sql)
-			.setParameter("userId", userId)
-			.getSingleResult();
-		
+				    SELECT COALESCE(SUM(cd.price * cd.quantity), 0) as total
+				    FROM cart_details cd
+				    JOIN carts c ON c.id = cd.cart_id
+				    WHERE c.user_id = :userId
+				        AND c.status = 'ACTIVE'
+				        AND cd.selected = 1
+				""";
+
+		BigDecimal total = (BigDecimal) em.createNativeQuery(sql).setParameter("userId", userId).getSingleResult();
+
+		log.info("Total amount for user {}: {}", userId, total);
 		return total != null ? total : BigDecimal.ZERO;
 	}
-	
+
 	// ================= 4. KIỂM TRA GIỎ HÀNG CÓ SẢN PHẨM ĐÃ CHỌN KHÔNG =================
 	public boolean hasSelectedItems(Integer userId) {
 		String sql = """
-			SELECT COUNT(*) 
-			FROM cart_details cd
-			JOIN carts c ON c.id = cd.cart_id
-			WHERE c.user_id = :userId 
-				AND c.status = 'ACTIVE'
-				AND cd.selected = 1
-		""";
-		
-		Long count = ((Number) em.createNativeQuery(sql)
-			.setParameter("userId", userId)
-			.getSingleResult()).longValue();
-		
+				    SELECT COUNT(*)
+				    FROM cart_details cd
+				    JOIN carts c ON c.id = cd.cart_id
+				    WHERE c.user_id = :userId
+				        AND c.status = 'ACTIVE'
+				        AND cd.selected = 1
+				""";
+
+		Long count = ((Number) em.createNativeQuery(sql).setParameter("userId", userId).getSingleResult()).longValue();
 		return count > 0;
 	}
-	
-	// ================= 5. XỬ LÝ CHECKOUT CHÍNH =================
-	@Transactional
-	public Order checkout(Integer userId, String customerName, String phone, String address, String paymentMethod) {
 
-		log.info("Starting checkout for user: {}", userId);
-		
-		// Tìm giỏ hàng ACTIVE
+	// ================= 5. CHECKOUT MỚI – HỖ TRỢ GIÁ KHUYẾN MÃI =================
+	@Transactional
+	public Order checkout(Integer userId, String customerName, String phone, String address, 
+	                      String paymentMethod, List<Map<String, Object>> requestItems) {
+		log.info("========== START CHECKOUT (with discounted prices) ==========");
+		log.info("User ID: {}", userId);
+		log.info("Customer: {} - {} - {}", customerName, phone, address);
+		log.info("Payment Method: {}", paymentMethod);
+		log.info("Items from request: {}", requestItems);
+
+		// 1. Tìm giỏ hàng ACTIVE
 		Cart cart = em.createQuery("SELECT c FROM Cart c WHERE c.user.id = :uid AND c.status = 'ACTIVE'", Cart.class)
 				.setParameter("uid", userId).getResultStream().findFirst()
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy giỏ hàng"));
 
-		// Lấy các sản phẩm đã chọn
+		// 2. Lấy các sản phẩm đã chọn từ DB (chỉ để kiểm tra và xóa sau)
 		List<CartDetail> cartDetails = em
-				.createQuery("SELECT cd FROM CartDetail cd " + "WHERE cd.cart.id = :cid AND cd.selected = true",
-						CartDetail.class)
+				.createQuery("SELECT cd FROM CartDetail cd WHERE cd.cart.id = :cid AND cd.selected = true", CartDetail.class)
 				.setParameter("cid", cart.getId()).getResultList();
 
 		if (cartDetails.isEmpty()) {
 			throw new RuntimeException("Chưa chọn sản phẩm nào để thanh toán");
 		}
 
-		// Tạo đơn hàng - Dùng String cho status
+		// 3. Tạo đơn hàng
+		String orderCode = generateOrderCode();
 		Order order = Order.builder()
-				.orderCode(generateOrderCode())
+				.orderCode(orderCode)
 				.user(cart.getUser())
 				.customerName(customerName)
 				.customerPhone(phone)
 				.customerAddress(address)
 				.paymentMethod(paymentMethod)
-				.status("PENDING")           // String, không phải Enum
+				.status("PENDING")
 				.paymentStatus("PENDING")
 				.totalAmount(BigDecimal.ZERO)
 				.orderDate(LocalDateTime.now())
 				.build();
-
 		em.persist(order);
-		log.info("Created order: {} with code: {}", order.getId(), order.getOrderCode());
+		log.info("Order created: ID={}, Code={}", order.getId(), order.getOrderCode());
 
+		// 4. Xử lý từng sản phẩm theo request (đã có giá giảm)
 		BigDecimal total = BigDecimal.ZERO;
-		
-		// Duyệt từng sản phẩm trong giỏ đã chọn
-		for (CartDetail cd : cartDetails) {
-			// Khóa bi quan để tránh trùng lặp
-			Book book = em.find(Book.class, cd.getBook().getId(), 
-					jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
 
-			int qty = cd.getQuantity();
-			
-			// Kiểm tra tồn kho
-			if (book.getQuantity() < qty) {
+		for (Map<String, Object> reqItem : requestItems) {
+			Integer bookId = (Integer) reqItem.get("bookId");
+			Integer quantity = (Integer) reqItem.get("quantity");
+			BigDecimal price = new BigDecimal(reqItem.get("price").toString()); // giá đã giảm từ FE
+
+			Book book = em.find(Book.class, bookId, LockModeType.PESSIMISTIC_WRITE);
+			if (book == null) {
+				throw new RuntimeException("Sách không tồn tại, ID: " + bookId);
+			}
+			if (book.getQuantity() < quantity) {
 				throw new RuntimeException("Không đủ hàng: " + book.getTitle() + ". Còn " + book.getQuantity() + " cuốn");
 			}
 
 			// Trừ kho
-			book.setQuantity(book.getQuantity() - qty);
-			log.info("Reduced stock for book: {}, remaining: {}", book.getTitle(), book.getQuantity());
-			
-			// Tạo OrderDetail
+			book.setQuantity(book.getQuantity() - quantity);
+			log.info("Stock reduced for: {}, remaining: {}", book.getTitle(), book.getQuantity());
+
+			// Tạo OrderDetail với giá đã giảm
 			OrderDetail od = OrderDetail.builder()
 					.order(order)
 					.book(book)
-					.quantity(qty)
-					.price(cd.getPrice())
+					.quantity(quantity)
+					.price(price)
 					.build();
-
 			em.persist(od);
-			
-			// Tính tổng tiền
 			total = total.add(od.calculateSubtotal());
 
-			// Xóa item đã mua khỏi giỏ
-			em.remove(cd);
+			// Xóa CartDetail tương ứng (dựa trên bookId)
+			cartDetails.stream()
+				.filter(cd -> cd.getBook().getId().equals(bookId))
+				.findFirst()
+				.ifPresent(em::remove);
 		}
 
+		// 5. Cập nhật tổng tiền đơn hàng
 		order.setTotalAmount(total);
 		cart.setUpdatedDate(LocalDateTime.now());
-		
-		log.info("Checkout completed. Order total: {}", total);
-		
+
+		log.info("Order total (with discount): {} VND", total);
+		log.info("========== CHECKOUT COMPLETED ==========");
 		return order;
 	}
-	
+
 	// ================= 6. LẤY ĐƠN HÀNG THEO ID =================
 	public Order getOrderById(Integer orderId) {
 		return em.find(Order.class, orderId);
 	}
-	
+
 	// ================= 7. LẤY ĐƠN HÀNG THEO ORDER CODE =================
 	public Order getOrderByCode(String orderCode) {
 		try {
 			return em.createQuery("SELECT o FROM Order o WHERE o.orderCode = :code", Order.class)
-					.setParameter("code", orderCode)
-					.getSingleResult();
+					.setParameter("code", orderCode).getSingleResult();
 		} catch (Exception e) {
+			log.warn("Order not found with code: {}", orderCode);
 			return null;
 		}
 	}
-	
-	// ================= 8. CẬP NHẬT TRẠNG THÁI THANH TOÁN =================
+
+	// ================= 8. LẤY ĐƠN HÀNG THEO ORDER CODE (KHÔNG EXCEPTION) =================
+	public Order getOrderByOrderCode(String orderCode) {
+		try {
+			return em.createQuery("SELECT o FROM Order o WHERE o.orderCode = :orderCode", Order.class)
+					.setParameter("orderCode", orderCode).getSingleResult();
+		} catch (Exception e) {
+			log.error("Không tìm thấy đơn hàng với code: {}", orderCode);
+			return null;
+		}
+	}
+
+	// ================= 9. CẬP NHẬT TRẠNG THÁI THANH TOÁN =================
 	@Transactional
 	public void updatePaymentStatus(Integer orderId, String paymentStatus, String transactionNo) {
 		Order order = getOrderById(orderId);
-		if (order == null) {
-			throw new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId);
-		}
-		
+		if (order == null) throw new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId);
 		order.setPaymentStatus(paymentStatus);
-		
-		// Nếu thanh toán thành công, cập nhật trạng thái đơn hàng
-		if ("PAID".equals(paymentStatus)) {
-			order.setStatus("CONFIRMED");   // String CONFIRMED
-		} else if ("FAILED".equals(paymentStatus)) {
-			order.setStatus("CANCELLED");   // String CANCELLED
-		}
-		
+		if ("PAID".equals(paymentStatus)) order.setStatus("CONFIRMED");
+		else if ("FAILED".equals(paymentStatus)) order.setStatus("CANCELLED");
+		if (transactionNo != null && !transactionNo.isEmpty()) order.setTransactionNo(transactionNo);
 		log.info("Updated payment status for order {}: {}, transaction: {}", orderId, paymentStatus, transactionNo);
-		
 		em.merge(order);
 	}
-	
-	// ================= 9. CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG =================
+
+	// ================= 10. XỬ LÝ THANH TOÁN VNPAY THÀNH CÔNG =================
 	@Transactional
-	public void updateOrderStatus(Integer orderId, String status) {
-		Order order = getOrderById(orderId);
-		if (order == null) {
-			throw new RuntimeException("Không tìm thấy đơn hàng");
-		}
-		
-		order.setStatus(status);
+	public void handleSuccessfulPayment(String orderCode, String transactionNo) {
+		Order order = getOrderByOrderCode(orderCode);
+		if (order == null) throw new RuntimeException("Không tìm thấy đơn hàng với mã: " + orderCode);
+		order.setPaymentStatus("PAID");
+		order.setStatus("CONFIRMED");
+		order.setTransactionNo(transactionNo);
+		log.info("Payment successful for order: {}, transaction: {}", orderCode, transactionNo);
 		em.merge(order);
-		
-		log.info("Updated order status for {}: {}", orderId, status);
 	}
-	
-	// ================= 10. LẤY DANH SÁCH ĐƠN HÀNG CỦA USER =================
-	public List<Order> getOrdersByUser(Integer userId) {
-		return em.createQuery("SELECT o FROM Order o WHERE o.user.id = :uid ORDER BY o.orderDate DESC", Order.class)
-				.setParameter("uid", userId)
-				.getResultList();
-	}
-	
-	// ================= 11. LẤY CHI TIẾT ĐƠN HÀNG =================
-	public List<OrderDetail> getOrderDetails(Integer orderId) {
-		return em.createQuery("SELECT od FROM OrderDetail od WHERE od.order.id = :oid", OrderDetail.class)
-				.setParameter("oid", orderId)
-				.getResultList();
-	}
-	
-	// ================= 12. HỦY ĐƠN HÀNG (HOÀN LẠI KHO) =================
+
+	// ================= 11. XỬ LÝ THANH TOÁN VNPAY THẤT BẠI =================
 	@Transactional
-	public void cancelOrder(Integer orderId) {
-		Order order = getOrderById(orderId);
-		if (order == null) {
-			throw new RuntimeException("Không tìm thấy đơn hàng");
-		}
-		
-		// Chỉ hủy được đơn hàng đang PENDING hoặc CONFIRMED
-		String status = order.getStatus();
-		if (!"PENDING".equals(status) && !"CONFIRMED".equals(status)) {
-			throw new RuntimeException("Không thể hủy đơn hàng ở trạng thái: " + status);
-		}
-		
+	public void handleFailedPayment(String orderCode, String transactionNo) {
+		Order order = getOrderByOrderCode(orderCode);
+		if (order == null) throw new RuntimeException("Không tìm thấy đơn hàng với mã: " + orderCode);
+		order.setPaymentStatus("FAILED");
+		order.setStatus("CANCELLED");
+		order.setTransactionNo(transactionNo);
 		// Hoàn lại số lượng sách vào kho
-		List<OrderDetail> orderDetails = getOrderDetails(orderId);
+		List<OrderDetail> orderDetails = getOrderDetails(order.getId());
 		for (OrderDetail od : orderDetails) {
 			Book book = od.getBook();
 			book.setQuantity(book.getQuantity() + od.getQuantity());
 			em.merge(book);
 			log.info("Restored stock for book: {}, quantity: {}", book.getTitle(), od.getQuantity());
 		}
-		
-		// Cập nhật trạng thái đơn hàng
+		log.info("Payment failed for order: {}, transaction: {}", orderCode, transactionNo);
+		em.merge(order);
+	}
+
+	// ================= 12. CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG =================
+	@Transactional
+	public void updateOrderStatus(Integer orderId, String status) {
+		Order order = getOrderById(orderId);
+		if (order == null) throw new RuntimeException("Không tìm thấy đơn hàng");
+		order.setStatus(status);
+		em.merge(order);
+		log.info("Updated order status for {}: {}", orderId, status);
+	}
+
+	// ================= 13. LẤY DANH SÁCH ĐƠN HÀNG CỦA USER =================
+	public List<Order> getOrdersByUser(Integer userId) {
+		return em.createQuery("SELECT o FROM Order o WHERE o.user.id = :uid ORDER BY o.orderDate DESC", Order.class)
+				.setParameter("uid", userId).getResultList();
+	}
+
+	// ================= 14. LẤY CHI TIẾT ĐƠN HÀNG =================
+	public List<OrderDetail> getOrderDetails(Integer orderId) {
+		return em.createQuery("SELECT od FROM OrderDetail od WHERE od.order.id = :oid", OrderDetail.class)
+				.setParameter("oid", orderId).getResultList();
+	}
+
+	// ================= 15. HỦY ĐƠN HÀNG (HOÀN LẠI KHO) =================
+	@Transactional
+	public void cancelOrder(Integer orderId) {
+		Order order = getOrderById(orderId);
+		if (order == null) throw new RuntimeException("Không tìm thấy đơn hàng");
+		String status = order.getStatus();
+		if (!"PENDING".equals(status) && !"CONFIRMED".equals(status))
+			throw new RuntimeException("Không thể hủy đơn hàng ở trạng thái: " + status);
+		List<OrderDetail> orderDetails = getOrderDetails(orderId);
+		for (OrderDetail od : orderDetails) {
+			Book book = od.getBook();
+			book.setQuantity(book.getQuantity() + od.getQuantity());
+			em.merge(book);
+		}
 		order.setStatus("CANCELLED");
 		em.merge(order);
-		
 		log.info("Order cancelled: {}", orderId);
 	}
-	
-	// ================= 13. KIỂM TRA ĐƠN HÀNG CÓ THỂ HỦY KHÔNG =================
+
+	// ================= 16. KIỂM TRA ĐƠN HÀNG CÓ THỂ HỦY KHÔNG =================
 	public boolean isOrderCancellable(Integer orderId) {
 		Order order = getOrderById(orderId);
 		if (order == null) return false;

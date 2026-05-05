@@ -12,62 +12,72 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.poly.java5.Config.JwtUtil;
+import com.poly.java5.DTO.UserprofileDTO;
 import com.poly.java5.Entity.User;
 import com.poly.java5.Entity.UserRole;
+import com.poly.java5.Service.JWTService;
+import com.poly.java5.Service.PromotionService;
 import com.poly.java5.Service.UserService;
 import com.poly.java5.Utils.Utils;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/profile")
+@RequiredArgsConstructor
 public class ProfileController {
-	  @Autowired
-	    private UserService userService;
+	 @Autowired private UserService userService;
+	    @Autowired private JWTService jwtService;
 
-	    // ===== GET PROFILE =====
+	    // GET profile - trả về DTO
 	    @GetMapping("")
-	    public ResponseEntity<?> profile(
-	            @RequestHeader("Authorization") String header) {
-
+	    public ResponseEntity<?> profile(@RequestHeader("Authorization") String header) {
 	        try {
-	            String token = header.substring(7); // bỏ "Bearer "
-	            var claims = JwtUtil.parseToken(token);
+	            String token = header.substring(7);
+	            if (!jwtService.validate(token))
+	                return ResponseEntity.status(401).body("Invalid token");
 
-	            Integer userId = Integer.parseInt(claims.getSubject());
-
+	            Claims claims = jwtService.getBody(token);
+	            Integer userId = claims.get("userId", Integer.class);
 	            User user = userService.findById(userId);
+	            if (user == null) return ResponseEntity.status(404).body("User not found");
 
-	            return ResponseEntity.ok(user);
+	            // Map entity -> DTO
+	            UserprofileDTO dto = new UserprofileDTO();
+	            dto.setName(user.getName());
+	            dto.setEmail(user.getEmail());
+	            dto.setPhone(user.getPhone());
+	            // Nếu cần id thì thêm field id vào DTO
 
+	            return ResponseEntity.ok(dto);
 	        } catch (Exception e) {
 	            return ResponseEntity.status(401).body("Unauthorized");
 	        }
 	    }
 
-	    // ===== UPDATE PROFILE =====
+	    // UPDATE profile - nhận DTO, không nhận entity
 	    @PostMapping("/update")
-	    public ResponseEntity<?> updateProfile(
-	            @RequestHeader("Authorization") String header,
-	            @RequestBody User formUser) {
-
+	    public ResponseEntity<?> updateProfile(@RequestHeader("Authorization") String header,
+	                                           @RequestBody UserprofileDTO request) {
 	        try {
 	            String token = header.substring(7);
-	            var claims = JwtUtil.parseToken(token);
+	            if (!jwtService.validate(token))
+	                return ResponseEntity.status(401).body("Invalid token");
 
-	            Integer userId = Integer.parseInt(claims.getSubject());
-
+	            Claims claims = jwtService.getBody(token);
+	            Integer userId = claims.get("userId", Integer.class);
 	            User user = userService.findById(userId);
+	            if (user == null) return ResponseEntity.status(404).body("User not found");
 
-	            user.setName(formUser.getName());
-	            user.setEmail(formUser.getEmail());
-	            user.setPhone(formUser.getPhone());
-
+	            // Cập nhật từ DTO
+	            user.setName(request.getName());
+	            user.setEmail(request.getEmail());
+	            user.setPhone(request.getPhone());
 	            userService.save(user);
 
 	            return ResponseEntity.ok("Cập nhật thành công");
-
 	        } catch (Exception e) {
 	            return ResponseEntity.status(401).body("Unauthorized");
 	        }

@@ -30,7 +30,7 @@ public class RegisterController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterBean bean, BindingResult errors) {
 
-        // 1️⃣ Kiểm tra validation errors
+        //  Kiểm tra validation errors
         if (errors.hasErrors()) {
             Map<String, String> errorMap = new HashMap<>();
             errors.getFieldErrors().forEach(error ->
@@ -39,43 +39,43 @@ public class RegisterController {
             return ResponseEntity.badRequest().body(Map.of("errors", errorMap));
         }
 
-        // 2️⃣ Kiểm tra confirmPassword
+        //  Kiểm tra confirmPassword
         if (bean.getConfirmPassword() == null || !bean.getPassword().equals(bean.getConfirmPassword())) {
             return ResponseEntity.badRequest().body(Map.of("message", "Mật khẩu xác nhận không khớp"));
         }
 
-        // 3️⃣ Kiểm tra username tồn tại
+        //  Kiểm tra username tồn tại
         if (userService.findByUsername(bean.getUsername()) != null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Username đã tồn tại"));
         }
 
-        // 4️⃣ Kiểm tra email tồn tại
+        //  Kiểm tra email tồn tại
         if (userService.findByEmail(bean.getEmail()) != null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Email đã được sử dụng"));
         }
 
-        // 5️⃣ Tạo entity User từ Bean
+        //  Tạo entity User từ Bean
         User user = new User();
         user.setUsername(bean.getUsername());
         user.setName(bean.getName());            
         user.setEmail(bean.getEmail());
         user.setPhone(bean.getPhone());
         
-        // ✅ KHÔNG hash ở đây - để UserService tự hash
+        //  KHÔNG hash ở đây - để UserService tự hash
         user.setPassword(bean.getPassword()); // Set raw password
         
         user.setActive(true);
         user.setRole(UserRole.USER);
 
-        // 6️⃣ Gọi service đăng ký (service sẽ hash password)
+        //  Gọi service đăng ký (service sẽ hash password)
         Map<String, String> errorsMap = userService.register(user);
         
-        // 7️⃣ Kiểm tra lỗi từ service (nếu có)
+        //  Kiểm tra lỗi từ service (nếu có)
         if (!errorsMap.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("errors", errorsMap));
         }
 
-        // 8️⃣ Thành công
+        //  Thành công
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Đăng ký thành công! Vui lòng đăng nhập.");
         response.put("user", Map.of(

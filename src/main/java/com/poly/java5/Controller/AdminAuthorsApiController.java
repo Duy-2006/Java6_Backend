@@ -1,15 +1,23 @@
 package com.poly.java5.Controller;
 
 
+import com.poly.java5.DTO.AuthorDTO;
 import com.poly.java5.Entity.Author;
 import com.poly.java5.Entity.Category;
 import com.poly.java5.Service.AuthorService;
 import com.poly.java5.Service.CategoryService;
+
+import jakarta.validation.Valid;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 // ─────────────────────────────────────────────────────────────
 //  AUTHORS  /api/admin/authors
@@ -19,90 +27,60 @@ import java.util.Map;
 @CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 class AdminAuthorsApiController {
 
-    @Autowired private AuthorService authorService;
+	@Autowired
+    private AuthorService authorService;
 
-    @GetMapping
-    public ResponseEntity<?> getAll() {
-        return ResponseEntity.ok(authorService.findAll());
-    }
+    // GET ALL - trả về DTO
+	@GetMapping
+	public ResponseEntity<List<AuthorDTO>> getAll() {
+	    List<AuthorDTO> dtos = authorService.findAllWithBookCount(); // thay đổi ở đây
+	    return ResponseEntity.ok(dtos);
+	}
+    // GET ONE - trả về DTO
+	@GetMapping("/{id}")
+	public ResponseEntity<AuthorDTO> getOne(@PathVariable Long id) {
+	    AuthorDTO dto = authorService.findByIdWithBookCount(id);
+	    if (dto == null) return ResponseEntity.notFound().build();
+	    return ResponseEntity.ok(dto);
+	}
 
-    @GetMapping("/{id}")
-    public ResponseEntity<?> getOne(@PathVariable Long id) {
-        Author a = authorService.findById(id);
-        if (a == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(a);
-    }
-
+    // CREATE - nhận DTO, trả về DTO
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody Map<String, String> body) {
-        Author a = new Author();
-        a.setName(body.get("name"));
-        a.setEmail(body.getOrDefault("email", null));
-        authorService.save(a);
-        return ResponseEntity.ok(Map.of("message", "Thêm tác giả thành công"));
+public ResponseEntity<?> create(@Valid @RequestBody AuthorDTO dto, BindingResult result) {
+    if (result.hasErrors()) {
+        return ResponseEntity.badRequest().body(result.getAllErrors());
     }
+    Author author = new Author();
+    author.setName(dto.getName());
+    author.setEmail(dto.getEmail());
+    Author saved = authorService.save(author);
+    // Trả về DTO với bookCount = 0
+    return ResponseEntity.ok(new AuthorDTO(saved.getId(), saved.getName(), saved.getEmail(), 0L));
+}
 
+    // UPDATE - nhận DTO, trả về DTO
     @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable Long id,
-                                    @RequestBody Map<String, String> body) {
-        Author a = authorService.findById(id);
-        if (a == null) return ResponseEntity.notFound().build();
-        if (body.containsKey("name"))  a.setName(body.get("name"));
-        if (body.containsKey("email")) a.setEmail(body.get("email"));
-        authorService.save(a);
-        return ResponseEntity.ok(Map.of("message", "Cập nhật thành công"));
+    public ResponseEntity<?> update(@PathVariable Long id, @Valid @RequestBody AuthorDTO dto, BindingResult result) {
+        if (result.hasErrors()) {
+            return ResponseEntity.badRequest().body(result.getAllErrors());
+        }
+        Author author = authorService.findById(id);
+        if (author == null) return ResponseEntity.notFound().build();
+        author.setName(dto.getName());
+        author.setEmail(dto.getEmail());
+        Author updated = authorService.save(author);
+        
+        // Lấy lại bookCount hiện tại (có thể tính lại hoặc lấy từ DTO cũ)
+        Long currentBookCount = authorService.getBookCountByAuthorId(id); // cần viết method này
+        return ResponseEntity.ok(new AuthorDTO(updated.getId(), updated.getName(), updated.getEmail(), currentBookCount));
     }
 
+    // DELETE - giữ nguyên
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id) {
         authorService.deleteById(id);
-        return ResponseEntity.ok(Map.of("message", "Đã xóa tác giả"));
+        return ResponseEntity.ok().body("Xóa thành công");
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-//  CATEGORIES  /api/admin/categories
-// ─────────────────────────────────────────────────────────────
-@RestController
-@RequestMapping("/api/admin/categories")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
-class AdminCategoriesApiController {
 
-    @Autowired private CategoryService categoryService;
-
-    @GetMapping
-    public ResponseEntity<?> getAll() {
-        return ResponseEntity.ok(categoryService.findAll());
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<?> getOne(@PathVariable Integer id) {
-        Category c = categoryService.findById(id);
-        if (c == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(c);
-    }
-
-    @PostMapping
-    public ResponseEntity<?> create(@RequestBody Map<String, String> body) {
-        Category c = new Category();
-        c.setName(body.get("name"));
-        categoryService.save(c);
-        return ResponseEntity.ok(Map.of("message", "Thêm thể loại thành công"));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable Integer id,
-                                    @RequestBody Map<String, String> body) {
-        Category c = categoryService.findById(id);
-        if (c == null) return ResponseEntity.notFound().build();
-        c.setName(body.get("name"));
-        categoryService.save(c);
-        return ResponseEntity.ok(Map.of("message", "Cập nhật thành công"));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable Integer id) {
-        categoryService.deleteById(id);
-        return ResponseEntity.ok(Map.of("message", "Đã xóa thể loại"));
-    }
-}

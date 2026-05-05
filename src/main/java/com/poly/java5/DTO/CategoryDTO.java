@@ -1,5 +1,7 @@
 package com.poly.java5.DTO;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,4 +11,5 @@ import lombok.NoArgsConstructor;
 public class CategoryDTO {
 	private Integer id;
 	private String name;
+	 
 }

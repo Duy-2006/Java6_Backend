@@ -64,6 +64,10 @@ public class Order {
 	@JsonIgnore
 	@EqualsAndHashCode.Exclude
 	private Set<OrderDetail> orderDetails;
+	
+	// Trong Order.java, thêm field:
+	@Column(name = "transaction_no", length = 100)
+	private String transactionNo; // Mã giao dịch từ VNPay
 
 	@PrePersist
 	protected void onCreate() {
@@ -81,5 +85,9 @@ public class Order {
 		return orderDetails == null ? BigDecimal.ZERO
 				: orderDetails.stream().map(OrderDetail::calculateSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
+
+	
+
+	
 
 }

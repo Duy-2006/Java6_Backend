@@ -11,4 +11,5 @@ public class CategoryDetailDTO {
 	private Integer id;
     private String name;
     private List<BookDTO> books;
+    private Long bookCount;  // thêm trường này
 }

@@ -9,20 +9,16 @@ import org.springframework.security.core.Authentication;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
-import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
-import org.springframework.security.web.savedrequest.DefaultSavedRequest;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -37,7 +33,6 @@ import java.io.IOException;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
 @Configuration
 public class SecurityConfig {
@@ -50,60 +45,53 @@ public class SecurityConfig {
 	@Autowired
 	private UserService userService;
 
-	private static final int TOKEN_EXPIRY_SECONDS = 86400; // 24 hours
-	
-//	@Bean
-//	public SessionAuthenticationStrategy sessionAuthenticationStrategy() {
-//		return new NullAuthenticatedSessionStrategy(); // Không tạo session
-//	}
+	private static final int TOKEN_EXPIRY_SECONDS = 86400;
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		http
-			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-			.csrf(csrf -> csrf.disable())
-			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.authorizeHttpRequests(auth -> auth
-				.requestMatchers(
-					"/api/auth/forgot-password",
-					"/api/auth/verify-otp",
-					"/api/auth/login",
-					"/api/auth/register"
-				).permitAll()
-			
-				.requestMatchers("/api/categories/**", "/api/books/**", "/uploads/**")
-				.permitAll()
-				
-				.requestMatchers("/oauth2/**", "/login/oauth2/**")
-				.permitAll()
-				
-				 .requestMatchers("/api/payment/**", "/api/checkout/**")
-				 .permitAll()
-				 
-				.anyRequest()
-				.authenticated()
-			)
-			.oauth2Login(oauth -> oauth
-				.successHandler(this::oauth2SuccessHandler)
-				.failureHandler(this::oauth2FailureHandler)
-			)
-			.logout(logout -> logout.logoutUrl("/api/auth/logout")
-				.logoutSuccessHandler((request, response, authentication) -> {
-					response.setStatus(200);
-					response.setContentType("application/json");
-					response.getWriter().write("{\"message\": \"Logout successful\"}");
-				})
-			)
-			.addFilterBefore(authFilter, UsernamePasswordAuthenticationFilter.class);
+		http.cors(cors -> cors.configurationSource(corsConfigurationSource())).csrf(csrf -> csrf.disable())
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.authorizeHttpRequests(auth -> auth
+						.requestMatchers("/api/auth/forgot-password", "/api/auth/verify-otp", "/api/auth/login",
+								"/api/auth/register")
+						.permitAll()
+						.requestMatchers("/api/categories/**", "/api/books/**", "/uploads/**", "/api/admin/authors/**",
+								"/api/admin/books/**", "/api/admin/orders**")
+						.permitAll()
+						.requestMatchers("/api/admin/customers/**").permitAll()
+						.requestMatchers("/api/search").permitAll()
+						.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll() // Cho phép OAuth2 endpoints
+						.requestMatchers("/api/payment/vnpay-return", "/api/payment/ipn").permitAll()
+						.requestMatchers("/api/orders/**").authenticated().anyRequest().authenticated())
+				// Giữ OAuth2 nhưng chỉ cho phép ở endpoints riêng
+				.oauth2Login(oauth -> oauth.successHandler(this::oauth2SuccessHandler)
+						.failureHandler(this::oauth2FailureHandler))
+				// Xử lý lỗi authentication cho API calls
+				.exceptionHandling(
+						exceptions -> exceptions.authenticationEntryPoint((request, response, authException) -> {
+							// Chỉ trả về JSON cho API calls, không redirect
+							String path = request.getRequestURI();
+							if (path.startsWith("/api/")) {
+								response.setContentType("application/json");
+								response.setStatus(HttpStatus.UNAUTHORIZED.value());
+								Map<String, String> error = new HashMap<>();
+								error.put("error", "Unauthorized");
+								error.put("message", "Token invalid or expired");
+								response.getWriter().write(new ObjectMapper().writeValueAsString(error));
+							} else {
+								response.sendRedirect("/login");
+							}
+						}))
+				.addFilterBefore(authFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
 	}
-	
+
 	@Bean
 	public PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();
 	}
-	
+
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
@@ -112,7 +100,7 @@ public class SecurityConfig {
 		config.setAllowedHeaders(List.of("*"));
 		config.setAllowCredentials(true);
 		config.setExposedHeaders(List.of("Authorization"));
-		
+
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 		source.registerCorsConfiguration("/**", config);
 		return source;
@@ -152,23 +140,23 @@ public class SecurityConfig {
 			user.setCreatedDate(LocalDateTime.now());
 			user.setPassword("");
 			userService.save(user);
-			System.out.println(" Created new user with ID: " + user.getId());
+			System.out.println("Created new user with ID: " + user.getId());
 		} else {
-			System.out.println(" Existing user found with ID: " + user.getId());
+			System.out.println("Existing user found with ID: " + user.getId());
 			if (user.getName() == null || !user.getName().equals(name)) {
 				user.setName(name);
 				userService.save(user);
-				System.out.println(" Updated user name");
+				System.out.println("Updated user name");
 			}
 		}
 
 		String jwtToken = jwtService.create(user, TOKEN_EXPIRY_SECONDS);
 		System.out.println("Generated JWT token: " + jwtToken);
 
-		//  Xóa session 
 		request.getSession().invalidate();
 
 		Map<String, Object> userData = new HashMap<>();
+		userData.put("id", user.getId());
 		userData.put("email", user.getEmail());
 		userData.put("fullName", user.getName());
 		userData.put("role", user.getRole().toString());
@@ -188,24 +176,4 @@ public class SecurityConfig {
 		System.err.println("Google login failed: " + exception.getMessage());
 		response.sendRedirect("http://localhost:3000/user/callback?error=google_auth_failed");
 	}
-
-//	@Bean
-//	public CorsConfigurationSource corsConfigurationSource() {
-//	    CorsConfiguration config = new CorsConfiguration();
-//	    //  SAI: config.setAllowedOrigins(List.of("*"));
-//	    // ĐÚNG: Dùng allowedOriginPatterns hoặc list cụ thể
-//	    config.setAllowedOriginPatterns(List.of("http://localhost:3000"));  // Dùng Pattern
-//	    // Hoặc:
-//	    // config.setAllowedOrigins(List.of("http://localhost:3000"));
-//	    
-//	    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-//	    config.setAllowedHeaders(List.of("*"));
-//	    config.setAllowCredentials(true);
-//	    config.setExposedHeaders(List.of("Authorization"));
-//	    
-//	    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-//	    source.registerCorsConfiguration("/**", config);
-//	    return source;
-//	}
-
 }

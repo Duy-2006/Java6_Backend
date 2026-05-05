@@ -179,6 +179,7 @@ public class CartService {
 		for (CartDetail cd : details) {
 			Map<String, Object> m = new HashMap<>();
 			m.put("cartDetailId", cd.getId());
+			m.put("bookId", cd.getBook().getId());
 			m.put("title", cd.getBook().getTitle());
 			m.put("author", cd.getBook().getAuthor());
 			m.put("imageUrl", cd.getBook().getImageUrl());
@@ -254,6 +255,7 @@ public class CartService {
 
 		for (CartDetail cd : details) {
 			Map<String, Object> m = new HashMap<>();
+			m.put("bookId", cd.getBook().getId());   
 			m.put("title", cd.getBook().getTitle());
 			m.put("imageUrl", cd.getBook().getImageUrl());
 			m.put("price", cd.getPrice());

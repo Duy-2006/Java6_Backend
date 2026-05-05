@@ -2,8 +2,7 @@ package com.poly.java5.Controller;
 
 import java.util.List;
 
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,14 +10,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.poly.java5.DTO.BookDTO;
-import com.poly.java5.Entity.Book;
 import com.poly.java5.Service.BookService;
 
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/search")
-@CrossOrigin("*")
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 @RequiredArgsConstructor
 public class SearchApiCotroller {
 

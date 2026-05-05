@@ -8,7 +8,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Data
 public class OrderDetailDTO {
-	 private String bookTitle;
-	    private Integer quantity;
-	    private BigDecimal price;
+	private Integer id;
+    private Integer bookId;
+    private String bookTitle;
+    private Integer quantity;
+    private BigDecimal price;
+    private String bookImageUrl;
 }

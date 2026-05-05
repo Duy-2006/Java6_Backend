@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.poly.java5.Bean.LoginBean;
-import com.poly.java5.Config.JwtUtil;
 import com.poly.java5.DTO.UserDTO;
 import com.poly.java5.DTO.UserLoginDTO;
 import com.poly.java5.Entity.User;
@@ -35,7 +34,7 @@ public class LoginController {
 	 @Autowired
 	    private JWTService jwtService;  // Inject JWTService
 
-	// ===== LOGIN =====
+	//  LOGIN 
 	 @PostMapping("/login")
 	    public ResponseEntity<?> login(@RequestBody LoginBean loginBean) {
 	        User user = userService
@@ -52,6 +51,7 @@ public class LoginController {
 	        System.out.println("Token: " + token);
 	        
 	        UserDTO userRes = new UserDTO(
+	        		user.getId(),
 	            user.getName(),
 	            user.getRole().name()
 	        );
@@ -80,7 +80,17 @@ public class LoginController {
 	        return ResponseEntity.status(404).body(Map.of("message", "User không tồn tại"));
 	    }
 	    
-	    return ResponseEntity.ok(new UserDTO(user.getName(), user.getRole().name()));
+	    //  Trả về đầy đủ thông tin kèm userId
+        Map<String, Object> response = Map.of(
+            "id", user.getId(),
+            "name", user.getName(),
+            "username", user.getUsername(),
+            "email", user.getEmail(),
+            "role", user.getRole().name()
+        );
+
+        return ResponseEntity.ok(response);
+    
 	}
 //	@GetMapping("/me")
 //public ResponseEntity<?> getCurrentUser(HttpServletRequest request) {

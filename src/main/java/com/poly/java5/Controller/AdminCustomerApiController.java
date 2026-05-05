@@ -1,14 +1,20 @@
 package com.poly.java5.Controller;
 
+import com.poly.java5.DTO.CustomerDTO;
+import com.poly.java5.DTO.CustomerHistoryDTO;
+import com.poly.java5.DTO.OrderDTO;
+import com.poly.java5.DTO.ToggleStatusResponseDTO;
 import com.poly.java5.Entity.User;
 import com.poly.java5.Entity.UserRole;
 import com.poly.java5.Service.UserService;
 import com.poly.java5.Service.OrderService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/customers")
@@ -21,18 +27,15 @@ public class AdminCustomerApiController {
     @Autowired
     private OrderService orderService;
 
-    // GET /api/admin/customers - Danh sách tất cả khách hàng
     @GetMapping
-    public ResponseEntity<?> getAllCustomers() {
+    public ResponseEntity<List<CustomerDTO>> getAllCustomers() {
         List<User> users = userService.findByRole(UserRole.USER);
-
-        List<Map<String, Object>> result = new ArrayList<>();
+        List<CustomerDTO> result = new ArrayList<>();
 
         for (User u : users) {
             Double spending = orderService.sumSpendingByUsername(u.getUsername());
             if (spending == null) spending = 0.0;
 
-            // Phân loại khách hàng
             String type;
             if (spending >= 5_000_000) {
                 type = "VIP (Thân thiết)";
@@ -42,59 +45,50 @@ public class AdminCustomerApiController {
                 type = "Khách mới";
             }
 
-            Map<String, Object> item = new HashMap<>();
-            item.put("username", u.getUsername());
-            item.put("fullName", u.getName());
-            item.put("email", u.getEmail());
-            item.put("phone", u.getPhone());
-            item.put("active", u.getActive());           // Sửa: dùng getActive() thay vì isActive()
-            item.put("totalSpending", spending);
-            item.put("customerType", type);
-            result.add(item);
+            result.add(new CustomerDTO(
+                u.getUsername(),
+                u.getName(),
+                u.getEmail(),
+                u.getPhone(),
+                u.getActive(),
+                spending,
+                type
+            ));
         }
-
         return ResponseEntity.ok(result);
     }
 
-    // GET lịch sử mua hàng của một khách hàng
-    @GetMapping("/history/{username}")
-    public ResponseEntity<?> getHistory(@PathVariable String username) {
-        User user = userService.findByUsername(username);
-        if (user == null) {
-            return ResponseEntity.notFound().build();
-        }
+   @GetMapping("/history/{username}")
+public ResponseEntity<CustomerHistoryDTO> getHistory(@PathVariable String username) {
+    User user = userService.findByUsername(username);
+    if (user == null) return ResponseEntity.notFound().build();
 
-        Double spending = orderService.sumSpendingByUsername(username);
-        List<?> orders = orderService.findByUsername(username);
+    Double spending = orderService.sumSpendingByUsername(username);
+	List<OrderDTO> orders = orderService.findByUsername(username); // ✅ giờ là DTO
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("username", user.getUsername());
-        result.put("fullName", user.getName());
-        result.put("email", user.getEmail());
-        result.put("phone", user.getPhone());
-        result.put("active", user.getActive());
-        result.put("totalSpending", spending != null ? spending : 0.0);
-        result.put("orders", orders);
+    return ResponseEntity.ok(new CustomerHistoryDTO(
+        user.getUsername(),
+        user.getName(),
+        user.getEmail(),
+        user.getPhone(),
+        user.getActive(),
+        spending != null ? spending : 0.0,
+        orders
+    ));
+}
 
-        return ResponseEntity.ok(result);
-    }
-
-    // PUT Toggle khóa / mở khóa tài khoản
     @PutMapping("/toggle/{username}")
-    public ResponseEntity<?> toggleStatus(@PathVariable String username) {
+    public ResponseEntity<ToggleStatusResponseDTO> toggleStatus(@PathVariable String username) {
         User user = userService.findByUsername(username);
         if (user == null) {
             return ResponseEntity.notFound().build();
         }
 
-        boolean newStatus = !user.getActive();   // Lấy ngược trạng thái hiện tại
+        boolean newStatus = !user.getActive();
         user.setActive(newStatus);
         userService.save(user);
 
-        return ResponseEntity.ok(Map.of(
-            "message", newStatus ? "Đã mở khóa tài khoản" : "Đã khóa tài khoản",
-            "active", newStatus,
-            "username", username
-        ));
+        String message = newStatus ? "Đã mở khóa tài khoản" : "Đã khóa tài khoản";
+        return ResponseEntity.ok(new ToggleStatusResponseDTO(message, newStatus, username));
     }
 }

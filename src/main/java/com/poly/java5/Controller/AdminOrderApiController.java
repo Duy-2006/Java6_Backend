@@ -1,41 +1,77 @@
 package com.poly.java5.Controller;
 
+import com.poly.java5.DTO.OrderDTO;
+import com.poly.java5.DTO.OrderDetailDTO;
 import com.poly.java5.Entity.Order;
 import com.poly.java5.Service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/orders")
 @CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class AdminOrderApiController {
 
-    @Autowired private OrderService orderService;
+	 @Autowired private OrderService orderService;
 
-    // GET /api/admin/orders
-    @GetMapping
-    public ResponseEntity<?> getAllOrders() {
-        return ResponseEntity.ok(orderService.findAll());
-    }
+	 private OrderDTO convertToDTO(Order order) {
+		    OrderDTO dto = new OrderDTO();
+		    dto.setId(order.getId());
+		    dto.setOrderCode(order.getOrderCode());
+		    dto.setCustomerName(order.getCustomerName());
+		    dto.setCustomerPhone(order.getCustomerPhone());
+		    dto.setCustomerAddress(order.getCustomerAddress());   
+		    dto.setTotalAmount(order.getTotalAmount());
+		    dto.setStatus(order.getStatus());
+		    dto.setOrderDate(order.getOrderDate());
+		    dto.setPaymentMethod(order.getPaymentMethod());       
+		    dto.setPaymentStatus(order.getPaymentStatus());       
 
-    // GET /api/admin/orders/{id}
-    @GetMapping("/{id}")
-    public ResponseEntity<?> getOrder(@PathVariable Integer id) {
-        // ✅ dùng Integer vì OrderRepository extends JpaRepository<Order, Integer>
-        Order order = orderService.findById(Integer.valueOf(id));
-        if (order == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(order);
-    }
+		    if (order.getOrderDetails() != null) {
+		        List<OrderDetailDTO> detailDTOs = order.getOrderDetails().stream()
+		            .map(detail -> {
+		                OrderDetailDTO d = new OrderDetailDTO();
+		                d.setId(detail.getId());
+		                d.setBookId(detail.getBook().getId());
+		                d.setBookTitle(detail.getBook().getTitle());
+		                d.setQuantity(detail.getQuantity());
+		                d.setPrice(detail.getPrice());
+		                return d;
+		            }).collect(Collectors.toList());
+		        dto.setOrderDetails(detailDTOs);
+		    }
+		    return dto;
+		}
 
-    // PUT /api/admin/orders/{id}/status
-    @PutMapping("/{id}/status")
-    public ResponseEntity<?> updateStatus(@PathVariable Integer id,
-                                          @RequestBody Map<String, String> body) {
-        String status = body.get("status");
-        orderService.updateStatus(Integer.valueOf(id), status);
-        return ResponseEntity.ok(Map.of("message", "Cập nhật trạng thái thành công"));
-    }
+	    @GetMapping
+	    public ResponseEntity<?> getAllOrders() {
+	        List<Order> orders = orderService.findAll();
+	        List<OrderDTO> dtos = orders.stream()
+	                .map(this::convertToDTO)
+	                .collect(Collectors.toList());
+	        return ResponseEntity.ok(dtos);
+	    }
+
+	    @GetMapping("/{id}")
+	    public ResponseEntity<?> getOrder(@PathVariable Integer id) {
+	        Order order = orderService.findById(id);
+	        if (order == null) return ResponseEntity.notFound().build();
+	        return ResponseEntity.ok(convertToDTO(order));
+	    }
+
+	    @PutMapping("/{id}/status")
+	    public ResponseEntity<?> updateStatus(@PathVariable Integer id,
+	                                          @RequestBody Map<String, String> body) {
+	        String status = body.get("status");
+	        orderService.updateStatus(id, status);
+	        System.out.println("STATUS = " + status);
+	        return ResponseEntity.ok(Map.of("message", "Cập nhật trạng thái thành công"));
+	        
+	    }
+	    
 }

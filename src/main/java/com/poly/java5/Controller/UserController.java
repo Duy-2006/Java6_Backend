@@ -18,7 +18,7 @@ public class UserController {
 
     private final UserService userService;
 
-    // 📝 ĐĂNG KÝ
+    //  ĐĂNG KÝ
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> register(@RequestBody User user) {
         Map<String, Object> response = new HashMap<>();
@@ -43,7 +43,7 @@ public class UserController {
         }
     }
 
-    // 🔐 ĐĂNG NHẬP
+    //  ĐĂNG NHẬP
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(
             @RequestParam String usernameOrEmail,

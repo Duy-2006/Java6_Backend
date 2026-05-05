@@ -1,17 +1,22 @@
-package com.poly.java5.Controller;
+	package com.poly.java5.Controller;
 
+import com.poly.java5.DTO.BookDTO;
 import com.poly.java5.Entity.Book;
 import com.poly.java5.Service.BookService;
+
+import jakarta.validation.Valid;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.math.BigDecimal;
 import java.nio.file.*;
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/books")
@@ -23,116 +28,190 @@ public class AdminBooksApiController {
 
     private static final String UPLOAD_DIR = "src/main/resources/static/uploads/books/";
 
-    // GET /api/admin/books
+    // ================= GET ALL =================
     @GetMapping
-    public ResponseEntity<?> getAll() {
-        return ResponseEntity.ok(bookService.getAllBooks());
+    public ResponseEntity<List<BookDTO>> getAll() {
+        List<BookDTO> dtos = bookService.getAllBooks()
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
     }
 
-    // GET /api/admin/books/{id}
+    // ================= GET ONE =================
     @GetMapping("/{id}")
-    public ResponseEntity<?> getOne(@PathVariable Long id) {   // Giữ Long cũng được nếu Service hỗ trợ
+    public ResponseEntity<?> getOne(@PathVariable Integer id) {
         Book book = bookService.findById(id);
-        if (book == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(book);
+
+        if (book == null) {
+            return ResponseEntity.status(404).body("Không tìm thấy sách");
+        }
+
+        return ResponseEntity.ok(convertToDTO(book));
     }
 
-    // POST tạo mới sách
+    // ================= CREATE =================
     @PostMapping(consumes = "multipart/form-data")
-    public ResponseEntity<?> create(
-            @RequestParam String title,
-            @RequestParam(required = false) String isbn,
-            @RequestParam(required = false) Long authorId,
-            @RequestParam(required = false) String publisher,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam double price,           // nhận double từ form
-            @RequestParam int quantity,
-            @RequestParam boolean active,
-            @RequestParam(required = false) String description,
-            @RequestParam(required = false) MultipartFile imageFile) throws Exception {
+    public ResponseEntity<?> create(@Valid @ModelAttribute BookDTO dto,
+                                    BindingResult result) throws Exception {
 
-        Book book = new Book();
-        book.setTitle(title);
-        book.setIsbn(isbn);
-        book.setPublisher(publisher);
-        book.setPrice(BigDecimal.valueOf(price));   // ← SỬA Ở ĐÂY
-        book.setQuantity(quantity);
-        book.setActive(active);
-        book.setDescription(description);
-
-        if (authorId != null) {
-            book.setAuthor(bookService.findAuthorById(authorId));
-        }
-        if (categoryId != null) {
-            book.setCategory(bookService.findCategoryById(categoryId));
+        if (result.hasErrors()) {
+            return ResponseEntity.badRequest().body(result.getAllErrors());
         }
 
-        // Upload ảnh
-        if (imageFile != null && !imageFile.isEmpty()) {
-            String fileName = UUID.randomUUID() + "_" + imageFile.getOriginalFilename();
-            Files.createDirectories(Paths.get(UPLOAD_DIR)); // đảm bảo thư mục tồn tại
-            Files.copy(imageFile.getInputStream(),
-                    Paths.get(UPLOAD_DIR + fileName),
-                    StandardCopyOption.REPLACE_EXISTING);
-            book.setImageUrl(fileName);
+        Book book = convertToEntity(dto);
+
+        // upload ảnh
+        if (dto.getImageFile() != null && !dto.getImageFile().isEmpty()) {
+            book.setImageUrl(saveImage(dto.getImageFile()));
         }
 
         bookService.save(book);
-        return ResponseEntity.ok(Map.of("message", "Thêm sách thành công", "bookId", book.getId()));
+
+        return ResponseEntity.ok(convertToDTO(book));
     }
 
-    // PUT cập nhật sách
+    // ================= UPDATE =================
     @PutMapping(value = "/{id}", consumes = "multipart/form-data")
-    public ResponseEntity<?> update(
-            @PathVariable Long id,
-            @RequestParam String title,
-            @RequestParam(required = false) String isbn,
-            @RequestParam(required = false) Long authorId,
-            @RequestParam(required = false) String publisher,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam double price,
-            @RequestParam int quantity,
-            @RequestParam boolean active,
-            @RequestParam(required = false) String description,
-            @RequestParam(required = false) MultipartFile imageFile) throws Exception {
+    public ResponseEntity<?> update(@PathVariable Integer id,
+                                    @Valid @ModelAttribute BookDTO dto,
+                                    BindingResult result) throws Exception {
 
+        if (result.hasErrors()) {
+            return ResponseEntity.badRequest().body(result.getAllErrors());
+        }
+
+        Book existing = bookService.findById(id);
+
+        if (existing == null) {
+            return ResponseEntity.status(404).body("Không tìm thấy sách");
+        }
+
+        // cập nhật dữ liệu
+        existing.setTitle(dto.getTitle());
+        existing.setIsbn(dto.getIsbn());
+        existing.setPublisher(dto.getPublisher());
+        existing.setPrice(dto.getPrice());
+        existing.setQuantity(dto.getQuantity());
+        existing.setActive(dto.getActive());
+        existing.setDescription(dto.getDescription());
+
+        // AUTHOR (Long)
+        if (dto.getAuthorId() != null) {
+            existing.setAuthor(bookService.findAuthorById(dto.getAuthorId()));
+        }
+
+        // CATEGORY (Integer)
+        if (dto.getCategoryId() != null) {
+            existing.setCategory(bookService.findCategoryById(dto.getCategoryId()));
+        }
+
+        // upload ảnh mới
+        if (dto.getImageFile() != null && !dto.getImageFile().isEmpty()) {
+            existing.setImageUrl(saveImage(dto.getImageFile()));
+        }
+
+        bookService.save(existing);
+
+        return ResponseEntity.ok(convertToDTO(existing));
+    }
+
+    // ================= DELETE =================
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(@PathVariable Integer id) {
         Book book = bookService.findById(id);
         if (book == null) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(404).body("Không tìm thấy sách");
         }
-
-        book.setTitle(title);
-        book.setIsbn(isbn);
-        book.setPublisher(publisher);
-        book.setPrice(BigDecimal.valueOf(price));   // ← SỬA Ở ĐÂY
-        book.setQuantity(quantity);
-        book.setActive(active);
-        book.setDescription(description);
-
-        if (authorId != null) {
-            book.setAuthor(bookService.findAuthorById(authorId));
-        }
-        if (categoryId != null) {
-            book.setCategory(bookService.findCategoryById(categoryId));
-        }
-
-        if (imageFile != null && !imageFile.isEmpty()) {
-            String fileName = UUID.randomUUID() + "_" + imageFile.getOriginalFilename();
-            Files.createDirectories(Paths.get(UPLOAD_DIR));
-            Files.copy(imageFile.getInputStream(),
-                    Paths.get(UPLOAD_DIR + fileName),
-                    StandardCopyOption.REPLACE_EXISTING);
-            book.setImageUrl(fileName);
-        }
-
+        // Xóa mềm: set active = false
+        book.setActive(false);
         bookService.save(book);
-        return ResponseEntity.ok(Map.of("message", "Cập nhật sách thành công"));
+        return ResponseEntity.ok("Đã ẩn sách thành công");
+    }
+    
+    @PutMapping("/{id}/restore")
+    public ResponseEntity<?> restore(@PathVariable Integer id) {
+        Book book = bookService.findById(id);
+        if (book == null) {
+            return ResponseEntity.status(404).body("Không tìm thấy sách");
+        }
+        book.setActive(true);
+        bookService.save(book);
+        return ResponseEntity.ok("Đã bật sách thành công");
     }
 
-    // DELETE sách
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable Integer id) {   // ← SỬA: đổi thành Integer vì Book dùng Integer id
-        bookService.deleteById(id);
-        return ResponseEntity.ok(Map.of("message", "Đã xóa sách thành công"));
+    // ================= CONVERT ENTITY -> DTO =================
+    private BookDTO convertToDTO(Book book) {
+        BookDTO dto = new BookDTO();
+
+        dto.setId(book.getId()); // Integer
+        dto.setTitle(book.getTitle());
+        dto.setIsbn(book.getIsbn());
+        dto.setPublisher(book.getPublisher());
+        dto.setPrice(book.getPrice());
+        dto.setQuantity(book.getQuantity());
+        dto.setActive(book.getActive());
+        dto.setDescription(book.getDescription());
+        dto.setImageUrl(book.getImageUrl());
+
+        // Author (Long)
+        if (book.getAuthor() != null) {
+            dto.setAuthorId(book.getAuthor().getId());
+            dto.setAuthorName(book.getAuthor().getName());
+        }
+
+        // Category (Integer)
+        if (book.getCategory() != null) {
+            dto.setCategoryId(book.getCategory().getId());
+            dto.setCategoryName(book.getCategory().getName());
+        }
+
+        return dto;
+    }
+
+    // ================= CONVERT DTO -> ENTITY =================
+    private Book convertToEntity(BookDTO dto) {
+        Book book = new Book();
+
+        book.setTitle(dto.getTitle());
+        book.setIsbn(dto.getIsbn());
+        book.setPublisher(dto.getPublisher());
+        book.setPrice(dto.getPrice());
+        book.setQuantity(dto.getQuantity());
+        book.setActive(dto.getActive());
+        book.setDescription(dto.getDescription());
+
+        // Author (Long)
+        if (dto.getAuthorId() != null) {
+            book.setAuthor(bookService.findAuthorById(dto.getAuthorId()));
+        }
+
+        // Category (Integer)
+        if (dto.getCategoryId() != null) {
+            book.setCategory(bookService.findCategoryById(dto.getCategoryId()));
+        }
+
+        // ID (Integer)
+        if (dto.getId() != null) {
+            book.setId(dto.getId());
+        }
+
+        return book;
+    }
+
+    // ================= SAVE IMAGE =================
+    private String saveImage(MultipartFile file) throws Exception {
+        String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+
+        Files.createDirectories(Paths.get(UPLOAD_DIR));
+
+        Files.copy(
+                file.getInputStream(),
+                Paths.get(UPLOAD_DIR + fileName),
+                StandardCopyOption.REPLACE_EXISTING
+        );
+
+        return  fileName;
     }
 }

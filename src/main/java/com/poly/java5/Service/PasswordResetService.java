@@ -55,7 +55,7 @@ public class PasswordResetService {
         user.setResetOtpExpiry(LocalDateTime.now().plusMinutes(5));
         userRepository.save(user);
         
-     // ✅ Thêm log ngay sau save
+     //  Thêm log ngay sau save
         User savedUser = userRepository.save(user);
         System.out.println("Saved OTP: " + savedUser.getResetOtp() + " for " + savedUser.getEmail());
         

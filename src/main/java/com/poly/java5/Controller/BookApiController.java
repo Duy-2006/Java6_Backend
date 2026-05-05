@@ -1,11 +1,9 @@
 package com.poly.java5.Controller;
-
-
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,19 +19,20 @@ import com.poly.java5.Entity.Book;
 import com.poly.java5.Repository.AuthorRepository;
 import com.poly.java5.Repository.BookRepository;
 import com.poly.java5.Repository.CategoryRepository;
+import org.springframework.data.domain.Pageable;
 
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/books")
-@CrossOrigin("*")
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 @RequiredArgsConstructor
 public class BookApiController {
 	 private final BookRepository bookRepo;
 	    private final CategoryRepository catRepo;
 	    private final AuthorRepository authorRepo;
 
-	    // ================= LIST =================
+	    // lấy danh sách sách 
 	    @GetMapping
 	    public List<BookDTO> getBooks() {
 	        return bookRepo.findByDeletedFalse().stream().map(b -> {
@@ -53,12 +52,12 @@ public class BookApiController {
 	        }).toList();
 	    }
 
-	    // ================= DETAIL =================
+	    // lấy chi tiết 1 sách 
 	    @GetMapping("/{id}")
 	    public BookDTO getBook(@PathVariable Integer id) {
 
 	        Book b = bookRepo.findById(id)
-	                .orElseThrow(() -> new RuntimeException("Book not found"));
+	                .orElseThrow(() -> new RuntimeException("sách không có "));
 
 	        BookDTO dto = new BookDTO();
 	        dto.setId(b.getId());
@@ -76,7 +75,7 @@ public class BookApiController {
 	        return dto;
 	    }
 
-	    // ================= FORM DATA =================
+	    // lấy dữ liệu từ  fom danh mục và tác giả 
 	    @GetMapping("/form-data")
 	    public Map<String, Object> getFormData() {
 	        return Map.of(
@@ -123,15 +122,18 @@ public class BookApiController {
 	    // ================= NEW =================
 	    @GetMapping("/new")
 	    public List<BookDTO> newBooks() {
-	        return bookRepo.findTop10ByOrderByCreatedDateDesc().stream().map(b -> {
-	            BookDTO dto = new BookDTO();
-	            dto.setId(b.getId());
-	            dto.setTitle(b.getTitle());
-	            dto.setPrice(b.getPrice());
-	            dto.setImageUrl(b.getImageUrl());
-	            return dto;
-	        }).toList();
+	        Pageable pageable = PageRequest.of(0, 10);
+	        return bookRepo.findTop10ActiveNewBooks(pageable).stream()
+	        		.map(b -> {
+	        	        BookDTO dto = new BookDTO();
+	        	        dto.setId(b.getId());
+	        	        dto.setTitle(b.getTitle());
+	        	        dto.setPrice(b.getPrice());
+	        	        dto.setQuantity(b.getQuantity());
+	        	        dto.setImageUrl(b.getImageUrl());
+	        	        dto.setCategoryName(b.getCategory() != null ? b.getCategory().getName() : null);
+	        	        dto.setAuthorName(b.getAuthor() != null ? b.getAuthor().getName() : null);
+	        	        return dto;
+	        	    }).toList();
 	    }
-	    
-	   
 }
