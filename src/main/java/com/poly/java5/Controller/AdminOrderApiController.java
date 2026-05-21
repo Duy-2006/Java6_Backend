@@ -30,7 +30,8 @@ public class AdminOrderApiController {
 		    dto.setStatus(order.getStatus());
 		    dto.setOrderDate(order.getOrderDate());
 		    dto.setPaymentMethod(order.getPaymentMethod());       
-		    dto.setPaymentStatus(order.getPaymentStatus());       
+		    dto.setPaymentStatus(order.getPaymentStatus());
+		    dto.setCancelReason(order.getCancelReason());
 
 		    if (order.getOrderDetails() != null) {
 		        List<OrderDetailDTO> detailDTOs = order.getOrderDetails().stream()
@@ -68,10 +69,14 @@ public class AdminOrderApiController {
 	    public ResponseEntity<?> updateStatus(@PathVariable Integer id,
 	                                          @RequestBody Map<String, String> body) {
 	        String status = body.get("status");
-	        orderService.updateStatus(id, status);
-	        System.out.println("STATUS = " + status);
-	        return ResponseEntity.ok(Map.of("message", "Cập nhật trạng thái thành công"));
-	        
+	        String cancelReason = body.get("cancelReason");   // Lấy lý do hủy (nếu có)
+
+	        try {
+	            orderService.updateStatus(id, status, cancelReason);
+	            return ResponseEntity.ok(Map.of("message", "Cập nhật trạng thái thành công"));
+	        } catch (RuntimeException e) {
+	            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+	        }
 	    }
 	    
 }

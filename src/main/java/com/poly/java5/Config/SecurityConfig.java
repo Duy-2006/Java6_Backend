@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -56,11 +57,12 @@ public class SecurityConfig {
 								"/api/auth/register")
 						.permitAll()
 						.requestMatchers("/api/categories/**", "/api/books/**", "/uploads/**", "/api/admin/authors/**",
-								"/api/admin/books/**", "/api/admin/orders**")
-						.permitAll()
-						.requestMatchers("/api/admin/customers/**").permitAll()
-						.requestMatchers("/api/search").permitAll()
-						.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll() // Cho phép OAuth2 endpoints
+								"/api/admin/books/**", "/api/admin/orders/**")
+
+						.permitAll().requestMatchers(HttpMethod.POST, "/api/books/*/reviews").authenticated()
+						.requestMatchers("/api/admin/customers/**").permitAll().requestMatchers("/api/search")
+						.permitAll().requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll() // Cho phép OAuth2
+						.requestMatchers("/api/vouchers/admin/**").permitAll()																			// endpoints
 						.requestMatchers("/api/payment/vnpay-return", "/api/payment/ipn").permitAll()
 						.requestMatchers("/api/orders/**").authenticated().anyRequest().authenticated())
 				// Giữ OAuth2 nhưng chỉ cho phép ở endpoints riêng

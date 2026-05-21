@@ -1,6 +1,8 @@
 // File: OrderDetailRepository.java
 package com.poly.java5.Repository;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
@@ -8,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import com.poly.java5.DTO.MonthlyRevenueDTO;
 import com.poly.java5.Entity.OrderDetail;
 
 public interface OrderDetailRepository extends JpaRepository<OrderDetail, Integer> {
@@ -22,6 +25,17 @@ public interface OrderDetailRepository extends JpaRepository<OrderDetail, Intege
 	           ORDER BY SUM(od.quantity) DESC
 	           """)
 	    List<Object[]> findBestSellerBooks();
+// doanh thu 
+	    @Query("""
+	    	       SELECT b.id, b.title, SUM(od.quantity)
+	    	       FROM OrderDetail od
+	    	       JOIN od.order o
+	    	       JOIN od.book b
+	    	       WHERE o.status = 'COMPLETED' AND o.orderDate BETWEEN :start AND :end
+	    	       GROUP BY b.id, b.title
+	    	       ORDER BY SUM(od.quantity) DESC
+	    	       """)
+	    	List<Object[]> findBestSellerBooksBetween(LocalDateTime start, LocalDateTime end);
 
 	
 

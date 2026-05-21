@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
@@ -32,6 +33,9 @@ public class User implements Serializable {
 
     @Column(length = 20)
     private String phone;
+
+    @Column(length = 255)
+    private String address;
 
     // --- QUAN TRỌNG NHẤT: BẮT BUỘC PHẢI CÓ DÒNG NÀY ĐỂ FIX LỖI QUYỀN HẠN ---
     @Enumerated(EnumType.STRING)
@@ -92,6 +96,10 @@ public class User implements Serializable {
         if (spent > 0) return "Tiềm năng";
         return "Khách mới";
     }
+
+	
+
+	
 
 	
 

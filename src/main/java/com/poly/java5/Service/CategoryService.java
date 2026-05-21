@@ -82,12 +82,15 @@ public class CategoryService {
 	        List<BookDTO> bookDTOs = category.getBooks().stream()
 	                .map(this::convertToBookDTO)
 	                .collect(Collectors.toList());
-	        return new CategoryDetailDTO(
-	                category.getId(),
-	                category.getName(),
-	                bookDTOs,     
-	                (long) bookDTOs.size()  
-	        );
+	        
+	        // Dùng constructor hoặc setter phù hợp
+	        CategoryDetailDTO dto = new CategoryDetailDTO();
+	        dto.setId(category.getId());
+	        dto.setName(category.getName());
+	        dto.setImageUrl(category.getImageUrl());   // <-- THÊM DÒNG NÀY
+	        dto.setBooks(bookDTOs);
+	        dto.setBookCount((long) bookDTOs.size());
+	        return dto;
 	    }
 
 	    private BookDTO convertToBookDTO(Book book) {

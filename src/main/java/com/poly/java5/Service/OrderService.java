@@ -19,6 +19,7 @@ import com.poly.java5.Entity.User;
 import com.poly.java5.Repository.OrderRepository;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 
@@ -33,33 +34,27 @@ public class OrderService {
 	private EntityManager em;
 
 	// Cho phép user hủy đơn hàng
-	public void cancelOrder(Integer orderId, Integer userId) {
-
-		Order order = em.find(Order.class, orderId, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-
-		if (order == null) {
-			throw new RuntimeException("Không tìm thấy đơn hàng");
-		}
-
-		if (!order.getUser().getId().equals(userId)) {
-			throw new RuntimeException("Không có quyền hủy đơn");
-		}
-
-		if (!order.isCancellable() || "PAID".equals(order.getPaymentStatus())) {
-			throw new RuntimeException("Đơn hàng không thể hủy");
-		}
-		// hoàng kho
-		for (OrderDetail od : order.getOrderDetails()) {
-			Book book = em.find(Book.class, od.getBook().getId(), jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-			// cộng lại sản phẩm vừa hủy vào kho
-			book.setQuantity(book.getQuantity() + od.getQuantity());
-		}
-
-		order.setStatus("CANCELLED");
-		// up lên data
-		em.merge(order);
-	}
-
+	// Cho phép user hủy đơn hàng (có lý do)
+public void cancelOrder(Integer orderId, Integer userId, String cancelReason) {
+    Order order = em.find(Order.class, orderId, LockModeType.PESSIMISTIC_WRITE);
+    if (order == null) {
+        throw new RuntimeException("Không tìm thấy đơn hàng");
+    }
+    if (!order.getUser().getId().equals(userId)) {
+        throw new RuntimeException("Không có quyền hủy đơn");
+    }
+    if (!order.isCancellable() || "PAID".equals(order.getPaymentStatus())) {
+        throw new RuntimeException("Đơn hàng không thể hủy");
+    }
+    // Hoàn lại số lượng sản phẩm vào kho
+    for (OrderDetail od : order.getOrderDetails()) {
+        Book book = em.find(Book.class, od.getBook().getId(), LockModeType.PESSIMISTIC_WRITE);
+        book.setQuantity(book.getQuantity() + od.getQuantity());
+    }
+    order.setStatus("CANCELLED");
+    order.setCancelReason(cancelReason);   // <-- LƯU LÝ DO
+    em.merge(order);
+}
 	// Tìm chi tiết đơn hàng theo mã đơn Nhưng chỉ cho user sở hữu đơn hàng đó
 	@Transactional(readOnly = true)
 	public Order findByCodeAndUser(String code, Integer userId) {
@@ -86,7 +81,7 @@ public class OrderService {
 
 	// cho admin xem toàn bộ đơn hàng
 	public List<Order> findAll() {
-		return orderRepository.findAll();
+	    return orderRepository.findAllByOrderByOrderDateDesc();
 	}
 
 	// Tìm đơn hàng theo ID
@@ -97,8 +92,9 @@ public class OrderService {
 
 	
 	// Cập nhật trạng thái đơn hàng (dành cho Admin)
-	@Transactional
-public void updateStatus(Integer id, String newStatus) {
+// Cập nhật trạng thái đơn hàng (dành cho Admin) - có hỗ trợ lý do hủy
+@Transactional
+public void updateStatus(Integer id, String newStatus, String cancelReason) {
     Order order = orderRepository.findById(id)
         .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng ID: " + id));
 
@@ -113,7 +109,7 @@ public void updateStatus(Integer id, String newStatus) {
     }
 
     // Định nghĩa luồng hợp lệ
-	List<String> forwardFlow = Arrays.asList("PENDING", "CONFIRMED", "SHIPPING", "COMPLETED");
+    List<String> forwardFlow = Arrays.asList("PENDING", "CONFIRMED", "SHIPPING", "COMPLETED");
     boolean isForwardStep = forwardFlow.indexOf(current) + 1 == forwardFlow.indexOf(target);
     boolean isCancel = target.equals("CANCELLED") && (current.equals("PENDING") || current.equals("CONFIRMED"));
 
@@ -123,6 +119,14 @@ public void updateStatus(Integer id, String newStatus) {
                 current, target,
                 current, getNextStatus(current))
         );
+    }
+
+    // Nếu hủy đơn, bắt buộc có lý do
+    if (target.equals("CANCELLED")) {
+        if (cancelReason == null || cancelReason.trim().isEmpty()) {
+            throw new RuntimeException("Vui lòng nhập lý do hủy đơn hàng");
+        }
+        order.setCancelReason(cancelReason);
     }
 
     order.setStatus(target);
@@ -187,6 +191,23 @@ private String getNextStatus(String current) {
 	public Order findByIdAndUser(Integer id, Integer userId) {
 		return orderRepository.findByIdAndUserId(id, userId)
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng ID: " + id + " cho user: " + userId));
+	}
+	// hàm user xác nhận giao hàng thành công 
+	@Transactional
+	public void confirmReceived(Integer orderId, Integer userId) {
+	    Order order = orderRepository.findById(orderId)
+	        .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+	    
+	    if (!order.getUser().getId().equals(userId)) {
+	        throw new RuntimeException("Bạn không có quyền thực hiện thao tác này");
+	    }
+	    
+	    if (!"SHIPPING".equals(order.getStatus())) {
+	        throw new RuntimeException("Chỉ có thể xác nhận nhận hàng khi đơn đang trong trạng thái giao hàng");
+	    }
+	    
+	    order.setStatus("COMPLETED");
+	    orderRepository.save(order);
 	}
 
 }

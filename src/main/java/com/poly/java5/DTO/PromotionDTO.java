@@ -32,6 +32,8 @@ public class PromotionDTO {
 	    private LocalDate endDate;
 
 	    private Boolean status = true;             // khớp với status trong entity
+	    
+	    private Integer usageLimit;                // giới hạn số lượng áp dụng
 
 	    private String applyType;                  // ALL | BOOK | CATEGORY
 

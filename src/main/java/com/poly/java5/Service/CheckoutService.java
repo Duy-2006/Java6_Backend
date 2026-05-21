@@ -99,7 +99,7 @@ public class CheckoutService {
 	// ================= 5. CHECKOUT MỚI – HỖ TRỢ GIÁ KHUYẾN MÃI =================
 	@Transactional
 	public Order checkout(Integer userId, String customerName, String phone, String address, 
-	                      String paymentMethod, List<Map<String, Object>> requestItems) {
+	                      String paymentMethod, List<Map<String, Object>> requestItems, BigDecimal discountAmount) {
 		log.info("========== START CHECKOUT (with discounted prices) ==========");
 		log.info("User ID: {}", userId);
 		log.info("Customer: {} - {} - {}", customerName, phone, address);
@@ -174,7 +174,13 @@ public class CheckoutService {
 				.ifPresent(em::remove);
 		}
 
-		// 5. Cập nhật tổng tiền đơn hàng
+		// 5. Cập nhật tổng tiền đơn hàng (trừ đi discountAmount)
+		if (discountAmount != null && discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+			total = total.subtract(discountAmount);
+			if (total.compareTo(BigDecimal.ZERO) < 0) {
+				total = BigDecimal.ZERO;
+			}
+		}
 		order.setTotalAmount(total);
 		cart.setUpdatedDate(LocalDateTime.now());
 

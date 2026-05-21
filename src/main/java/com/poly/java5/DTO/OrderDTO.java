@@ -19,6 +19,7 @@ public class OrderDTO {
 	    private String status;
 	    private LocalDateTime orderDate;
 	    private String paymentMethod;        
-	    private String paymentStatus;        
+	    private String paymentStatus;    
+	    private String cancelReason;
 	    private List<OrderDetailDTO> orderDetails;
 }

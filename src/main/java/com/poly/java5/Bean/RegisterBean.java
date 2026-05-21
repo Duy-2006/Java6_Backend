@@ -1,7 +1,5 @@
 package com.poly.java5.Bean;
 
-import org.hibernate.validator.constraints.Length;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

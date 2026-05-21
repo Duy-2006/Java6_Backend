@@ -42,6 +42,7 @@ public class AdminPromotionApiController {
 	        dto.setStartDate(p.getStartDate());
 	        dto.setEndDate(p.getEndDate());
 	        dto.setStatus(p.getStatus());
+	        dto.setUsageLimit(p.getUsageLimit());
 	        dto.setApplyType(p.getApplyType());
 	        dto.setComputedStatus(p.getComputedStatus()); // @Transient
 
@@ -84,6 +85,7 @@ public class AdminPromotionApiController {
 	        p.setStartDate(dto.getStartDate());
 	        p.setEndDate(dto.getEndDate());
 	        p.setStatus(dto.getStatus() != null ? dto.getStatus() : true);
+	        p.setUsageLimit(dto.getUsageLimit());
 	        p.setApplyType(dto.getApplyType());
 	        return p;
 	    }

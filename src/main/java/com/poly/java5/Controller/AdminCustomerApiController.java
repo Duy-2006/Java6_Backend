@@ -21,74 +21,59 @@ import java.util.List;
 @CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class AdminCustomerApiController {
 
-    @Autowired
-    private UserService userService;
+	@Autowired
+	private UserService userService;
 
-    @Autowired
-    private OrderService orderService;
+	@Autowired
+	private OrderService orderService;
 
-    @GetMapping
-    public ResponseEntity<List<CustomerDTO>> getAllCustomers() {
-        List<User> users = userService.findByRole(UserRole.USER);
-        List<CustomerDTO> result = new ArrayList<>();
+	@GetMapping
+	public ResponseEntity<List<CustomerDTO>> getAllCustomers() {
+		List<User> users = userService.findByRole(UserRole.USER);
+		List<CustomerDTO> result = new ArrayList<>();
 
-        for (User u : users) {
-            Double spending = orderService.sumSpendingByUsername(u.getUsername());
-            if (spending == null) spending = 0.0;
+		for (User u : users) {
+			Double spending = orderService.sumSpendingByUsername(u.getUsername());
+			if (spending == null)
+				spending = 0.0;
 
-            String type;
-            if (spending >= 5_000_000) {
-                type = "VIP (Thân thiết)";
-            } else if (spending >= 1_000_000) {
-                type = "Tiềm năng";
-            } else {
-                type = "Khách mới";
-            }
+			String type;
+			if (spending >= 5_000_000) {
+				type = "VIP (Thân thiết)";
+			} else if (spending >= 1_000_000) {
+				type = "Tiềm năng";
+			} else {
+				type = "Khách mới";
+			}
 
-            result.add(new CustomerDTO(
-                u.getUsername(),
-                u.getName(),
-                u.getEmail(),
-                u.getPhone(),
-                u.getActive(),
-                spending,
-                type
-            ));
-        }
-        return ResponseEntity.ok(result);
-    }
+			result.add(new CustomerDTO(u.getUsername(), u.getName(), u.getEmail(), u.getPhone(), u.getActive(),
+					spending, type));
+		}
+		return ResponseEntity.ok(result);
+	}
 
-   @GetMapping("/history/{username}")
-public ResponseEntity<CustomerHistoryDTO> getHistory(@PathVariable String username) {
-    User user = userService.findByUsername(username);
-    if (user == null) return ResponseEntity.notFound().build();
+	@GetMapping("/history/{username}")
+	public ResponseEntity<CustomerHistoryDTO> getHistory(@PathVariable String username) {
+		User user = userService.findByUsername(username);
+		if (user == null)
+			return ResponseEntity.notFound().build();
 
-    Double spending = orderService.sumSpendingByUsername(username);
-	List<OrderDTO> orders = orderService.findByUsername(username); // ✅ giờ là DTO
+		Double spending = orderService.sumSpendingByUsername(username);
+		List<OrderDTO> orders = orderService.findByUsername(username); // ✅ giờ là DTO
 
-    return ResponseEntity.ok(new CustomerHistoryDTO(
-        user.getUsername(),
-        user.getName(),
-        user.getEmail(),
-        user.getPhone(),
-        user.getActive(),
-        spending != null ? spending : 0.0,
-        orders
-    ));
-}
+		return ResponseEntity.ok(new CustomerHistoryDTO(user.getUsername(), user.getName(), user.getEmail(),
+				user.getPhone(), user.getActive(), spending != null ? spending : 0.0, orders));
+	}
 
-    @PutMapping("/toggle/{username}")
-    public ResponseEntity<ToggleStatusResponseDTO> toggleStatus(@PathVariable String username) {
-        User user = userService.findByUsername(username);
-        if (user == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        boolean newStatus = !user.getActive();
-        user.setActive(newStatus);
-        userService.save(user);
-
-        String message = newStatus ? "Đã mở khóa tài khoản" : "Đã khóa tài khoản";
-        return ResponseEntity.ok(new ToggleStatusResponseDTO(message, newStatus, username));
-    }
+	@PutMapping("/toggle/{username}")
+	public ResponseEntity<ToggleStatusResponseDTO> toggleStatus(@PathVariable String username) {
+		try {
+			userService.toggleActive(username); // phương thức này sẽ đảo trạng thái và gửi mail
+			User user = userService.findByUsername(username); // lấy lại để biết trạng thái mới
+			String message = user.getActive() ? "Đã mở khóa tài khoản" : "Đã khóa tài khoản";
+			return ResponseEntity.ok(new ToggleStatusResponseDTO(message, user.getActive(), username));
+		} catch (RuntimeException e) {
+			return ResponseEntity.badRequest().body(new ToggleStatusResponseDTO(e.getMessage(), false, username));
+		}
+	}
 }

@@ -122,6 +122,7 @@ public class AuthFilter extends OncePerRequestFilter {
 	                !path.startsWith("/api/admin/customers")&& 
 	                !path.startsWith("/api/admin/books")&& 
 	                !path.startsWith("/api/admin/orders")&& 
+	                !path.startsWith("/api/vouchers")&& 
 	            	!path.startsWith("/api/orders")){   
 	                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 	                response.getWriter().write("{\"message\":\"Unauthorized\"}");

@@ -16,6 +16,7 @@ import com.poly.java5.Service.CartService;
 import com.poly.java5.Service.CheckoutService;
 import com.poly.java5.Service.JWTService;
 import com.poly.java5.Service.UserService;
+import com.poly.java5.Service.VoucherService;
 
 import io.jsonwebtoken.Claims;
 import jakarta.validation.Valid;
@@ -32,6 +33,7 @@ public class CheckoutController {
     private final CheckoutService checkoutService;
     private final JWTService jwtService;
     private final UserService userService;
+    private final VoucherService voucherService;
 
     /**
      * Hàm hỗ trợ lấy UserId từ Token trong Header
@@ -103,6 +105,39 @@ public class CheckoutController {
         }
     }
 
+    // API KIỂM TRA MÃ GIẢM GIÁ
+    @PostMapping("/apply-voucher")
+    public ResponseEntity<?> applyVoucher(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody Map<String, Object> payload) {
+        Integer userId = getUserIdFromHeader(authHeader);
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Vui lòng đăng nhập lại"));
+        }
+
+        String code = (String) payload.get("code");
+        Double orderValue = 0.0;
+        if (payload.get("orderValue") != null) {
+            orderValue = Double.valueOf(payload.get("orderValue").toString());
+        }
+
+        if (code == null || code.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Mã voucher không được để trống"));
+        }
+
+        try {
+            Map<String, Object> result = voucherService.applyVoucher(code, orderValue);
+            // Map the result to match the frontend expectation
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "discountAmount", result.get("discount"),
+                "finalAmount", result.get("finalAmount")
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     //  API TẠO ĐƠN HÀNG (CHECKOUT) 
      // Checkout - nhận thêm items từ frontend
     @PostMapping
@@ -119,6 +154,8 @@ public class CheckoutController {
         String customerPhone = (String) payload.get("customerPhone");
         String customerAddress = (String) payload.get("customerAddress");
         String paymentMethod = (String) payload.get("paymentMethod");
+        Boolean saveAddress = payload.containsKey("saveAddress") ? (Boolean) payload.get("saveAddress") : false;
+        String voucherCode = (String) payload.get("voucherCode");
         List<Map<String, Object>> items = (List<Map<String, Object>>) payload.get("items");
 
         // Validate cơ bản
@@ -132,14 +169,50 @@ public class CheckoutController {
         }
 
         try {
+            // Lưu địa chỉ nếu user chọn
+            if (Boolean.TRUE.equals(saveAddress)) {
+                User user = userService.findById(userId);
+                if (user != null) {
+                    user.setName(customerName);
+                    user.setPhone(customerPhone);
+                    user.setAddress(customerAddress);
+                    userService.save(user);
+                }
+            }
+
+            // Tính toán trước tổng tiền đơn hàng để apply voucher
+            BigDecimal orderTotal = BigDecimal.ZERO;
+            for (Map<String, Object> item : items) {
+                BigDecimal price = new BigDecimal(item.get("price").toString());
+                Integer qty = (Integer) item.get("quantity");
+                orderTotal = orderTotal.add(price.multiply(new BigDecimal(qty)));
+            }
+
+            BigDecimal discountAmount = BigDecimal.ZERO;
+            Integer appliedVoucherId = null;
+
+            // Xử lý voucher nếu có
+            if (voucherCode != null && !voucherCode.isBlank()) {
+                Map<String, Object> voucherResult = voucherService.applyVoucher(voucherCode, orderTotal.doubleValue());
+                discountAmount = BigDecimal.valueOf((Double) voucherResult.get("discount"));
+                appliedVoucherId = (Integer) voucherResult.get("voucherId");
+            }
+
             Order order = checkoutService.checkout(
                 userId,
                 customerName,
                 customerPhone,
                 customerAddress,
                 paymentMethod,
-                items   // truyền danh sách items (đã có price giảm)
+                items,
+                discountAmount
             );
+
+            // Tăng số lượt sử dụng voucher nếu có
+            if (appliedVoucherId != null) {
+                voucherService.incrementUsedCount(appliedVoucherId);
+            }
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "orderId", order.getId(),

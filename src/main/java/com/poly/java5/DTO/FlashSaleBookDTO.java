@@ -17,4 +17,6 @@ public class FlashSaleBookDTO {
     private String imageUrl;
     private BigDecimal discountValue;   // phần trăm giảm
     private BigDecimal discountPrice;   // giá sau giảm
+    private Integer usageLimit;         // giới hạn số lượng
+    private Integer quantity;           // tồn kho hiện tại
 }

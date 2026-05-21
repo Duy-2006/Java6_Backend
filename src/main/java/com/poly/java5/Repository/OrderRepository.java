@@ -80,4 +80,33 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
      
     // Đơn hàng theo username
     List<Order> findByUserUsernameOrderByOrderDateDesc(String username);
+    
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.status = 'COMPLETED' AND o.orderDate BETWEEN :start AND :end")
+    BigDecimal getRevenueBetween(LocalDateTime start, LocalDateTime end);
+
+    long countByStatusAndOrderDateBetween(String status, LocalDateTime start, LocalDateTime end);
+
+    @Query("SELECT FUNCTION('YEAR', o.orderDate) as year, FUNCTION('MONTH', o.orderDate) as month, " +
+           "SUM(o.totalAmount) as revenue, COUNT(o) as orders " +
+           "FROM Order o WHERE o.status = 'COMPLETED' AND o.orderDate >= :startDate " +
+           "GROUP BY FUNCTION('YEAR', o.orderDate), FUNCTION('MONTH', o.orderDate) " +
+           "ORDER BY year DESC, month DESC")
+    List<Object[]> getMonthlyRevenueStats(LocalDateTime startDate);
+
+    @Query("SELECT c.name, SUM(od.price * od.quantity) " +
+           "FROM OrderDetail od JOIN od.book b JOIN b.category c JOIN od.order o " +
+           "WHERE o.status = 'COMPLETED' " +
+           "GROUP BY c.name")
+    List<Object[]> getRevenueByCategory();
+
+    List<Order> findTop5ByOrderByOrderDateDesc();
+
+    @Query("SELECT c.name, SUM(od.price * od.quantity) " +
+           "FROM OrderDetail od JOIN od.book b JOIN b.category c JOIN od.order o " +
+           "WHERE o.status = 'COMPLETED' AND o.orderDate BETWEEN :start AND :end " +
+           "GROUP BY c.name")
+    List<Object[]> getRevenueByCategoryBetween(LocalDateTime start, LocalDateTime end);
+
+    @Query("SELECT o FROM Order o WHERE o.orderDate BETWEEN :start AND :end ORDER BY o.orderDate DESC")
+    List<Order> findOrdersBetweenOrderByOrderDateDesc(LocalDateTime start, LocalDateTime end);
 }

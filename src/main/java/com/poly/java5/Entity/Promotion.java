@@ -59,6 +59,9 @@ public class Promotion {
 	    @Column(name = "status")
 	    private Boolean status = true;
 	    
+	    @Column(name = "usage_limit")
+	    private Integer usageLimit;
+	    
 	    @Transient
 	    public String getComputedStatus() {
 	        if (startDate == null || endDate == null) return "UNKNOWN";

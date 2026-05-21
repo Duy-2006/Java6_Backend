@@ -29,7 +29,8 @@ public interface PromotionDetailRepository extends JpaRepository<PromotionDetail
 	    """)
 	    List<Promotion> findActiveByCategoryId(@Param("categoryId") Integer categoryId);
 	
-    
+	    // ✅ Tìm tất cả detail chứa bookId này (để kiểm tra trùng)
+	    List<PromotionDetail> findByBookId(Integer bookId);
     
 
 }

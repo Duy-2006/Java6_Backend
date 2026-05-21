@@ -7,44 +7,39 @@ import java.time.LocalDate;
 @Table(name = "vouchers")
 @Data
 public class Voucher {
-	 @Id
-	    @GeneratedValue(strategy = GenerationType.IDENTITY)
-	    private Integer id;
+	@Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
 
-	    @Column(unique = true, nullable = false, length = 20)
-	    private String code;
+    @Column(unique = true, nullable = false, length = 20)
+    private String code;
 
-	    // PERCENT hoặc FIXED
-	    @Column(nullable = false)
-	    private String discountType = "PERCENT";
+    @Column(name = "discount_type", nullable = false)
+    private String discountType = "PERCENT";
 
-	    // Giá trị giảm (% hoặc số tiền)
-	    @Column(nullable = false)
-	    private Double discountValue;
+    @Column(name = "discount_value", nullable = false)
+    private Double discountValue;
 
-	    // Đơn hàng tối thiểu để áp dụng
-	    @Column(nullable = false)
-	    private Double minOrderValue = 0.0;
+    @Column(name = "minoder_value", nullable = false)   // theo ảnh
+    private Double minOrderValue = 0.0;
 
-	    // Giảm tối đa (chỉ dùng khi discountType = PERCENT)
-	    private Double maxDiscount;
+    @Column(name = "max_discount")
+    private Double maxDiscount;
 
-	    // Số lượt dùng tối đa
-	    @Column(nullable = false)
-	    private Integer usageLimit = 100;
+    @Column(name = "quantity", nullable = false)       // thay vì usage_limit
+    private Integer usageLimit = 100;
 
-	    // Số lượt đã dùng
-	    @Column(nullable = false)
-	    private Integer usedCount = 0;
+    @Column(name = "used_count", nullable = false)
+    private Integer usedCount = 0;
 
-	    @Column(nullable = false)
-	    private LocalDate startDate;
+    @Column(name = "start_date", nullable = false)
+    private LocalDate startDate;
 
-	    @Column(nullable = false)
-	    private LocalDate endDate;
+    @Column(name = "end_date", nullable = false)
+    private LocalDate endDate;
 
-	    @Column(nullable = false)
-	    private boolean active = true;
+    @Column(name = "status", nullable = false)         // thay vì active
+    private boolean active = true;
 
 	    // ── Tính toán trạng thái ─────────────────────────────────
 	    @Transient

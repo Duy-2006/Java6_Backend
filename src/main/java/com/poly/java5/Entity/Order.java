@@ -68,6 +68,10 @@ public class Order {
 	// Trong Order.java, thêm field:
 	@Column(name = "transaction_no", length = 100)
 	private String transactionNo; // Mã giao dịch từ VNPay
+	
+	 @Column(name = "cancel_reason", columnDefinition = "NVARCHAR(MAX)")
+	    private String cancelReason;   // <--- THÊM DÒNG NÀY
+
 
 	@PrePersist
 	protected void onCreate() {

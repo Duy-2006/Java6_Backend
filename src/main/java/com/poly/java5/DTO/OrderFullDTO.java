@@ -20,6 +20,8 @@ public class OrderFullDTO {
 	    private LocalDateTime orderDate;
 	    private List<OrderDetailDTO> details;
 	    private List<OrderDetailDTO> orderDetails; // Nếu frontend dùng tên này
+	    private String cancelReason; // Lý do hủy đơn hàng
+	    private BigDecimal discountAmount; // Số tiền được giảm từ voucher
 		
 
 }

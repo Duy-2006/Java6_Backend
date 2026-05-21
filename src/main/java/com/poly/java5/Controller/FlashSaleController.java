@@ -81,6 +81,7 @@ public class FlashSaleController {
 		for (Book book : flashBooks) {
 			BigDecimal bestDiscount = BigDecimal.ZERO;
 			BigDecimal finalPrice = book.getPrice();
+			Integer usageLimit = null;
 
 			for (Promotion promo : activePromotions) {
 				boolean applies = false;
@@ -101,11 +102,15 @@ public class FlashSaleController {
 						&& promo.getDiscountValue().compareTo(bestDiscount) > 0) {
 					bestDiscount = promo.getDiscountValue();
 					finalPrice = promo.applyDiscount(book.getPrice());
+					usageLimit = promo.getUsageLimit();
 				}
 			}
 
 			result.add(FlashSaleBookDTO.builder().id(book.getId()).title(book.getTitle()).price(book.getPrice())
-					.imageUrl(book.getImageUrl()).discountValue(bestDiscount).discountPrice(finalPrice).build());
+					.imageUrl(book.getImageUrl()).discountValue(bestDiscount).discountPrice(finalPrice)
+					.usageLimit(usageLimit)
+					.quantity(book.getQuantity())
+					.build());
 		}
 
 		return ResponseEntity.ok(result);

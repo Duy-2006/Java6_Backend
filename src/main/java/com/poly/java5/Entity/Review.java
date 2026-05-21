@@ -43,7 +43,7 @@ public class Review {
 	    @Column(name = "comment", columnDefinition = "NVARCHAR(1000)")
 	    private String comment;
 	    
-	    @Column(name = "review_date")
+	    @Column(name = "review_date", updatable = false)
 	    private LocalDateTime reviewDate;
 	    
 	    @PrePersist

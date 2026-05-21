@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -26,6 +27,9 @@ public class Category implements Serializable {
 
     @NotBlank(message = "Tên thể loại không được để trống")
     private String name;
+       
+    @Column(name = "image_url")
+    private String imageUrl;
 
     @OneToMany(mappedBy = "category")
     @JsonManagedReference

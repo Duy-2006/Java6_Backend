@@ -1,0 +1,169 @@
+package com.poly.java5.Controller;
+import com.poly.java5.DTO.*;
+import com.poly.java5.Entity.User;
+import com.poly.java5.Entity.Voucher;
+import com.poly.java5.Service.UserService;      // giả định có
+import com.poly.java5.Service.UserVoucherService;
+import com.poly.java5.Service.VoucherService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/api/vouchers")
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+@RequiredArgsConstructor
+public class VoucherController {
+	 private final VoucherService voucherService;
+	    private final UserVoucherService userVoucherService;
+	    private final UserService userService;   // giả định có UserService
+
+	    // Helper lấy user hiện tại
+	    private User getCurrentUser() {
+	        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+	        User user = userService.findByUsername(username);
+
+	        if (user == null) {
+	            throw new RuntimeException("User not found");
+	        }
+
+	        return user;
+	    }
+
+	    // ======================= ADMIN =======================
+	    @GetMapping("/admin")
+	    public ResponseEntity<List<VoucherResponseDTO>> getAllVouchers() {
+	        List<VoucherResponseDTO> responses = voucherService.findAll().stream()
+	                .map(this::toResponse)
+	                .collect(Collectors.toList());
+	        return ResponseEntity.ok(responses);
+	    }
+
+	    @GetMapping("/admin/{id}")
+	    public ResponseEntity<VoucherResponseDTO> getVoucherById(@PathVariable Integer id) {
+	        Voucher v = voucherService.findById(id);
+	        if (v == null) return ResponseEntity.notFound().build();
+	        return ResponseEntity.ok(toResponse(v));
+	    }
+
+	    @PostMapping("/admin")
+	    public ResponseEntity<?> createVoucher(@RequestBody VoucherRequestDTO req) {
+	        try {
+	            Map<String, Object> body = convertRequestToMap(req);
+	            Voucher created = voucherService.create(body);
+	            return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(created));
+	        } catch (Exception e) {
+	            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+	        }
+	    }
+
+	    @PutMapping("/admin/{id}")
+	    public ResponseEntity<?> updateVoucher(@PathVariable Integer id, @RequestBody VoucherRequestDTO req) {
+	        try {
+	            Map<String, Object> body = convertRequestToMap(req);
+	            Voucher updated = voucherService.update(id, body);
+	            return ResponseEntity.ok(toResponse(updated));
+	        } catch (Exception e) {
+	            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+	        }
+	    }
+
+	    @DeleteMapping("/admin/{id}")
+	    public ResponseEntity<?> deleteVoucher(@PathVariable Integer id) {
+	        try {
+	            voucherService.delete(id);
+	            return ResponseEntity.noContent().build();
+	        } catch (Exception e) {
+	            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+	        }
+	    }
+
+	    // ======================= USER =======================
+	    @GetMapping("/active")
+	    public ResponseEntity<List<VoucherResponseDTO>> getActiveVouchers() {
+	        List<VoucherResponseDTO> responses = voucherService.findActiveVouchers().stream()
+	                .map(this::toResponse)
+	                .collect(Collectors.toList());
+	        return ResponseEntity.ok(responses);
+	    }
+
+	    @PostMapping("/apply")
+	    public ResponseEntity<?> applyVoucher(@RequestBody ApplyVoucherRequestDTO req) {
+	        try {
+	            Map<String, Object> result = voucherService.applyVoucher(req.getCode(), req.getOrderAmount());
+	            ApplyVoucherResponseDTO response = ApplyVoucherResponseDTO.builder()
+	                    .voucherId((Integer) result.get("voucherId"))
+	                    .code((String) result.get("code"))
+	                    .discountType((String) result.get("discountType"))
+	                    .discount((Double) result.get("discount"))
+	                    .finalAmount((Double) result.get("finalAmount"))
+	                    .build();
+	            return ResponseEntity.ok(response);
+	        } catch (Exception e) {
+	            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+	        }
+	    }
+
+	    @PostMapping("/claim/{voucherId}")
+	    public ResponseEntity<?> claimVoucher(@PathVariable Integer voucherId) {
+	        try {
+	            User user = getCurrentUser();
+	            userVoucherService.claimVoucher(user, voucherId);
+	            return ResponseEntity.ok(Map.of("message", "Nhận voucher thành công"));
+	        } catch (Exception e) {
+	            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+	        }
+	    }
+
+	    @GetMapping("/my-vouchers")
+	    public ResponseEntity<List<UserVoucherDTO>> getMyVouchers() {
+	        User user = getCurrentUser();
+	        List<UserVoucherDTO> dtos = userVoucherService.getAllUserVouchers(user).stream()
+	                .map(uv -> UserVoucherDTO.builder()
+	                        .userVoucherId(uv.getId())
+	                        .voucher(toResponse(uv.getVoucher()))
+	                        .isUsed(uv.getIsUsed())
+	                        .usedDate(uv.getUsedDate())
+	                        .build())
+	                .collect(Collectors.toList());
+	        return ResponseEntity.ok(dtos);
+	    }
+
+	    // Helper methods
+	    private VoucherResponseDTO toResponse(Voucher v) {
+	        return VoucherResponseDTO.builder()
+	                .id(v.getId())
+	                .code(v.getCode())
+	                .discountType(v.getDiscountType())
+	                .discountValue(v.getDiscountValue())
+	                .minOrderValue(v.getMinOrderValue())
+	                .maxDiscount(v.getMaxDiscount())
+	                .usageLimit(v.getUsageLimit())
+	                .usedCount(v.getUsedCount())
+	                .startDate(v.getStartDate())
+	                .endDate(v.getEndDate())
+	                .active(v.isActive())
+	                .status(v.getComputedStatus())
+	                .build();
+	    }
+
+	    private Map<String, Object> convertRequestToMap(VoucherRequestDTO req) {
+	        return Map.of(
+	            "code", req.getCode(),
+	            "discountType", req.getDiscountType(),
+	            "discountValue", req.getDiscountValue(),
+	            "minOrderValue", req.getMinOrderValue(),
+	            "maxDiscount", req.getMaxDiscount(),
+	            "usageLimit", req.getUsageLimit(),
+	            "startDate", req.getStartDate(),
+	            "endDate", req.getEndDate(),
+	            "active", req.getActive()
+	        );
+	    }
+}

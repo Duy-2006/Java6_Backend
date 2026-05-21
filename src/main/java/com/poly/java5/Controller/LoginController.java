@@ -53,7 +53,7 @@ public class LoginController {
 	        UserDTO userRes = new UserDTO(
 	        		user.getId(),
 	            user.getName(),
-	            user.getRole().name()
+	            user.getRole() != null ? user.getRole().name() : "USER"
 	        );
 	        
 	        UserLoginDTO response = new UserLoginDTO(token, userRes);
@@ -81,43 +81,16 @@ public class LoginController {
 	    }
 	    
 	    //  Trả về đầy đủ thông tin kèm userId
-        Map<String, Object> response = Map.of(
-            "id", user.getId(),
-            "name", user.getName(),
-            "username", user.getUsername(),
-            "email", user.getEmail(),
-            "role", user.getRole().name()
-        );
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("id", user.getId());
+        response.put("name", user.getName());
+        response.put("username", user.getUsername());
+        response.put("email", user.getEmail());
+        response.put("role", user.getRole() != null ? user.getRole().name() : "USER");
+        response.put("phone", user.getPhone());
+        response.put("address", user.getAddress());
 
         return ResponseEntity.ok(response);
     
 	}
-//	@GetMapping("/me")
-//public ResponseEntity<?> getCurrentUser(HttpServletRequest request) {
-//    String authHeader = request.getHeader("Authorization");
-//
-//    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-//        return ResponseEntity.status(401).body(Map.of("message", "Unauthorized"));
-//    }
-//
-//    String token = authHeader.substring(7);
-//
-//    if (JwtUtil.isExpired(token)) {
-//        return ResponseEntity.status(401).body(Map.of("message", "Token expired"));
-//    }
-//
-//    Integer userId = JwtUtil.getUserId(token);
-//    User user = userService.findById(userId);
-//
-//    if (user == null) {
-//        return ResponseEntity.status(401).body(Map.of("message", "User not found"));
-//    }
-//
-//    UserDTO userRes = new UserDTO(
-//        user.getName(),
-//        user.getRole().name()
-//    );
-//
-//    return ResponseEntity.ok(userRes);
-//}
 }

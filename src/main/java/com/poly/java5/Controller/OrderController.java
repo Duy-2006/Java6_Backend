@@ -72,6 +72,14 @@ public class OrderController {
             dto.setPaymentMethod(order.getPaymentMethod());
             dto.setPaymentStatus(order.getPaymentStatus());
             dto.setOrderDate(order.getOrderDate());
+            dto.setCancelReason(order.getCancelReason());
+
+            java.math.BigDecimal calculatedTotal = order.calculateTotal();
+            java.math.BigDecimal discount = calculatedTotal.subtract(order.getTotalAmount());
+            if (discount.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                discount = java.math.BigDecimal.ZERO;
+            }
+            dto.setDiscountAmount(discount);
 
             List<OrderDetailDTO> details = order.getOrderDetails().stream().map(d -> {
                 OrderDetailDTO od = new OrderDetailDTO();
@@ -114,7 +122,14 @@ public class OrderController {
             dto.setPaymentMethod(order.getPaymentMethod());
             dto.setPaymentStatus(order.getPaymentStatus());
             dto.setOrderDate(order.getOrderDate());
+            dto.setCancelReason(order.getCancelReason());
             
+            java.math.BigDecimal calculatedTotal = order.calculateTotal();
+            java.math.BigDecimal discount = calculatedTotal.subtract(order.getTotalAmount());
+            if (discount.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                discount = java.math.BigDecimal.ZERO;
+            }
+            dto.setDiscountAmount(discount);
 
             List<OrderDetailDTO> details = order.getOrderDetails().stream().map(d -> {
                 OrderDetailDTO od = new OrderDetailDTO();
@@ -138,16 +153,28 @@ public class OrderController {
     }
 
     //  HỦY ĐƠN 
+ // HỦY ĐƠN 
     @PostMapping("/cancel/{id}")
     public ResponseEntity<?> cancelOrder(@PathVariable Integer id,
-                                         @RequestParam Integer userId) {
+                                         @RequestParam Integer userId,
+                                         @RequestParam String cancelReason) {
         try {
-            orderService.cancelOrder(id, userId);
+            orderService.cancelOrder(id, userId, cancelReason);
             return ResponseEntity.ok("Đã hủy đơn");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Không thể hủy đơn: " + e.getMessage());
         }
     }
-    
+    // user xác nhận giao hàng thành công 
+    @PostMapping("/{id}/confirm-received")
+    public ResponseEntity<?> confirmReceived(@PathVariable Integer id,
+                                             @RequestParam Integer userId) {
+        try {
+            orderService.confirmReceived(id, userId);
+            return ResponseEntity.ok("Đã xác nhận nhận hàng thành công");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
  
 }

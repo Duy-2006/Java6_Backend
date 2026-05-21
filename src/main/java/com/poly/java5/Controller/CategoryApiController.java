@@ -12,123 +12,154 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.validation.Valid;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/categories")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true") // cho Next.js gọi
+@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true", allowedHeaders = "*", methods = {
+		RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS })
 public class CategoryApiController {
-	 @PersistenceContext
-	    private EntityManager em;
 
-	    @Autowired
-	    private CategoryRepository catRepo;
+	@PersistenceContext
+	private EntityManager em;
 
-	 // ================== GET ALL (cả danh sách books + bookCount) ==================
-	    @GetMapping
-	    public ResponseEntity<List<CategoryDetailDTO>> getAll() {
-	        // Lấy tất cả categories kèm theo danh sách books (dùng LEFT JOIN FETCH)
-	        List<Category> categories = catRepo.findAllWithBooks();
-	        
-	        List<CategoryDetailDTO> dtos = categories.stream().map(category -> {
-	            // Chuyển đổi danh sách Book -> BookDTO
-	            List<BookDTO> bookDTOs = category.getBooks().stream()
-	                    .map(book -> {
-	                        BookDTO dto = new BookDTO();
-	                        dto.setId(book.getId());
-	                        dto.setTitle(book.getTitle());
-	                        dto.setPrice(book.getPrice());
-	                        dto.setQuantity(book.getQuantity());
-	                        dto.setImageUrl(book.getImageUrl());
-	                        return dto;
-	                    })
-	                    .collect(Collectors.toList());
-	            
-	            // Tạo DTO trả về
-	            CategoryDetailDTO dto = new CategoryDetailDTO();
-	            dto.setId(category.getId());
-	            dto.setName(category.getName());
-	            dto.setBooks(bookDTOs);
-	            dto.setBookCount((long) bookDTOs.size()); // số lượng sách
-	            return dto;
-	        }).collect(Collectors.toList());
-	        
-	        return ResponseEntity.ok(dtos);
-	    }
-	    
-	   
+	@Autowired
+	private CategoryRepository catRepo;
 
-	    // ================== GET BY ID (chi tiết có sách) ==================
-	    @GetMapping("/{id}")
-	    public ResponseEntity<?> viewCategory(@PathVariable Integer id) {
-	        Category category = em.find(Category.class, id);
-	        if (category == null) {
-	            return ResponseEntity.notFound().build();
-	        }
-	        List<Book> books = em.createQuery("SELECT b FROM Book b WHERE b.category.id = :cid", Book.class)
-	                .setParameter("cid", id).getResultList();
-	        CategoryDetailDTO dto = new CategoryDetailDTO();
-	        dto.setId(category.getId());
-	        dto.setName(category.getName());
-	        List<BookDTO> bookDTOs = books.stream().map(b -> {
-	            BookDTO bd = new BookDTO();
-	            bd.setId(b.getId());
-	            bd.setTitle(b.getTitle());
-	            bd.setPrice(b.getPrice());
-	            bd.setQuantity(b.getQuantity());
-	            bd.setImageUrl(b.getImageUrl());
-	            return bd;
-	        }).collect(Collectors.toList());
-	        dto.setBooks(bookDTOs);
-	        return ResponseEntity.ok(dto);
-	    }
+	// Đường dẫn lưu ảnh: thư mục static trong resources (giống như sách)
+	private static final String UPLOAD_DIR = "src/main/resources/static/uploads/categories/";
 
-	    // ================== GET BY ID (chỉ category) ==================
-	    @GetMapping("/{id}/books")
-	    public ResponseEntity<CategoryDTO> getOne(@PathVariable Integer id) {
-	        return catRepo.findById(id)
-	                .map(cat -> ResponseEntity.ok(new CategoryDTO(cat.getId(), cat.getName())))
-	                .orElse(ResponseEntity.notFound().build());
-	    }
+	// Helper lưu file và trả về tên file
+	private String saveImage(MultipartFile file) throws IOException {
+		Path uploadPath = Paths.get(UPLOAD_DIR);
+		if (!Files.exists(uploadPath)) {
+			Files.createDirectories(uploadPath);
+		}
+		String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+		Path filePath = uploadPath.resolve(filename);
+		Files.copy(file.getInputStream(), filePath);
+		return filename;
+	}
 
-	    // ================== CREATE ==================
-	    @PostMapping
-	    public ResponseEntity<?> create(@Valid @RequestBody CategoryDTO dto, BindingResult result) {
-	        if (result.hasErrors()) {
-	            return ResponseEntity.badRequest().body(result.getAllErrors());
-	        }
-	        Category category = new Category();
-	        category.setName(dto.getName());
-	        Category saved = catRepo.save(category);
-	        return ResponseEntity.ok(new CategoryDTO(saved.getId(), saved.getName()));
-	    }
+	// GET ALL
+	@GetMapping
+	public ResponseEntity<List<CategoryDetailDTO>> getAll() {
+		List<Category> categories = catRepo.findAllWithBooks();
+		List<CategoryDetailDTO> dtos = categories.stream().map(category -> {
+			List<BookDTO> bookDTOs = category.getBooks().stream().map(book -> {
+				BookDTO dto = new BookDTO();
+				dto.setId(book.getId());
+				dto.setTitle(book.getTitle());
+				dto.setPrice(book.getPrice());
+				dto.setQuantity(book.getQuantity());
+				dto.setImageUrl(book.getImageUrl());
+				return dto;
+			}).collect(Collectors.toList());
+			CategoryDetailDTO dto = new CategoryDetailDTO();
+			dto.setId(category.getId());
+			dto.setName(category.getName());
+			dto.setImageUrl(category.getImageUrl());
+			dto.setBooks(bookDTOs);
+			dto.setBookCount((long) bookDTOs.size());
+			return dto;
+		}).collect(Collectors.toList());
+		return ResponseEntity.ok(dtos);
+	}
 
-	    // ================== UPDATE ==================
-	    @PutMapping("/{id}")
-	    public ResponseEntity<?> update(@PathVariable Integer id, @Valid @RequestBody CategoryDTO dto, BindingResult result) {
-	        if (result.hasErrors()) {
-	            return ResponseEntity.badRequest().body(result.getAllErrors());
-	        }
-	        return catRepo.findById(id).map(old -> {
-	            old.setName(dto.getName());
-	            Category updated = catRepo.save(old);
-	            return ResponseEntity.ok(new CategoryDTO(updated.getId(), updated.getName()));
-	        }).orElse(ResponseEntity.notFound().build());
-	    }
+	// GET BY ID (chi tiết có sách)
+	@GetMapping("/{id}")
+	public ResponseEntity<?> viewCategory(@PathVariable Integer id) {
+		Category category = em.find(Category.class, id);
+		if (category == null) {
+			return ResponseEntity.notFound().build();
+		}
+		List<Book> books = em.createQuery("SELECT b FROM Book b WHERE b.category.id = :cid", Book.class)
+				.setParameter("cid", id).getResultList();
+		CategoryDetailDTO dto = new CategoryDetailDTO();
+		dto.setId(category.getId());
+		dto.setName(category.getName());
+		dto.setImageUrl(category.getImageUrl());
+		List<BookDTO> bookDTOs = books.stream().map(b -> {
+			BookDTO bd = new BookDTO();
+			bd.setId(b.getId());
+			bd.setTitle(b.getTitle());
+			bd.setPrice(b.getPrice());
+			bd.setQuantity(b.getQuantity());
+			bd.setImageUrl(b.getImageUrl());
+			return bd;
+		}).collect(Collectors.toList());
+		dto.setBooks(bookDTOs);
+		return ResponseEntity.ok(dto);
+	}
 
-	    // ================== DELETE ==================
-	    @DeleteMapping("/{id}")
-	    public ResponseEntity<?> delete(@PathVariable Integer id) {
-	        try {
-	            catRepo.deleteById(id);
-	            return ResponseEntity.ok("Xóa thành công!");
-	        } catch (Exception e) {
-	            return ResponseEntity.badRequest().body("Không thể xóa thể loại đang có sách!");
-	        }
-	    }
+	// GET BY ID (chỉ category)
+	@GetMapping("/{id}/books")
+	public ResponseEntity<CategoryDTO> getOne(@PathVariable Integer id) {
+		return catRepo.findById(id)
+				.map(cat -> ResponseEntity.ok(new CategoryDTO(cat.getId(), cat.getName(), cat.getImageUrl())))
+				.orElse(ResponseEntity.notFound().build());
+	}
 
+	// CREATE với upload ảnh
+	@PostMapping(consumes = "multipart/form-data")
+	public ResponseEntity<?> create(@RequestParam("name") String name,
+			@RequestParam(value = "image", required = false) MultipartFile image) {
+		Category category = new Category();
+		category.setName(name);
+		if (image != null && !image.isEmpty()) {
+			try {
+				String filename = saveImage(image);
+				category.setImageUrl("/uploads/categories/" + filename);
+			} catch (IOException e) {
+				return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Lỗi lưu ảnh: " + e.getMessage());
+			}
+		}
+		Category saved = catRepo.save(category);
+		CategoryDTO response = new CategoryDTO(saved.getId(), saved.getName(), saved.getImageUrl());
+		return ResponseEntity.ok(response);
+	}
+
+	// UPDATE với upload ảnh
+	@PutMapping(value = "/{id}", consumes = "multipart/form-data")
+	public ResponseEntity<?> update(@PathVariable Integer id, @RequestParam("name") String name,
+			@RequestParam(value = "image", required = false) MultipartFile image) {
+		return catRepo.findById(id).map(old -> {
+			old.setName(name);
+			if (image != null && !image.isEmpty()) {
+				try {
+					String filename = saveImage(image);
+					old.setImageUrl("/uploads/categories/" + filename);
+				} catch (IOException e) {
+					return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+							.body("Lỗi lưu ảnh: " + e.getMessage());
+				}
+			}
+			Category updated = catRepo.save(old);
+			CategoryDTO response = new CategoryDTO(updated.getId(), updated.getName(), updated.getImageUrl());
+			return ResponseEntity.ok(response);
+		}).orElse(ResponseEntity.notFound().build());
+	}
+
+	// DELETE
+	@DeleteMapping("/{id}")
+	public ResponseEntity<?> delete(@PathVariable Integer id) {
+		try {
+			catRepo.deleteById(id);
+			return ResponseEntity.ok("Xóa thành công!");
+		} catch (Exception e) {
+			return ResponseEntity.badRequest().body("Không thể xóa thể loại đang có sách!");
+		}
+	}
 }

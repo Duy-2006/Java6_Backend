@@ -3,6 +3,7 @@ package com.poly.java5.Repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;   // ✅ ĐÚNG
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +14,9 @@ import com.poly.java5.Entity.Book;
 
 @Repository
 public interface BookRepository extends JpaRepository<Book, Integer> {
+	
+	// Thêm method phân trang
+    Page<Book> findByDeletedFalse(Pageable pageable);
     
     List<Book> findByDeletedFalse();
     
@@ -47,8 +51,9 @@ public interface BookRepository extends JpaRepository<Book, Integer> {
             "LOWER(b.isbn) LIKE LOWER(CONCAT('%', :keyword, '%'))")
      List<Book> searchByKeyword(@Param("keyword") String keyword);
     
-    @Query(value = "SELECT b.id, b.title, SUM(od.quantity) as sold FROM OrderDetail od JOIN od.book b GROUP BY b.id, b.title ORDER BY sold DESC LIMIT 5")
-    List<Object[]> findTopSellingBooks();
+ // Top sách bán chạy dựa trên order details, trả về Page
+    @Query("SELECT b, SUM(od.quantity) as sold FROM OrderDetail od JOIN od.book b WHERE b.deleted = false GROUP BY b ORDER BY sold DESC")
+    Page<Object[]> findTopSellingBooks(Pageable pageable);
     
     // lấy danh sách khuyến mãi 
     List<Book> findByCategoryIdIn(List<Integer> categoryIds);
