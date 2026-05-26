@@ -185,9 +185,13 @@ public class UserService implements UserDetailsService {
         user.setActive(newStatus);
         userRepository.save(user);
 
-        // Gửi email thông báo
+        // Gửi email thông báo (tránh lỗi SMTP làm rollback transaction)
         if (user.getEmail() != null && !user.getEmail().isEmpty()) {
-            emailService.sendSimpleEmail(user.getEmail(), user.getUsername(), newStatus);
+            try {
+                emailService.sendSimpleEmail(user.getEmail(), user.getUsername(), newStatus);
+            } catch (Exception e) {
+                System.err.println("Loi gui email thong bao trang thai tai khoan: " + e.getMessage());
+            }
         }
     }
 }

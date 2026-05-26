@@ -70,6 +70,7 @@ public class BookService {
                             || category.contains(normalizedKeyword)
                             || isbn.contains(normalizedKeyword);
                 })
+                .filter(Book::getActive)
                 .collect(Collectors.toList());
     }
 

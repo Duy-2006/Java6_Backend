@@ -29,7 +29,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import com.poly.java5.DTO.ReviewResponseDTO;
 import com.poly.java5.Service.ReviewService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -41,109 +40,118 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BookApiController {
 
-	private final BookRepository bookRepo;
-	private final CategoryRepository catRepo;
-	private final AuthorRepository authorRepo;
-	private final ReviewService reviewService;
+    private final BookRepository bookRepo;
+    private final CategoryRepository catRepo;
+    private final AuthorRepository authorRepo;
+    private final ReviewService reviewService;
 
-	@GetMapping("/{bookId}/reviews")
-	public ResponseEntity<List<ReviewResponseDTO>> getReviews(@PathVariable Integer bookId) {
-		return ResponseEntity.ok(reviewService.getReviewsByBookId(bookId));
-	}
+    @GetMapping("/{bookId}/reviews")
+    public ResponseEntity<List<ReviewResponseDTO>> getReviews(@PathVariable Integer bookId) {
+        return ResponseEntity.ok(reviewService.getReviewsByBookId(bookId));
+    }
 
-	@PostMapping("/{bookId}/reviews")
-	public ResponseEntity<ReviewResponseDTO> addReview(@PathVariable Integer bookId,
-			@Valid @RequestBody ReviewRequestDTO request) {
-		ReviewResponseDTO response = reviewService.addReview(bookId, request);
-		return ResponseEntity.status(HttpStatus.CREATED).body(response);
-	}
+    @PostMapping("/{bookId}/reviews")
+    public ResponseEntity<ReviewResponseDTO> addReview(@PathVariable Integer bookId,
+            @Valid @RequestBody ReviewRequestDTO request) {
+        ReviewResponseDTO response = reviewService.addReview(bookId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
 
-	// ==================== STOCK ====================
-	@GetMapping("/{id}/stock")
-	public ResponseEntity<Map<String, Integer>> getStock(@PathVariable Integer id) {
-		Book book = bookRepo.findById(id).orElse(null);
-		if (book == null) {
-			return ResponseEntity.notFound().build();
-		}
-		return ResponseEntity.ok(Map.of("stock", book.getQuantity()));
-	}
+    // ==================== STOCK ====================
+    @GetMapping("/{id}/stock")
+    public ResponseEntity<Map<String, Integer>> getStock(@PathVariable Integer id) {
+        Book book = bookRepo.findById(id).orElse(null);
+        if (book == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(Map.of("stock", book.getQuantity()));
+    }
 
-	private BookDTO convertToDTO(Book b) {
-		BookDTO dto = new BookDTO();
-		dto.setId(b.getId());
-		dto.setTitle(b.getTitle());
-		dto.setPrice(b.getPrice());
-		dto.setQuantity(b.getQuantity());
-		dto.setImageUrl(b.getImageUrl());
-		dto.setCategoryName(b.getCategory() != null ? b.getCategory().getName() : null);
-		dto.setAuthorName(b.getAuthor() != null ? b.getAuthor().getName() : null);
-		return dto;
-	}
+    private BookDTO convertToDTO(Book b) {
+        BookDTO dto = new BookDTO();
+        dto.setId(b.getId());
+        dto.setTitle(b.getTitle());
+        dto.setPrice(b.getPrice());
+        dto.setQuantity(b.getQuantity());
+        dto.setImageUrl(b.getImageUrl());
+        dto.setCategoryName(b.getCategory() != null ? b.getCategory().getName() : null);
+        dto.setAuthorName(b.getAuthor() != null ? b.getAuthor().getName() : null);
+        dto.setActive(b.getActive()); // Thêm active để frontend có thể dùng nếu cần
+        return dto;
+    }
 
-	// Lấy tất cả sách (phân trang)
-	@GetMapping
-	public Page<BookDTO> getBooks(@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "20") int size) {
-		Pageable pageable = PageRequest.of(page, size);
-		return bookRepo.findByDeletedFalse(pageable).map(this::convertToDTO);
-	}
+    // Lấy tất cả sách (phân trang) - chỉ lấy active = true
+    @GetMapping
+    public Page<BookDTO> getBooks(@RequestParam(defaultValue = "0") int page,
+                                  @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return bookRepo.findByActiveTrue(pageable).map(this::convertToDTO);
+    }
 
-	@GetMapping("/{id}")
-	public BookDTO getBook(@PathVariable Integer id) {
-		Book b = bookRepo.findById(id).orElseThrow(() -> new RuntimeException("Sách không tồn tại"));
-		return convertToDTO(b);
-	}
+    @GetMapping("/{id}")
+    public ResponseEntity<BookDTO> getBook(@PathVariable Integer id) {
+        // Chỉ trả về nếu sách tồn tại và active = true
+        Book b = bookRepo.findByIdAndActiveTrue(id).orElse(null);
+        if (b == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(convertToDTO(b));
+    }
 
-	@GetMapping("/form-data")
-	public Map<String, Object> getFormData() {
-		return Map.of("categories", catRepo.findAll(), "authors", authorRepo.findAll());
-	}
+    @GetMapping("/form-data")
+    public Map<String, Object> getFormData() {
+        return Map.of("categories", catRepo.findAll(), "authors", authorRepo.findAll());
+    }
 
-	@PostMapping
-	public Book create(@RequestBody Book book) {
-		return bookRepo.save(book);
-	}
+    // ========== CÁC ENDPOINT CHO ADMIN (HOẶC CHỈ DÙNG NỘI BỘ) ==========
+    // Lưu ý: Các endpoint POST, PUT, DELETE nên để riêng cho admin, nhưng giữ lại cho tương thích
+    @PostMapping
+    public Book create(@RequestBody Book book) {
+        // Không nên cho phép tạo mới qua API này nếu không kiểm tra quyền
+        return bookRepo.save(book);
+    }
 
-	@PutMapping("/{id}")
-	public Book update(@PathVariable Integer id, @RequestBody Book book) {
-		Book existing = bookRepo.findById(id).orElseThrow(() -> new RuntimeException("Book not found"));
-		existing.setTitle(book.getTitle());
-		existing.setIsbn(book.getIsbn());
-		existing.setPrice(book.getPrice());
-		existing.setPublisher(book.getPublisher());
-		existing.setDescription(book.getDescription());
-		existing.setActive(book.getActive());
-		existing.setQuantity(book.getQuantity());
-		existing.setCategory(book.getCategory());
-		existing.setAuthor(book.getAuthor());
-		return bookRepo.save(existing);
-	}
+    @PutMapping("/{id}")
+    public Book update(@PathVariable Integer id, @RequestBody Book book) {
+        // Không nên cho phép update qua API này
+        Book existing = bookRepo.findById(id).orElseThrow(() -> new RuntimeException("Book not found"));
+        existing.setTitle(book.getTitle());
+        existing.setIsbn(book.getIsbn());
+        existing.setPrice(book.getPrice());
+        existing.setPublisher(book.getPublisher());
+        existing.setDescription(book.getDescription());
+        existing.setActive(book.getActive());
+        existing.setQuantity(book.getQuantity());
+        existing.setCategory(book.getCategory());
+        existing.setAuthor(book.getAuthor());
+        return bookRepo.save(existing);
+    }
 
-	@DeleteMapping("/{id}")
-	public void delete(@PathVariable Integer id) {
-		bookRepo.findById(id).ifPresent(book -> {
-			book.setDeleted(true);
-			bookRepo.save(book);
-		});
-	}
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Integer id) {
+        // Xóa mềm - nhưng nên chuyển sang admin controller
+        bookRepo.findById(id).ifPresent(book -> {
+            book.setDeleted(true);
+            bookRepo.save(book);
+        });
+    }
 
-	// SÁCH MỚI - phân trang, mới nhất trước (dùng createdDate)
-	@GetMapping("/new")
-	public Page<BookDTO> newBooks(@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "10") int size) {
-		Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
-		return bookRepo.findByDeletedFalse(pageable).map(this::convertToDTO);
-	}
+    // SÁCH MỚI - chỉ lấy active = true, mới nhất trước
+    @GetMapping("/new")
+    public Page<BookDTO> newBooks(@RequestParam(defaultValue = "0") int page,
+                                  @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
+        // Sửa thành findByActiveTrue (hoặc method riêng có sort)
+        return bookRepo.findByActiveTrue(pageable).map(this::convertToDTO);
+    }
 
-	// SÁCH BÁN CHẠY TRONG TUẦN - dựa trên order details, giả sử lọc theo tuần hiện
-	@GetMapping("/best-sellers")
-	public Page<BookDTO> bestSellers(@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "10") int size) {
-		Pageable pageable = PageRequest.of(page, size);
-		// Lấy top sách bán chạy dựa trên tổng số lượng bán
-		Page<Object[]> result = bookRepo.findTopSellingBooks(pageable);
-		// Chuyển đổi thành Page<BookDTO>
-		return result.map(obj -> convertToDTO((Book) obj[0]));
-	}
-
+    // SÁCH BÁN CHẠY - chỉ lấy active = true
+    @GetMapping("/best-sellers")
+    public Page<BookDTO> bestSellers(@RequestParam(defaultValue = "0") int page,
+                                     @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        // Cần sửa query trong repository để chỉ lấy book.active = true
+        Page<Object[]> result = bookRepo.findTopSellingBooksActiveOnly(pageable);
+        return result.map(obj -> convertToDTO((Book) obj[0]));
+    }
 }

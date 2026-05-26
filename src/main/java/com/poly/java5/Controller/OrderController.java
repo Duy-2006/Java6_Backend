@@ -29,16 +29,27 @@ public class OrderController {
 
     // Thêm method toDTO
     private OrderDTO toDTO(Order o) {
-        OrderDTO dto = new OrderDTO();
-        dto.setId(o.getId());
-        dto.setOrderCode(o.getOrderCode());
-        dto.setStatus(o.getStatus());
-        dto.setTotalAmount(o.getTotalAmount());
-        dto.setOrderDate(o.getOrderDate());
-        
-        return dto;
+    OrderDTO dto = new OrderDTO();
+
+    dto.setId(o.getId());
+    dto.setOrderCode(o.getOrderCode());
+    dto.setStatus(o.getStatus());
+    dto.setTotalAmount(o.getTotalAmount());
+
+    // Calculate discount amount
+    java.math.BigDecimal calculatedTotal = o.calculateTotal();
+    java.math.BigDecimal discount =
+            calculatedTotal.subtract(o.getTotalAmount());
+
+    if (discount.compareTo(java.math.BigDecimal.ZERO) < 0) {
+        discount = java.math.BigDecimal.ZERO;
     }
 
+    dto.setDiscountAmount(discount);
+    dto.setOrderDate(o.getOrderDate());
+
+    return dto;
+}
     // LẤY DANH SÁCH 
     @GetMapping
     public List<OrderDTO> getOrders(@RequestParam Integer userId,

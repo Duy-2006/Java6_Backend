@@ -22,4 +22,5 @@ public class OrderDTO {
 	    private String paymentStatus;    
 	    private String cancelReason;
 	    private List<OrderDetailDTO> orderDetails;
+	    private java.math.BigDecimal discountAmount;
 }
