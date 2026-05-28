@@ -50,41 +50,69 @@ public class SecurityConfig {
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		http.cors(cors -> cors.configurationSource(corsConfigurationSource())).csrf(csrf -> csrf.disable())
-				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.authorizeHttpRequests(auth -> auth
-						.requestMatchers("/api/auth/forgot-password", "/api/auth/verify-otp", "/api/auth/login",
-								"/api/auth/register")
-						.permitAll()
-						.requestMatchers("/api/categories/**", "/api/books/**", "/uploads/**", "/api/admin/authors/**",
-								"/api/admin/books/**", "/api/admin/orders/**")
+		http
+			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+			.csrf(csrf -> csrf.disable())
+			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+			.authorizeHttpRequests(auth -> auth
+					// =========================================================================
+					// [FIX LỖI 401] - MỞ RỘNG CÁC ĐƯỜNG DẪN ĐĂNG KÝ VÀ ĐĂNG NHẬP CHO PHÉP TRUY CẬP TỰ DO
+					// =========================================================================
+					.requestMatchers(
+							"/api/auth/forgot-password", 
+							"/api/auth/verify-otp", 
+							"/api/auth/login",
+							"/api/auth/register",
+							"/auth/register", // Bổ sung không có tiền tố /api
+							"/auth/login",    // Bổ sung không có tiền tố /api
+							"/register",      // Bổ sung đường dẫn gốc trực tiếp
+							"/login"          // Bổ sung đường dẫn gốc trực tiếp
+					).permitAll()
+					
+					// Cho phép thêm riêng phương thức POST gửi dữ liệu lên các Endpoint Auth mà không bị check token
+					.requestMatchers(HttpMethod.POST, "/api/auth/**", "/auth/**", "/register", "/login").permitAll()
 
-						.permitAll().requestMatchers(HttpMethod.POST, "/api/books/*/reviews").authenticated()
-						.requestMatchers("/api/admin/customers/**").permitAll().requestMatchers("/api/search")
-						.permitAll().requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll() // Cho phép OAuth2
-						.requestMatchers("/api/vouchers/admin/**").permitAll()																			// endpoints
-						.requestMatchers("/api/payment/vnpay-return", "/api/payment/ipn").permitAll()
-						.requestMatchers("/api/orders/**").authenticated().anyRequest().authenticated())
-				// Giữ OAuth2 nhưng chỉ cho phép ở endpoints riêng
-				.oauth2Login(oauth -> oauth.successHandler(this::oauth2SuccessHandler)
-						.failureHandler(this::oauth2FailureHandler))
-				// Xử lý lỗi authentication cho API calls
-				.exceptionHandling(
-						exceptions -> exceptions.authenticationEntryPoint((request, response, authException) -> {
-							// Chỉ trả về JSON cho API calls, không redirect
-							String path = request.getRequestURI();
-							if (path.startsWith("/api/")) {
-								response.setContentType("application/json");
-								response.setStatus(HttpStatus.UNAUTHORIZED.value());
-								Map<String, String> error = new HashMap<>();
-								error.put("error", "Unauthorized");
-								error.put("message", "Token invalid or expired");
-								response.getWriter().write(new ObjectMapper().writeValueAsString(error));
-							} else {
-								response.sendRedirect("/login");
-							}
-						}))
-				.addFilterBefore(authFilter, UsernamePasswordAuthenticationFilter.class);
+					// Các tài nguyên công khai hiển thị trên trang chủ
+					.requestMatchers("/api/categories/**", "/api/books/**", "/uploads/**", "/api/admin/authors/**",
+							"/api/admin/books/**", "/api/admin/orders/**").permitAll()
+
+					// Các API bổ sung công khai khác
+					.requestMatchers("/api/admin/customers/**").permitAll()
+					.requestMatchers("/api/search").permitAll()
+					.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll() // Cho phép OAuth2 endpoints
+					.requestMatchers("/api/vouchers/admin/**").permitAll()																			
+					.requestMatchers("/api/payment/vnpay-return", "/api/payment/ipn").permitAll()
+					
+					// Các đường dẫn bắt buộc phải xác thực (Có JWT Token)
+					.requestMatchers(HttpMethod.POST, "/api/books/*/reviews").authenticated()
+					.requestMatchers("/api/orders/**").authenticated()
+					
+					// Tất cả các request còn lại phải cấu hình xác thực bảo mật
+					.anyRequest().authenticated()
+			)
+			// Cấu hình tính năng Đăng nhập bằng mạng xã hội Google OAuth2
+			.oauth2Login(oauth -> oauth
+					.successHandler(this::oauth2SuccessHandler)
+					.failureHandler(this::oauth2FailureHandler)
+			)
+			// Xử lý thông minh lỗi Authentication - không tự động Redirect 302 về trang login đối với API calls
+			.exceptionHandling(exceptions -> exceptions
+					.authenticationEntryPoint((request, response, authException) -> {
+						String path = request.getRequestURI();
+						if (path.startsWith("/api/")) {
+							response.setContentType("application/json;charset=UTF-8");
+							response.setStatus(HttpStatus.UNAUTHORIZED.value());
+							Map<String, String> error = new HashMap<>();
+							error.put("error", "Unauthorized");
+							error.put("message", "Token không hợp lệ hoặc đã hết hạn!");
+							response.getWriter().write(new ObjectMapper().writeValueAsString(error));
+						} else {
+							response.sendRedirect("http://localhost:3000/auth/login"); // Đổi redirect về port 3000 của Frontend
+						}
+					})
+			)
+			// Áp dụng bộ lọc Token JWT Filter của bạn trước khi bước vào cổng Filter bảo mật của Spring
+			.addFilterBefore(authFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
 	}
@@ -108,7 +136,7 @@ public class SecurityConfig {
 		return source;
 	}
 
-	// OAuth2 Success Handler
+	// OAuth2 Success Handler (Xử lý khi đăng nhập Google thành công)
 	private void oauth2SuccessHandler(HttpServletRequest request, HttpServletResponse response,
 			Authentication authentication) throws IOException, ServletException {
 
