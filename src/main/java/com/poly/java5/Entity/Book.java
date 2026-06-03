@@ -103,6 +103,13 @@ public class Book implements Serializable {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Wishlist> wishlists; 
+    
+ //  THÊM QUAN HỆ VỚI BẢNG CHƯƠNG SÁCH CHO TÍNH NĂNG AUDIO
+    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore // Dùng Ignore để tránh Next.js load quá nặng khi chỉ xem danh sách sách
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<BookChapter> chapters;
 
     @PrePersist
     protected void onCreate() {

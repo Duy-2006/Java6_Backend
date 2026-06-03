@@ -20,34 +20,38 @@ public class AdminOrderApiController {
 	 @Autowired private OrderService orderService;
 
 	 private OrderDTO convertToDTO(Order order) {
-		    OrderDTO dto = new OrderDTO();
-		    dto.setId(order.getId());
-		    dto.setOrderCode(order.getOrderCode());
-		    dto.setCustomerName(order.getCustomerName());
-		    dto.setCustomerPhone(order.getCustomerPhone());
-		    dto.setCustomerAddress(order.getCustomerAddress());   
-		    dto.setTotalAmount(order.getTotalAmount());
-		    dto.setStatus(order.getStatus());
-		    dto.setOrderDate(order.getOrderDate());
-		    dto.setPaymentMethod(order.getPaymentMethod());       
-		    dto.setPaymentStatus(order.getPaymentStatus());
-		    dto.setCancelReason(order.getCancelReason());
+    OrderDTO dto = new OrderDTO();
+    dto.setId(order.getId());
+    dto.setOrderCode(order.getOrderCode());
+    dto.setCustomerName(order.getCustomerName());
+    dto.setCustomerPhone(order.getCustomerPhone());
+    dto.setCustomerAddress(order.getCustomerAddress());
+    dto.setTotalAmount(order.getTotalAmount());
+    dto.setShippingFee(order.getShippingFee() != null      // ← THÊM
+            ? order.getShippingFee() : java.math.BigDecimal.ZERO);
+    dto.setDiscountAmount(order.getDiscountAmount() != null // ← THÊM
+            ? order.getDiscountAmount() : java.math.BigDecimal.ZERO);
+    dto.setStatus(order.getStatus());
+    dto.setOrderDate(order.getOrderDate());
+    dto.setPaymentMethod(order.getPaymentMethod());
+    dto.setPaymentStatus(order.getPaymentStatus());
+    dto.setCancelReason(order.getCancelReason());
 
-		    if (order.getOrderDetails() != null) {
-		        List<OrderDetailDTO> detailDTOs = order.getOrderDetails().stream()
-		            .map(detail -> {
-		                OrderDetailDTO d = new OrderDetailDTO();
-		                d.setId(detail.getId());
-		                d.setBookId(detail.getBook().getId());
-		                d.setBookTitle(detail.getBook().getTitle());
-		                d.setQuantity(detail.getQuantity());
-		                d.setPrice(detail.getPrice());
-		                return d;
-		            }).collect(Collectors.toList());
-		        dto.setOrderDetails(detailDTOs);
-		    }
-		    return dto;
-		}
+    if (order.getOrderDetails() != null) {
+        List<OrderDetailDTO> detailDTOs = order.getOrderDetails().stream()
+            .map(detail -> {
+                OrderDetailDTO d = new OrderDetailDTO();
+                d.setId(detail.getId());
+                d.setBookId(detail.getBook().getId());
+                d.setBookTitle(detail.getBook().getTitle());
+                d.setQuantity(detail.getQuantity());
+                d.setPrice(detail.getPrice());
+                return d;
+            }).collect(Collectors.toList());
+        dto.setOrderDetails(detailDTOs);
+    }
+    return dto;
+}
 
 	    @GetMapping
 	    public ResponseEntity<?> getAllOrders() {

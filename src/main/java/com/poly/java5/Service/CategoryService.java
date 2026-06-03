@@ -109,21 +109,20 @@ public class CategoryService {
 	            categoryName = book.getCategory().getName();
 	        }
 	        
-	        return new BookDTO(
-	            book.getId(),
-	            book.getTitle(),
-	            book.getIsbn(),
-	            book.getPublisher(),
-	            book.getPrice(),
-	            book.getQuantity(),
-	            book.getActive(),
-	            book.getDescription(),
-	            book.getImageUrl(),
-	            null, // imageFile: không set vì không cần upload
-	            authorId,
-	            authorName,
-	            categoryId,
-	            categoryName
-	        );
+	        BookDTO dto = new BookDTO();
+	        dto.setId(book.getId());
+	        dto.setTitle(book.getTitle());
+	        dto.setIsbn(book.getIsbn());
+	        dto.setPublisher(book.getPublisher());
+	        dto.setPrice(book.getPrice());
+	        dto.setQuantity(book.getQuantity());
+	        dto.setActive(book.getActive());
+	        dto.setDescription(book.getDescription());
+	        dto.setImageUrl(book.getImageUrl());
+	        dto.setAuthorId(authorId);
+	        dto.setAuthorName(authorName);
+	        dto.setCategoryId(categoryId);
+	        dto.setCategoryName(categoryName);
+	        return dto;
 	    }
 }

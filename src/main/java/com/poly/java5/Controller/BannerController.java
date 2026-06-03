@@ -22,7 +22,7 @@ public class BannerController {
     }
 
     // 2. Thêm mới banner
-    @HttpPost
+    @PostMapping
     public ResponseEntity<Banner> createBanner(@RequestBody Banner banner) {
         return ResponseEntity.ok(bannerRepository.save(banner));
     }

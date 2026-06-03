@@ -10,10 +10,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.poly.java5.Entity.Book;
+import com.poly.java5.Entity.BookFormat;
 import com.poly.java5.Entity.Cart;
 import com.poly.java5.Entity.Order;
 import com.poly.java5.Entity.OrderDetail;
 import com.poly.java5.Entity.CartDetail;
+import com.poly.java5.Entity.User;
+import com.poly.java5.Entity.UserLibrary;
+import com.poly.java5.Repository.UserLibraryRepository;
+import com.poly.java5.Repository.BookFormatRepository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -29,6 +34,9 @@ public class CheckoutService {
 
 	@PersistenceContext
 	private EntityManager em;
+	
+	private final UserLibraryRepository userLibraryRepo;
+	private final BookFormatRepository bookFormatRepository;
 
 	// ================= 1. TẠO MÃ ĐƠN HÀNG =================
 	private String generateOrderCode() {
@@ -99,7 +107,7 @@ public class CheckoutService {
 	// ================= 5. CHECKOUT MỚI – HỖ TRỢ GIÁ KHUYẾN MÃI =================
 	@Transactional
 	public Order checkout(Integer userId, String customerName, String phone, String address, 
-	                      String paymentMethod, List<Map<String, Object>> requestItems, BigDecimal discountAmount) {
+	                      String paymentMethod, List<Map<String, Object>> requestItems, BigDecimal discountAmount, BigDecimal shippingFee) {
 		log.info("========== START CHECKOUT (with discounted prices) ==========");
 		log.info("User ID: {}", userId);
 		log.info("Customer: {} - {} - {}", customerName, phone, address);
@@ -132,6 +140,8 @@ public class CheckoutService {
 				.status("PENDING")
 				.paymentStatus("PENDING")
 				.totalAmount(BigDecimal.ZERO)
+				.shippingFee(shippingFee)
+				.discountAmount(discountAmount)
 				.orderDate(LocalDateTime.now())
 				.build();
 		em.persist(order);
@@ -189,6 +199,62 @@ public class CheckoutService {
 		return order;
 	}
 
+	// ================= 5.5. CHECKOUT TRỰC TIẾP (KHÔNG QUA GIỎ HÀNG) =================
+	@Transactional
+	public Order checkoutDirectly(Integer userId, String customerName, String phone, String address, 
+	                              String paymentMethod, List<Map<String, Object>> requestItems, BigDecimal discountAmount, BigDecimal shippingFee) {
+		log.info("========== START DIRECT CHECKOUT (AUDIOBOOK) ==========");
+		
+		User user = em.find(User.class, userId);
+		if (user == null) throw new RuntimeException("Không tìm thấy người dùng");
+
+		String orderCode = generateOrderCode();
+		Order order = Order.builder()
+				.orderCode(orderCode)
+				.user(user)
+				.customerName(customerName)
+				.customerPhone(phone)
+				.customerAddress(address)
+				.paymentMethod(paymentMethod)
+				.status("PENDING")
+				.paymentStatus("PENDING")
+				.totalAmount(BigDecimal.ZERO)
+				.shippingFee(shippingFee)
+				.discountAmount(discountAmount)
+				.orderDate(LocalDateTime.now())
+				.build();
+		em.persist(order);
+
+		BigDecimal total = BigDecimal.ZERO;
+		for (Map<String, Object> reqItem : requestItems) {
+			Integer bookId = (Integer) reqItem.get("bookId");
+			Integer quantity = (Integer) reqItem.get("quantity");
+			BigDecimal price = new BigDecimal(reqItem.get("price").toString());
+
+			Book book = em.find(Book.class, bookId);
+			if (book == null) throw new RuntimeException("Sách không tồn tại, ID: " + bookId);
+
+			OrderDetail od = OrderDetail.builder()
+					.order(order)
+					.book(book)
+					.quantity(quantity)
+					.price(price)
+					.build();
+			em.persist(od);
+			total = total.add(od.calculateSubtotal());
+		}
+
+		if (discountAmount != null && discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+			total = total.subtract(discountAmount);
+			if (total.compareTo(BigDecimal.ZERO) < 0) total = BigDecimal.ZERO;
+		}
+		total = total.add(shippingFee != null ? shippingFee : BigDecimal.ZERO);
+		order.setTotalAmount(total);
+		
+		log.info("========== DIRECT CHECKOUT COMPLETED ==========");
+		return order;
+	}
+
 	// ================= 6. LẤY ĐƠN HÀNG THEO ID =================
 	public Order getOrderById(Integer orderId) {
 		return em.find(Order.class, orderId);
@@ -222,11 +288,97 @@ public class CheckoutService {
 		Order order = getOrderById(orderId);
 		if (order == null) throw new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId);
 		order.setPaymentStatus(paymentStatus);
-		if ("PAID".equals(paymentStatus)) order.setStatus("CONFIRMED");
-		else if ("FAILED".equals(paymentStatus)) order.setStatus("CANCELLED");
+		if ("PAID".equals(paymentStatus)) {
+			order.setStatus("CONFIRMED");
+			unlockAudiobooksForOrder(order, false);
+		} else if ("FAILED".equals(paymentStatus)) {
+			order.setStatus("CANCELLED");
+		}
 		if (transactionNo != null && !transactionNo.isEmpty()) order.setTransactionNo(transactionNo);
 		log.info("Updated payment status for order {}: {}, transaction: {}", orderId, paymentStatus, transactionNo);
 		em.merge(order);
+	}
+
+	// ================= 9.5. CẬP NHẬT TRẠNG THÁI THANH TOÁN (CÓ KIỂM TRA SÁCH NÓI) =================
+	@Transactional
+	public void handleVnpayReturn(String orderIdStr, String paymentStatus, String transactionNo, boolean isAudiobook) {
+		Integer orderId;
+		try {
+			orderId = Integer.parseInt(orderIdStr);
+		} catch (NumberFormatException e) {
+			log.error("Invalid orderId format: {}", orderIdStr);
+			return;
+		}
+		
+		Order order = getOrderById(orderId);
+		if (order == null) {
+			log.error("Không tìm thấy đơn hàng với ID: {}", orderId);
+			return;
+		}
+		
+		// Tránh cập nhật đè nếu IPN đã gọi trước đó
+		if ("PAID".equals(order.getPaymentStatus())) {
+			log.info("Order {} is already PAID", orderId);
+			return;
+		}
+
+		order.setPaymentStatus(paymentStatus);
+		if ("PAID".equals(paymentStatus)) {
+			order.setStatus(isAudiobook ? "COMPLETED" : "CONFIRMED");
+			unlockAudiobooksForOrder(order, isAudiobook);
+		} else if ("FAILED".equals(paymentStatus)) {
+			order.setStatus("CANCELLED");
+			// Hoàn kho nếu bị hủy
+			List<OrderDetail> orderDetails = getOrderDetails(orderId);
+			for (OrderDetail od : orderDetails) {
+				Book book = od.getBook();
+				book.setQuantity(book.getQuantity() + od.getQuantity());
+				em.merge(book);
+			}
+		}
+		if (transactionNo != null && !transactionNo.isEmpty()) order.setTransactionNo(transactionNo);
+		
+		log.info("Updated payment status for order {}: {}, status: {}, transaction: {}", 
+				orderId, paymentStatus, order.getStatus(), transactionNo);
+		em.merge(order);
+	}
+
+	private void unlockAudiobooksForOrder(Order order, boolean isAudiobook) {
+		if (order == null || order.getUser() == null) return;
+		List<OrderDetail> orderDetails = getOrderDetails(order.getId());
+		boolean hasPhysical = false;
+		String addr = order.getCustomerAddress();
+		boolean isDigitalOrder = isAudiobook 
+				|| (addr != null && (addr.contains("Digital Delivery") || addr.contains("Sách nói")));
+		
+		for (OrderDetail od : orderDetails) {
+			Book book = od.getBook();
+			BookFormat audioVariant = bookFormatRepository.findByBookIdAndFormatType(book.getId(), "AUDIO").orElse(null);
+			if (audioVariant != null) {
+				if (isDigitalOrder || od.getPrice().compareTo(audioVariant.getPrice()) == 0) {
+					if (!userLibraryRepo.existsByUser_IdAndBook_IdAndVariant_FormatType(order.getUser().getId(), book.getId(), "AUDIO")) {
+						UserLibrary lib = UserLibrary.builder()
+								.user(order.getUser())
+								.book(book)
+								.variant(audioVariant)
+								.status("ACTIVE")
+								.purchasedAt(LocalDateTime.now())
+								.build();
+						userLibraryRepo.save(lib);
+						log.info("Unlocked audiobook bookId={} for userId={} in library", book.getId(), order.getUser().getId());
+					}
+				} else {
+					hasPhysical = true;
+				}
+			} else {
+				hasPhysical = true;
+			}
+		}
+		
+		// Nếu đơn hàng không có sản phẩm vật lý nào, tự động hoàn thành đơn hàng luôn
+		if (!hasPhysical && ("CONFIRMED".equals(order.getStatus()) || "PENDING".equals(order.getStatus()))) {
+			order.setStatus("COMPLETED");
+		}
 	}
 
 	// ================= 10. XỬ LÝ THANH TOÁN VNPAY THÀNH CÔNG =================

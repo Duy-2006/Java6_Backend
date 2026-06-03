@@ -23,6 +23,10 @@ public interface BookRepository extends JpaRepository<Book, Integer> {
     // 2. Tìm sách theo id và chỉ lấy khi active = true
     Optional<Book> findByIdAndActiveTrue(Integer id);
     
+    // Lấy số lượng đã bán thực tế
+    @Query("SELECT COALESCE(SUM(od.quantity), 0) FROM OrderDetail od JOIN od.order o WHERE od.book.id = :bookId AND o.status = 'COMPLETED'")
+    Long getSoldCountById(@Param("bookId") Integer bookId);
+    
     // 3. Top sách bán chạy chỉ tính sách active = true, đơn hàng hoàn thành
     @Query("SELECT b, SUM(od.quantity) as sold " +
            "FROM OrderDetail od JOIN od.book b JOIN od.order o " +

@@ -2,7 +2,9 @@ package com.poly.java5.Controller;
 
 import com.poly.java5.DTO.BookDTO;
 import com.poly.java5.Entity.Book;
+import com.poly.java5.Entity.BookFormat;
 import com.poly.java5.Service.BookService;
+import com.poly.java5.Repository.BookFormatRepository;
 
 import jakarta.validation.Valid;
 
@@ -25,6 +27,9 @@ public class AdminBooksApiController {
 
 	@Autowired
 	private BookService bookService;
+
+	@Autowired
+	private BookFormatRepository bookFormatRepository;
 
 	private static final String UPLOAD_DIR = "src/main/resources/static/uploads/books/";
 
@@ -64,6 +69,22 @@ public class AdminBooksApiController {
 		}
 
 		bookService.save(book);
+
+		// Save PHYSICAL format
+		BookFormat physical = new BookFormat();
+		physical.setBook(book);
+		physical.setFormatType("PHYSICAL");
+		physical.setPrice(dto.getPrice());
+		bookFormatRepository.save(physical);
+
+		// Save AUDIO format if provided
+		if (dto.getAudioPrice() != null) {
+			BookFormat audio = new BookFormat();
+			audio.setBook(book);
+			audio.setFormatType("AUDIO");
+			audio.setPrice(dto.getAudioPrice());
+			bookFormatRepository.save(audio);
+		}
 
 		return ResponseEntity.ok(convertToDTO(book));
 	}
@@ -108,6 +129,24 @@ public class AdminBooksApiController {
 		}
 
 		bookService.save(existing);
+
+		// Update or create PHYSICAL format
+		BookFormat physical = bookFormatRepository.findByBookIdAndFormatType(existing.getId(), "PHYSICAL")
+				.orElse(new BookFormat());
+		physical.setBook(existing);
+		physical.setFormatType("PHYSICAL");
+		physical.setPrice(dto.getPrice());
+		bookFormatRepository.save(physical);
+
+		// Update or create AUDIO format
+		if (dto.getAudioPrice() != null) {
+			BookFormat audio = bookFormatRepository.findByBookIdAndFormatType(existing.getId(), "AUDIO")
+					.orElse(new BookFormat());
+			audio.setBook(existing);
+			audio.setFormatType("AUDIO");
+			audio.setPrice(dto.getAudioPrice());
+			bookFormatRepository.save(audio);
+		}
 
 		return ResponseEntity.ok(convertToDTO(existing));
 	}
@@ -162,6 +201,10 @@ public class AdminBooksApiController {
 			dto.setCategoryId(book.getCategory().getId());
 			dto.setCategoryName(book.getCategory().getName());
 		}
+
+		// Fetch format prices
+		bookFormatRepository.findByBookIdAndFormatType(book.getId(), "AUDIO")
+				.ifPresent(f -> dto.setAudioPrice(f.getPrice()));
 
 		return dto;
 	}

@@ -31,6 +31,8 @@ public class BookDTO {
 	    @Min(value = 0, message = "Số lượng phải >= 0")
 	    private Integer quantity;
 
+	    private BigDecimal audioPrice;
+
 	    private Boolean active = true;
 
 	    private String description;
@@ -44,4 +46,6 @@ public class BookDTO {
 
 	    private Integer categoryId;
 	    private String categoryName;      // chỉ để hiển thị   
+
+        private Long soldCount;           // số lượng đã bán thực tế
 }

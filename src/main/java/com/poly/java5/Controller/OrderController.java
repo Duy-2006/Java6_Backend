@@ -36,16 +36,8 @@ public class OrderController {
     dto.setStatus(o.getStatus());
     dto.setTotalAmount(o.getTotalAmount());
 
-    // Calculate discount amount
-    java.math.BigDecimal calculatedTotal = o.calculateTotal();
-    java.math.BigDecimal discount =
-            calculatedTotal.subtract(o.getTotalAmount());
-
-    if (discount.compareTo(java.math.BigDecimal.ZERO) < 0) {
-        discount = java.math.BigDecimal.ZERO;
-    }
-
-    dto.setDiscountAmount(discount);
+    dto.setDiscountAmount(o.getDiscountAmount() != null ? o.getDiscountAmount() : java.math.BigDecimal.ZERO);
+    dto.setShippingFee(o.getShippingFee() != null ? o.getShippingFee() : java.math.BigDecimal.ZERO);
     dto.setOrderDate(o.getOrderDate());
 
     return dto;
@@ -85,12 +77,8 @@ public class OrderController {
             dto.setOrderDate(order.getOrderDate());
             dto.setCancelReason(order.getCancelReason());
 
-            java.math.BigDecimal calculatedTotal = order.calculateTotal();
-            java.math.BigDecimal discount = calculatedTotal.subtract(order.getTotalAmount());
-            if (discount.compareTo(java.math.BigDecimal.ZERO) < 0) {
-                discount = java.math.BigDecimal.ZERO;
-            }
-            dto.setDiscountAmount(discount);
+            dto.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : java.math.BigDecimal.ZERO);
+            dto.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : java.math.BigDecimal.ZERO);
 
             List<OrderDetailDTO> details = order.getOrderDetails().stream().map(d -> {
                 OrderDetailDTO od = new OrderDetailDTO();
@@ -135,12 +123,8 @@ public class OrderController {
             dto.setOrderDate(order.getOrderDate());
             dto.setCancelReason(order.getCancelReason());
             
-            java.math.BigDecimal calculatedTotal = order.calculateTotal();
-            java.math.BigDecimal discount = calculatedTotal.subtract(order.getTotalAmount());
-            if (discount.compareTo(java.math.BigDecimal.ZERO) < 0) {
-                discount = java.math.BigDecimal.ZERO;
-            }
-            dto.setDiscountAmount(discount);
+            dto.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : java.math.BigDecimal.ZERO);
+            dto.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : java.math.BigDecimal.ZERO);
 
             List<OrderDetailDTO> details = order.getOrderDetails().stream().map(d -> {
                 OrderDetailDTO od = new OrderDetailDTO();

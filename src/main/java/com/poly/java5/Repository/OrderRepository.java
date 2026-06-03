@@ -109,4 +109,9 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 
     @Query("SELECT o FROM Order o WHERE o.orderDate BETWEEN :start AND :end ORDER BY o.orderDate DESC")
     List<Order> findOrdersBetweenOrderByOrderDateDesc(LocalDateTime start, LocalDateTime end);
+
+    @Query("SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END " +
+           "FROM Order o JOIN o.orderDetails od " +
+           "WHERE o.user.id = :userId AND o.status = 'COMPLETED' AND od.book.id = :bookId")
+    boolean hasPurchasedBook(@Param("userId") Integer userId, @Param("bookId") Integer bookId);
 }

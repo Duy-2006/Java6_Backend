@@ -83,6 +83,8 @@ public class FlashSaleController {
 			BigDecimal finalPrice = book.getPrice();
 			Integer usageLimit = null;
 
+			LocalDate promoEndDate = null;
+
 			for (Promotion promo : activePromotions) {
 				boolean applies = false;
 				// Nếu promotion là ALL, tự động áp dụng cho mọi sách
@@ -103,6 +105,7 @@ public class FlashSaleController {
 					bestDiscount = promo.getDiscountValue();
 					finalPrice = promo.applyDiscount(book.getPrice());
 					usageLimit = promo.getUsageLimit();
+					promoEndDate = promo.getEndDate();
 				}
 			}
 
@@ -110,6 +113,7 @@ public class FlashSaleController {
 					.imageUrl(book.getImageUrl()).discountValue(bestDiscount).discountPrice(finalPrice)
 					.usageLimit(usageLimit)
 					.quantity(book.getQuantity())
+					.endDate(promoEndDate)
 					.build());
 		}
 

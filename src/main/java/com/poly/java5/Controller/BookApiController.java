@@ -44,6 +44,7 @@ public class BookApiController {
     private final CategoryRepository catRepo;
     private final AuthorRepository authorRepo;
     private final ReviewService reviewService;
+    private final com.poly.java5.Repository.BookFormatRepository bookFormatRepo;
 
     @GetMapping("/{bookId}/reviews")
     public ResponseEntity<List<ReviewResponseDTO>> getReviews(@PathVariable Integer bookId) {
@@ -77,6 +78,14 @@ public class BookApiController {
         dto.setCategoryName(b.getCategory() != null ? b.getCategory().getName() : null);
         dto.setAuthorName(b.getAuthor() != null ? b.getAuthor().getName() : null);
         dto.setActive(b.getActive()); // Thêm active để frontend có thể dùng nếu cần
+        
+        Long sold = bookRepo.getSoldCountById(b.getId());
+        dto.setSoldCount(sold);
+        
+        // Lấy giá sách nói
+        bookFormatRepo.findByBookIdAndFormatType(b.getId(), "AUDIO")
+                .ifPresent(f -> dto.setAudioPrice(f.getPrice()));
+        
         return dto;
     }
 
@@ -150,8 +159,14 @@ public class BookApiController {
     public Page<BookDTO> bestSellers(@RequestParam(defaultValue = "0") int page,
                                      @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        // Cần sửa query trong repository để chỉ lấy book.active = true
         Page<Object[]> result = bookRepo.findTopSellingBooksActiveOnly(pageable);
-        return result.map(obj -> convertToDTO((Book) obj[0]));
+        return result.map(obj -> {
+            BookDTO dto = convertToDTO((Book) obj[0]);
+            // Ghi đè soldCount từ query nếu cần thiết, obj[1] là Long
+            if (obj[1] != null) {
+                dto.setSoldCount(((Number) obj[1]).longValue());
+            }
+            return dto;
+        });
     }
 }

@@ -63,7 +63,7 @@ public class VNPayService {
 		params.put("vnp_CurrCode", vnPayConfig.getCurrency());
 		params.put("vnp_TxnRef", vnp_TxnRef);
 
-		params.put("vnp_OrderInfo", "Thanh toan don hang " + vnp_TxnRef);
+		params.put("vnp_OrderInfo", (request.getOrderInfo() != null && !request.getOrderInfo().isEmpty()) ? request.getOrderInfo() : "Thanh toan don hang " + vnp_TxnRef);
 		params.put("vnp_OrderType", "other");
 		params.put("vnp_Locale", vnPayConfig.getLocale());
 		params.put("vnp_ReturnUrl", vnPayConfig.getReturnUrl());

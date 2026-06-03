@@ -4,6 +4,7 @@ import com.poly.java5.DTO.VNPayIPNResponseDTO;
 import com.poly.java5.DTO.VNPayPaymentRequestDTO;
 import com.poly.java5.DTO.VNPayPaymentResponseDTO;
 import com.poly.java5.Service.VNPayService;
+import com.poly.java5.Service.CheckoutService;
 import com.poly.java5.Utils.VNPayUtil; // ← THÊM IMPORT NÀY
 
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import java.util.Map;
 @Slf4j
 public class VNPayController {
 	private final VNPayService vnPayService;
+	private final CheckoutService checkoutService;
 
 	/**
 	 * API tạo URL thanh toán POST /api/payment/create
@@ -69,13 +71,17 @@ public class VNPayController {
 
 		log.info("Transaction: orderId={}, transactionNo={}, responseCode={}", orderId, transactionNo, responseCode);
 
+		String orderInfo = params.get("vnp_OrderInfo");
+		boolean isAudiobook = (orderInfo != null && orderInfo.startsWith("audiobook_"));
+
 		if ("00".equals(responseCode)) {
-			// TODO: Cập nhật trạng thái đơn hàng trong database
-			// orderService.updatePaymentStatus(orderId, "PAID", transactionNo);
+			// Cập nhật trạng thái đơn hàng trong database
+			checkoutService.handleVnpayReturn(orderId, "PAID", transactionNo, isAudiobook);
 
 			return ResponseEntity.ok(VNPayIPNResponseDTO.builder().rspCode("00").message("Success").build());
 		}
 
+		checkoutService.handleVnpayReturn(orderId, "FAILED", transactionNo, isAudiobook);
 		return ResponseEntity.ok(VNPayIPNResponseDTO.builder().rspCode("01").message("Payment failed").build());
 	}
 
@@ -108,16 +114,51 @@ public class VNPayController {
 		String amount = params.get("vnp_Amount");
 		long originalAmount = (amount != null && !amount.isEmpty()) ? Long.parseLong(amount) / 100 : 0;
 
+		String orderInfo = params.get("vnp_OrderInfo"); // Example: audiobook_123_ORD...
+		boolean isAudiobook = (orderInfo != null && orderInfo.startsWith("audiobook_"));
+
 		if ("00".equals(responseCode) && "00".equals(transactionStatus)) {
 			log.info("Payment success for order: {}, amount: {}", orderId, originalAmount);
-			String redirectUrl = String.format(
-					"http://localhost:3000/user/payment-result?status=success&orderId=%s&amount=%d&transactionNo=%s",
-					orderId, originalAmount, params.get("vnp_TransactionNo"));
+			
+			// Update database status via frontend return just in case IPN is delayed
+			checkoutService.handleVnpayReturn(orderId, "PAID", params.get("vnp_TransactionNo"), isAudiobook);
+			
+			String redirectUrl;
+			if (isAudiobook) {
+				// extract bookId
+				String[] parts = orderInfo.split("_");
+				if (parts.length >= 2) {
+					String bookId = parts[1];
+					redirectUrl = String.format("http://localhost:3000/user/books/%s/audiobook?payment=success&orderId=%s", bookId, orderId);
+				} else {
+					redirectUrl = String.format(
+							"http://localhost:3000/user/payment-result?status=success&orderId=%s&amount=%d&transactionNo=%s",
+							orderId, originalAmount, params.get("vnp_TransactionNo"));
+				}
+			} else {
+				redirectUrl = String.format(
+						"http://localhost:3000/user/payment-result?status=success&orderId=%s&amount=%d&transactionNo=%s",
+						orderId, originalAmount, params.get("vnp_TransactionNo"));
+			}
 			response.sendRedirect(redirectUrl);
 		} else {
 			log.warn("Payment failed for order: {}, ResponseCode: {}", orderId, responseCode);
-			String redirectUrl = "http://localhost:3000/user/payment-result?status=failure&message=Thanh+to%C3%A1n+th%E1%BA%A5t+b%E1%BA%A1i&orderId="
-					+ orderId;
+			
+			// Update database
+			checkoutService.handleVnpayReturn(orderId, "FAILED", params.get("vnp_TransactionNo"), isAudiobook);
+			
+			String redirectUrl;
+			if (isAudiobook) {
+				String[] parts = orderInfo.split("_");
+				if (parts.length >= 2) {
+					String bookId = parts[1];
+					redirectUrl = String.format("http://localhost:3000/user/books/%s/audiobook?payment=failure&orderId=%s", bookId, orderId);
+				} else {
+					redirectUrl = "http://localhost:3000/user/payment-result?status=failure&message=Thanh+to%C3%A1n+th%E1%BA%A5t+b%E1%BA%A1i&orderId=" + orderId;
+				}
+			} else {
+				redirectUrl = "http://localhost:3000/user/payment-result?status=failure&message=Thanh+to%C3%A1n+th%E1%BA%A5t+b%E1%BA%A1i&orderId=" + orderId;
+			}
 			response.sendRedirect(redirectUrl);
 		}
 	}

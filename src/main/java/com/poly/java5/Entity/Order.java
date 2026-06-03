@@ -72,6 +72,12 @@ public class Order {
 	 @Column(name = "cancel_reason", columnDefinition = "NVARCHAR(MAX)")
 	    private String cancelReason;   // <--- THÊM DÒNG NÀY
 
+	@Column(name = "shipping_fee", precision = 10, scale = 2)
+	private BigDecimal shippingFee;	
+
+	@Column(name = "discount_amount", precision = 10, scale = 2)
+	private BigDecimal discountAmount;
+
 
 	@PrePersist
 	protected void onCreate() {

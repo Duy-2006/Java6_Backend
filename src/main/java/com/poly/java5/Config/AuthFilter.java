@@ -118,12 +118,17 @@ public class AuthFilter extends OncePerRequestFilter {
 	                !path.startsWith("/uploads") &&
 	                !path.startsWith("/api/checkout") && 
 	                !path.startsWith("/api/payment")&&
+	                !path.startsWith("/api/admin/audio") &&
 	                !path.startsWith("/api/admin/authors")&& 
 	                !path.startsWith("/api/admin/customers")&& 
 	                !path.startsWith("/api/admin/books")&& 
 	                !path.startsWith("/api/admin/orders")&& 
-	                !path.startsWith("/api/vouchers")&& 
-	            	!path.startsWith("/api/orders")){   
+	                !path.startsWith("/api/vouchers")&&
+	                !path.startsWith("/swagger-ui")&&
+	                !path.startsWith("/v3/api-docs")&&
+	                !path.startsWith("/swagger-resources")&&
+	            	!path.startsWith("/api/orders")&&
+	            	!path.startsWith("/api/user/books")){   
 	                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 	                response.getWriter().write("{\"message\":\"Unauthorized\"}");
 	                response.setContentType("application/json");

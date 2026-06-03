@@ -24,6 +24,10 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.validation.BindingResult;
+import jakarta.validation.Valid;
+import java.util.HashMap;
+
 @RestController
 @RequestMapping("/api/auth") // đổi path cho chuẩn
 @CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true") // cho Next.js gọi
@@ -36,7 +40,15 @@ public class LoginController {
 
 	//  LOGIN 
 	 @PostMapping("/login")
-	    public ResponseEntity<?> login(@RequestBody LoginBean loginBean) {
+	    public ResponseEntity<?> login(@Valid @RequestBody LoginBean loginBean, BindingResult errors) {
+	        if (errors.hasErrors()) {
+	            Map<String, String> errorMap = new HashMap<>();
+	            errors.getFieldErrors().forEach(error ->
+	                errorMap.put(error.getField(), error.getDefaultMessage())
+	            );
+	            return ResponseEntity.badRequest().body(Map.of("errors", errorMap));
+	        }
+
 	        User user = userService
 	        		.login(loginBean.getUsernameOrEmail(), loginBean.getPassword());
 

@@ -168,6 +168,12 @@ public class CheckoutController {
             return ResponseEntity.badRequest().body(Map.of("error", "Không có sản phẩm nào để thanh toán"));
         }
 
+        // Extract shipping fee
+        BigDecimal shippingFee = BigDecimal.ZERO;
+        if (payload.containsKey("shippingFee") && payload.get("shippingFee") != null) {
+            shippingFee = new BigDecimal(payload.get("shippingFee").toString());
+        }
+
         try {
             // Lưu địa chỉ nếu user chọn
             if (Boolean.TRUE.equals(saveAddress)) {
@@ -205,7 +211,8 @@ public class CheckoutController {
                 customerAddress,
                 paymentMethod,
                 items,
-                discountAmount
+                discountAmount,
+                shippingFee
             );
 
             // Tăng số lượt sử dụng voucher nếu có
@@ -222,6 +229,51 @@ public class CheckoutController {
             ));
         } catch (Exception e) {
             log.error("Checkout error: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    //  API TẠO ĐƠN HÀNG TRỰC TIẾP (CHO MUA SÁCH NÓI)
+    @PostMapping("/direct")
+    public ResponseEntity<?> createDirectOrder(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody Map<String, Object> payload) {
+        Integer userId = getUserIdFromHeader(authHeader);
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Vui lòng đăng nhập lại"));
+        }
+
+        String customerName = (String) payload.get("customerName");
+        String customerPhone = (String) payload.get("customerPhone");
+        String customerAddress = (String) payload.get("customerAddress");
+        String paymentMethod = (String) payload.get("paymentMethod");
+        List<Map<String, Object>> items = (List<Map<String, Object>>) payload.get("items");
+
+        if (items == null || items.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Không có sản phẩm nào để thanh toán"));
+        }
+
+        try {
+            Order order = checkoutService.checkoutDirectly(
+                userId,
+                customerName != null ? customerName : "Khách Hàng Sách Nói",
+                customerPhone != null ? customerPhone : "0999999999",
+                customerAddress != null ? customerAddress : "Digital Delivery, VN",
+                paymentMethod != null ? paymentMethod : "VNPAY",
+                items,
+                BigDecimal.ZERO, // No discount 
+                BigDecimal.ZERO  // No shipping fee for audiobook
+            );
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "orderId", order.getId(),
+                "orderCode", order.getOrderCode(),
+                "finalAmount", order.getTotalAmount(),
+                "message", "Đặt hàng thành công!"
+            ));
+        } catch (Exception e) {
+            log.error("Direct checkout error: {}", e.getMessage());
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
@@ -250,16 +302,17 @@ public class CheckoutController {
             }
 
             // Tạo DTO để trả về (tránh lộ thông tin)
-            Map<String, Object> orderInfo = Map.of(
-                "id", order.getId(),
-                "orderCode", order.getOrderCode(),
-                "totalAmount", order.getTotalAmount(),
-                "status", order.getStatus(),
-                "paymentStatus", order.getPaymentStatus(),
-                "customerName", order.getCustomerName(),
-                "customerPhone", order.getCustomerPhone(),
-                "customerAddress", order.getCustomerAddress()
-            );
+            Map<String, Object> orderInfo = new HashMap<>();
+            orderInfo.put("id", order.getId());
+            orderInfo.put("orderCode", order.getOrderCode());
+            orderInfo.put("totalAmount", order.getTotalAmount());
+            orderInfo.put("shippingFee", order.getShippingFee() != null ? order.getShippingFee() : BigDecimal.ZERO);
+            orderInfo.put("discountAmount", order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO);
+            orderInfo.put("status", order.getStatus());
+            orderInfo.put("paymentStatus", order.getPaymentStatus());
+            orderInfo.put("customerName", order.getCustomerName());
+            orderInfo.put("customerPhone", order.getCustomerPhone());
+            orderInfo.put("customerAddress", order.getCustomerAddress());
 
             return ResponseEntity.ok(orderInfo);
         } catch (Exception e) {
