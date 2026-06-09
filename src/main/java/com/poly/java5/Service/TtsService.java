@@ -2,7 +2,6 @@ package com.poly.java5.Service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -18,10 +17,9 @@ public class TtsService {
 
     private final WebClient webClient;
 
-    @Value("${fpt.ai.tts.api-key}")
-    private String apiKey;
 
-    // Thay đổi giới hạn từ 3000 xuống 1000 ký tự để FPT.AI phản hồi nhanh nhất
+
+    // Giới hạn 1000 ký tự mỗi đoạn để Python TTS xử lý nhanh nhất
     private static final int MAX_TEXT_LENGTH = 1000;
 
     public TtsService(WebClient.Builder webClientBuilder) {
@@ -73,7 +71,7 @@ public class TtsService {
     }
 
     /**
-     * Làm sạch văn bản trước khi gửi lên FPT.AI:
+     * Làm sạch văn bản trước khi gửi lên Python TTS Microservice:
      * - Loại bỏ ký tự điều khiển (ASCII < 32, trừ newline/tab)
      * - Loại bỏ ký tự HTML entity, emoji không hỗ trợ
      * - Chuẩn hóa khoảng trắng thừa
@@ -95,7 +93,7 @@ public class TtsService {
     }
 
     /**
-     * Gửi văn bản đến FPT.AI TTS hỗ trợ tự động tách nhiều đoạn và trả về Flux các URL file mp3.
+     * Gửi văn bản đến Python TTS Microservice, tự động tách nhiều đoạn và trả về Flux các URL file mp3.
      */
     public Flux<String> requestMultiSegmentsTTS(String textContent, String narratorCode) {
         if (textContent == null || textContent.isBlank()) {
@@ -114,45 +112,42 @@ public class TtsService {
         // Cắt văn bản thành các đoạn nhỏ an toàn theo cấu hình mới (1000 ký tự)
         List<String> chunks = splitTextSafely(sanitized, MAX_TEXT_LENGTH);
 
-        System.out.printf("📤 [TTS] Chia thành %d đoạn để gửi tới Python TTS (voice=%s)%n", chunks.size(), narratorCode);
+        System.out.printf("📤 [TTS] Chia thành %d đoạn để gửi tới Python TTS (voice=%s) trong 1 Request duy nhất%n", chunks.size(), narratorCode);
 
-        return Flux.fromIterable(chunks)
-                // Delay 2.5s between requests to prevent overwhelming the Python TTS server if needed
-                .delayElements(Duration.ofMillis(2500))
-                .concatMap(chunk -> webClient.post()
-                        .uri("http://localhost:8000/api/generate-audio")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(new PythonTtsRequest(chunk, narratorCode))
-                        .retrieve()
-                        .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
-                                clientResponse -> clientResponse.bodyToMono(String.class)
-                                        .flatMap(body -> Mono.error(new RuntimeException(
-                                                "Python TTS HTTP " + clientResponse.statusCode().value() + ": " + body))))
-                        .bodyToMono(PythonTtsResponse.class)
-                        .flatMap(response -> {
-                            System.out.println("📡 [TTS] Python Response: status=" + response.getStatus()
-                                    + " | audio_url=" + response.getAudioUrl());
+        return webClient.post()
+                .uri("http://localhost:8000/api/generate-audio")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(new PythonTtsRequest(chunks, narratorCode))
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                        clientResponse -> clientResponse.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(new RuntimeException(
+                                        "Python TTS HTTP " + clientResponse.statusCode().value() + ": " + body))))
+                .bodyToMono(PythonTtsResponse.class)
+                .flatMapMany(response -> {
+                    System.out.println("📡 [TTS] Python Response: status=" + response.getStatus()
+                            + " | audio_url=" + response.getAudioUrl());
 
-                            if ("success".equalsIgnoreCase(response.getStatus())
-                                    && response.getAudioUrl() != null
-                                    && !response.getAudioUrl().isBlank()) {
-                                return Mono.just(response.getAudioUrl());
-                            }
+                    if ("success".equalsIgnoreCase(response.getStatus())
+                            && response.getAudioUrl() != null
+                            && !response.getAudioUrl().isBlank()) {
+                        return Flux.just(response.getAudioUrl());
+                    }
 
-                            String errMsg = response.getMessage() != null ? response.getMessage() : "Lỗi không xác định từ Python TTS";
-                            return Mono.error(new RuntimeException("Python TTS Error: " + errMsg));
-                        })
-                        .doOnError(err -> System.err.println("❌ [TTS] Lỗi đoạn: " + err.getMessage()))
-                );
+                    String errMsg = response.getMessage() != null ? response.getMessage() : "Lỗi không xác định từ Python TTS";
+                    return Flux.error(new RuntimeException("Python TTS Error: " + errMsg));
+                })
+                .doOnError(err -> System.err.println("❌ [TTS] Lỗi đoạn: " + err.getMessage()));
     }
 
     @Data
     private static class PythonTtsRequest {
-        private String text;
+        @JsonProperty("text_chunks")
+        private List<String> textChunks;
         private String voice;
 
-        public PythonTtsRequest(String text, String voice) {
-            this.text = text;
+        public PythonTtsRequest(List<String> textChunks, String voice) {
+            this.textChunks = textChunks;
             this.voice = voice;
         }
     }

@@ -40,7 +40,9 @@ public class LoginController {
 
 	//  LOGIN 
 	 @PostMapping("/login")
-	    public ResponseEntity<?> login(@Valid @RequestBody LoginBean loginBean, BindingResult errors) {
+	    public ResponseEntity<?> login(@Valid @RequestBody LoginBean loginBean,
+	                                    BindingResult errors,
+	                                    HttpServletResponse httpResponse) {
 	        if (errors.hasErrors()) {
 	            Map<String, String> errorMap = new HashMap<>();
 	            errors.getFieldErrors().forEach(error ->
@@ -60,7 +62,10 @@ public class LoginController {
 	        // Dùng JWTService tạo token (24h = 86400 giây)
 	        String token = jwtService.create(user, 86400);
 	        System.out.println("Token created for user: " + user.getUsername());
-	        System.out.println("Token: " + token);
+	        
+	        // ✅ Gắn JWT vào HTTP-Only Cookie (bảo mật chống XSS)
+	        httpResponse.setHeader("Set-Cookie",
+	            String.format("jwt=%s; Path=/; HttpOnly; Max-Age=86400; SameSite=Lax", token));
 	        
 	        UserDTO userRes = new UserDTO(
 	        		user.getId(),
@@ -68,13 +73,16 @@ public class LoginController {
 	            user.getRole() != null ? user.getRole().name() : "USER"
 	        );
 	        
+	        // Vẫn trả token trong body để backwards compatible với frontend hiện tại
 	        UserLoginDTO response = new UserLoginDTO(token, userRes);
 	        return ResponseEntity.ok(response);
 	    }
 
 	// ===== LOGOUT =====
 	@PostMapping("/logout")
-	public ResponseEntity<?> logout() {
+	public ResponseEntity<?> logout(HttpServletResponse httpResponse) {
+		// ✅ Xóa cookie bằng cách set Max-Age=0
+		httpResponse.setHeader("Set-Cookie", "jwt=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax");
 		return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công"));
 	}
 

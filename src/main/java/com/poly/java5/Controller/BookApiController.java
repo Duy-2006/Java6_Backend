@@ -169,4 +169,12 @@ public class BookApiController {
             return dto;
         });
     }
+
+    // SÁCH NÓI - chỉ lấy active = true và có định dạng AUDIO active
+    @GetMapping("/audiobooks")
+    public Page<BookDTO> audiobooks(@RequestParam(defaultValue = "0") int page,
+                                    @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return bookRepo.findAudiobooksActiveOnly(pageable).map(this::convertToDTO);
+    }
 }

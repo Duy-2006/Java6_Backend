@@ -80,14 +80,31 @@ public class AuthFilter extends OncePerRequestFilter {
 	        	    return;
 	        	}
 	        
-	        // Lấy token từ header
-	        String authHeader = request.getHeader("Authorization");
-	        System.out.println("Authorization header: " + authHeader);
+	        // ===== Dual-Mode: Lấy token từ header HOẶC cookie =====
+	        String token = null;
 	        
+	        // Ưu tiên 1: Authorization header (cho API clients, Postman, etc.)
+	        String authHeader = request.getHeader("Authorization");
 	        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-	            String token = authHeader.substring(7);
-	            System.out.println("Token received: " + token);
-	            
+	            token = authHeader.substring(7);
+	            System.out.println("Token from Bearer header");
+	        }
+	        
+	        // Ưu tiên 2: HTTP-Only Cookie (cho trình duyệt web)
+	        if (token == null) {
+	            Cookie[] cookies = request.getCookies();
+	            if (cookies != null) {
+	                for (Cookie cookie : cookies) {
+	                    if ("jwt".equals(cookie.getName())) {
+	                        token = cookie.getValue();
+	                        System.out.println("Token from cookie");
+	                        break;
+	                    }
+	                }
+	            }
+	        }
+	        
+	        if (token != null) {
 	            boolean isValid = jwtService.validate(token);
 	            System.out.println("Token valid: " + isValid);
 	            
@@ -105,11 +122,10 @@ public class AuthFilter extends OncePerRequestFilter {
 	                    }
 	                } catch (Exception e) {
 	                    System.out.println("Error: " + e.getMessage());
-	                    e.printStackTrace();
 	                }
 	            }
 	        } else {
-	            System.out.println("No Bearer token found");
+	            System.out.println("No token found (header or cookie)");
 	            // Nếu không có token và request cần xác thực -> trả về 401
 	            if (!path.startsWith("/api/auth") && 
 	            	!path.startsWith("/api/categories") &&
@@ -122,7 +138,7 @@ public class AuthFilter extends OncePerRequestFilter {
 	                !path.startsWith("/api/admin/authors")&& 
 	                !path.startsWith("/api/admin/customers")&& 
 	                !path.startsWith("/api/admin/books")&& 
-	                !path.startsWith("/api/admin/orders")&& 
+	                !path.startsWith("/api/admin/orders")&&
 	                !path.startsWith("/api/vouchers")&&
 	                !path.startsWith("/swagger-ui")&&
 	                !path.startsWith("/v3/api-docs")&&
@@ -134,10 +150,6 @@ public class AuthFilter extends OncePerRequestFilter {
 	                response.setContentType("application/json");
 	                return;
 	            }
-	            System.out.println("Request path: " + path);
-	            
-	            System.out.println("=== AuthFilter path: '" + path + "'");
-	            System.out.println("  startsWith /api/categories: " + path.startsWith("/api/categories"));
 	        }
 	        
 	        filterChain.doFilter(request, response);

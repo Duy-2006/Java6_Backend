@@ -34,6 +34,10 @@ public interface BookRepository extends JpaRepository<Book, Integer> {
            "GROUP BY b ORDER BY sold DESC")
     Page<Object[]> findTopSellingBooksActiveOnly(Pageable pageable);
     
+    // 4. Lấy danh sách sách nói active (phân trang)
+    @Query("SELECT bf.book FROM BookFormat bf WHERE bf.formatType = 'AUDIO' AND bf.active = true AND bf.book.active = true AND bf.book.deleted = false")
+    Page<Book> findAudiobooksActiveOnly(Pageable pageable);
+    
 
     // ========== CÁC PHƯƠNG THỨC KHÁC (GIỮ LẠI ĐỂ TƯƠNG THÍCH VỚI CÁC CONTROLLER KHÁC) ==========
     

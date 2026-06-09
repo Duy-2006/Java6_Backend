@@ -1,4 +1,4 @@
-package com.poly.java5.Config;
+	package com.poly.java5.Config;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -155,6 +155,10 @@ public class SecurityConfig {
         String jwtToken = jwtService.create(user, TOKEN_EXPIRY_SECONDS);
         request.getSession().invalidate();
 
+        // ✅ Gắn JWT vào HTTP-Only Cookie (an toàn hơn truyền qua URL)
+        response.setHeader("Set-Cookie",
+            String.format("jwt=%s; Path=/; HttpOnly; Max-Age=%d; SameSite=Lax", jwtToken, TOKEN_EXPIRY_SECONDS));
+
         Map<String, Object> userData = new HashMap<>();
         userData.put("id", user.getId());
         userData.put("email", user.getEmail());
@@ -163,6 +167,7 @@ public class SecurityConfig {
         userData.put("username", user.getUsername());
 
         String encodedUserData = java.net.URLEncoder.encode(new ObjectMapper().writeValueAsString(userData), "UTF-8");
+        // Vẫn truyền token qua URL để backwards compatible, cookie sẽ được ưu tiên dần
         String redirectUrl = String.format("http://localhost:3000/user/callback?token=%s&user=%s", jwtToken, encodedUserData);
 
         response.sendRedirect(redirectUrl);

@@ -6,19 +6,16 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
-import com.poly.java5.Bean.CheckoutBean;
 import com.poly.java5.Entity.Order;
 import com.poly.java5.Entity.User;
 import com.poly.java5.Service.CartService;
 import com.poly.java5.Service.CheckoutService;
-import com.poly.java5.Service.JWTService;
 import com.poly.java5.Service.UserService;
 import com.poly.java5.Service.VoucherService;
+import com.poly.java5.Utils.AuthUtil;
 
-import io.jsonwebtoken.Claims;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,44 +28,14 @@ import lombok.extern.slf4j.Slf4j;
 public class CheckoutController {
     private final CartService cartService;
     private final CheckoutService checkoutService;
-    private final JWTService jwtService;
     private final UserService userService;
     private final VoucherService voucherService;
-
-    /**
-     * Hàm hỗ trợ lấy UserId từ Token trong Header
-     */
-    private Integer getUserIdFromHeader(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            
-            return null;
-        }
-        
-        String token = authHeader.substring(7);
-        try {
-            if (jwtService.validate(token)) {
-                Claims claims = jwtService.getBody(token);
-                String username = claims.getSubject();
-                
-                User user = userService.findByUsername(username);
-                
-                if (user != null) {
-                    
-                    return user.getId();
-                } else {
-                    
-                }
-            }
-        } catch (Exception e) {
-            
-        }
-        return null;
-    }
+    private final com.poly.java5.Repository.UserAddressRepository userAddressRepository;
 
     //  API XEM TRƯỚC ĐƠN HÀNG 
     @GetMapping("/preview")
-    public ResponseEntity<?> previewCheckout(@RequestHeader("Authorization") String authHeader) {
-        Integer userId = getUserIdFromHeader(authHeader);
+    public ResponseEntity<?> previewCheckout() {
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Phiên đăng nhập hết hạn hoặc không hợp lệ"));
         }
@@ -108,9 +75,8 @@ public class CheckoutController {
     // API KIỂM TRA MÃ GIẢM GIÁ
     @PostMapping("/apply-voucher")
     public ResponseEntity<?> applyVoucher(
-            @RequestHeader("Authorization") String authHeader,
             @RequestBody Map<String, Object> payload) {
-        Integer userId = getUserIdFromHeader(authHeader);
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Vui lòng đăng nhập lại"));
         }
@@ -142,9 +108,8 @@ public class CheckoutController {
      // Checkout - nhận thêm items từ frontend
     @PostMapping
     public ResponseEntity<?> createOrder(
-            @RequestHeader("Authorization") String authHeader,
-            @RequestBody Map<String, Object> payload) {  // thay vì @Valid CheckoutBean, dùng Map để nhận thêm items
-        Integer userId = getUserIdFromHeader(authHeader);
+            @RequestBody Map<String, Object> payload) {
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Vui lòng đăng nhập lại"));
         }
@@ -179,10 +144,24 @@ public class CheckoutController {
             if (Boolean.TRUE.equals(saveAddress)) {
                 User user = userService.findById(userId);
                 if (user != null) {
-                    user.setName(customerName);
-                    user.setPhone(customerPhone);
-                    user.setAddress(customerAddress);
-                    userService.save(user);
+                    Integer provId = payload.containsKey("provinceId") && payload.get("provinceId") != null ? Integer.parseInt(payload.get("provinceId").toString()) : 0;
+                    Integer distId = payload.containsKey("districtId") && payload.get("districtId") != null ? Integer.parseInt(payload.get("districtId").toString()) : 0;
+                    String provName = (String) payload.get("provinceName");
+                    String street = (String) payload.get("street");
+                    
+                    com.poly.java5.Entity.UserAddress ua = new com.poly.java5.Entity.UserAddress();
+                    ua.setUser(user);
+                    ua.setReceiverName(customerName);
+                    ua.setReceiverPhone(customerPhone);
+                    ua.setProvinceId(provId);
+                    ua.setDistrictId(distId);
+                    ua.setProvinceName(provName);
+                    ua.setStreet(street != null ? street : customerAddress);
+                    
+                    List<com.poly.java5.Entity.UserAddress> existings = userAddressRepository.findByUserId(user.getId());
+                    ua.setIsDefault(existings.isEmpty());
+                    
+                    userAddressRepository.save(ua);
                 }
             }
 
@@ -236,9 +215,8 @@ public class CheckoutController {
     //  API TẠO ĐƠN HÀNG TRỰC TIẾP (CHO MUA SÁCH NÓI)
     @PostMapping("/direct")
     public ResponseEntity<?> createDirectOrder(
-            @RequestHeader("Authorization") String authHeader,
             @RequestBody Map<String, Object> payload) {
-        Integer userId = getUserIdFromHeader(authHeader);
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Vui lòng đăng nhập lại"));
         }
@@ -280,11 +258,8 @@ public class CheckoutController {
 
     //  API LẤY CHI TIẾT ĐƠN HÀNG 
     @GetMapping("/{orderId}")
-    public ResponseEntity<?> getOrder(
-            @PathVariable Integer orderId, 
-            @RequestHeader("Authorization") String authHeader) {
-        
-        Integer userId = getUserIdFromHeader(authHeader);
+    public ResponseEntity<?> getOrder(@PathVariable Integer orderId) {
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
@@ -325,10 +300,9 @@ public class CheckoutController {
     @PutMapping("/{orderId}/payment-status")
     public ResponseEntity<?> updatePaymentStatus(
             @PathVariable Integer orderId,
-            @RequestHeader("Authorization") String authHeader,
             @RequestBody Map<String, String> body
     ) {
-        Integer userId = getUserIdFromHeader(authHeader);
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }

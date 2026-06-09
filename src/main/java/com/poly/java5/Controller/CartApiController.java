@@ -1,12 +1,9 @@
 package com.poly.java5.Controller;
 
-import com.poly.java5.Entity.User;
 import com.poly.java5.Service.CartService;
-import com.poly.java5.Service.JWTService;
 import com.poly.java5.Service.UserService;
+import com.poly.java5.Utils.AuthUtil;
 
-import io.jsonwebtoken.Claims;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,70 +19,29 @@ import java.util.Map;
 @Slf4j
 public class CartApiController {
 	private final CartService cartService;
-	private final JWTService jwtService;
 	private final UserService userService;
-
-	// Lấy userId từ JWT token
-	private Integer getUserIdFromToken(HttpServletRequest request) {
-		String authHeader = request.getHeader("Authorization");
-
-		if (authHeader != null && authHeader.startsWith("Bearer ")) {
-			String token = authHeader.substring(7);
-
-			try {
-				// Validate token bằng JWTService
-				if (jwtService.validate(token)) {
-					// Lấy claims từ token
-					Claims claims = jwtService.getBody(token);
-
-					// Lấy username từ subject
-					String username = claims.getSubject();
-
-					// Tìm user bằng username
-					User user = userService.findByUsername(username);
-
-					if (user != null) {
-						Integer userId = user.getId();
-						return userId;
-					} else {
-
-					}
-				}
-
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		} else {
-		}
-		return null;
-	}
 
 	// ================= GET CART SUMMARY =================
 	@GetMapping
-	public ResponseEntity<?> getCart(HttpServletRequest request) {
-
-		Integer userId = getUserIdFromToken(request);
+	public ResponseEntity<?> getCart() {
+		Integer userId = AuthUtil.getAuthenticatedUserId(userService);
 		if (userId == null) {
-
 			return ResponseEntity.status(401).body(Map.of("message", "Chưa đăng nhập"));
 		}
 
 		try {
 			Map<String, Object> cartSummary = cartService.getCartSummary(userId);
-
 			return ResponseEntity.ok(cartSummary);
 		} catch (Exception e) {
-
 			return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
 		}
 	}
 
 	// ================= ADD TO CART =================
 	@PostMapping("/add")
-	public ResponseEntity<?> addToCart(@RequestBody Map<String, Object> body, HttpServletRequest request) {
-
+	public ResponseEntity<?> addToCart(@RequestBody Map<String, Object> body) {
 		try {
-			Integer userId = getUserIdFromToken(request);
+			Integer userId = AuthUtil.getAuthenticatedUserId(userService);
 			if (userId == null) {
 				return ResponseEntity.status(401).body(Map.of("message", "Chưa đăng nhập"));
 			}
@@ -97,17 +53,15 @@ public class CartApiController {
 
 			return ResponseEntity.ok(Map.of("success", true, "message", "Đã thêm vào giỏ hàng", "data", result));
 		} catch (Exception e) {
-
 			return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
 		}
 	}
 
 	// ================= UPDATE CART ITEM =================
 	@PostMapping("/update")
-	public ResponseEntity<?> updateCart(@RequestBody Map<String, Object> body, HttpServletRequest request) {
-
+	public ResponseEntity<?> updateCart(@RequestBody Map<String, Object> body) {
 		try {
-			Integer userId = getUserIdFromToken(request);
+			Integer userId = AuthUtil.getAuthenticatedUserId(userService);
 			if (userId == null) {
 				return ResponseEntity.status(401).body(Map.of("message", "Chưa đăng nhập"));
 			}
@@ -119,17 +73,15 @@ public class CartApiController {
 
 			return ResponseEntity.ok(Map.of("success", true, "message", "Cập nhật thành công", "data", result));
 		} catch (Exception e) {
-
 			return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
 		}
 	}
 
 	// ================= REMOVE FROM CART =================
 	@PostMapping("/remove")
-	public ResponseEntity<?> removeItem(@RequestBody Map<String, Object> body, HttpServletRequest request) {
-
+	public ResponseEntity<?> removeItem(@RequestBody Map<String, Object> body) {
 		try {
-			Integer userId = getUserIdFromToken(request);
+			Integer userId = AuthUtil.getAuthenticatedUserId(userService);
 			if (userId == null) {
 				return ResponseEntity.status(401).body(Map.of("message", "Chưa đăng nhập"));
 			}
@@ -141,17 +93,15 @@ public class CartApiController {
 			return ResponseEntity
 					.ok(Map.of("success", true, "message", "Đã xóa sản phẩm khỏi giỏ hàng", "data", result));
 		} catch (Exception e) {
-
 			return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
 		}
 	}
 
 	// ================= SELECT/UNSELECT ITEM =================
 	@PostMapping("/select")
-	public ResponseEntity<?> selectItem(@RequestBody Map<String, Object> body, HttpServletRequest request) {
-
+	public ResponseEntity<?> selectItem(@RequestBody Map<String, Object> body) {
 		try {
-			Integer userId = getUserIdFromToken(request);
+			Integer userId = AuthUtil.getAuthenticatedUserId(userService);
 			if (userId == null) {
 				return ResponseEntity.status(401).body(Map.of("message", "Chưa đăng nhập"));
 			}
@@ -163,17 +113,15 @@ public class CartApiController {
 
 			return ResponseEntity.ok(Map.of("success", true, "message", "OK"));
 		} catch (Exception e) {
-
 			return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
 		}
 	}
 
 	// ================= GET CART COUNT =================
 	@GetMapping("/count")
-	public ResponseEntity<?> count(HttpServletRequest request) {
-
+	public ResponseEntity<?> count() {
 		try {
-			Integer userId = getUserIdFromToken(request);
+			Integer userId = AuthUtil.getAuthenticatedUserId(userService);
 			if (userId == null) {
 				return ResponseEntity.ok(Map.of("count", 0));
 			}
@@ -182,7 +130,6 @@ public class CartApiController {
 
 			return ResponseEntity.ok(Map.of("count", count));
 		} catch (Exception e) {
-
 			return ResponseEntity.ok(Map.of("count", 0));
 		}
 	}

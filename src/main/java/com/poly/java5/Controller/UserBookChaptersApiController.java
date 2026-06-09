@@ -11,8 +11,8 @@ import com.poly.java5.Repository.AudioPlaybackProgressRepository;
 import com.poly.java5.Repository.BookChapterRepository;
 import com.poly.java5.Repository.OrderRepository;
 import com.poly.java5.Repository.UserLibraryRepository;
-import com.poly.java5.Service.JWTService;
-import io.jsonwebtoken.Claims;
+import com.poly.java5.Service.UserService;
+import com.poly.java5.Utils.AuthUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,14 +31,12 @@ public class UserBookChaptersApiController {
     private final OrderRepository orderRepository;
     private final AudioPlaybackProgressRepository progressRepository;
     private final UserLibraryRepository userLibraryRepository;
-    private final JWTService jwtService;
+    private final UserService userService;
 
     @GetMapping("/{bookId}/chapters")
-    public ResponseEntity<?> getUserChapters(
-            @PathVariable Integer bookId,
-            @RequestHeader(value = "Authorization", required = false) String header) {
+    public ResponseEntity<?> getUserChapters(@PathVariable Integer bookId) {
         
-        Integer userId = extractUserId(header);
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
 
         boolean hasAccess = false;
         if (userId != null) {
@@ -69,8 +67,8 @@ public class UserBookChaptersApiController {
     }
 
     @GetMapping("/my-audiobooks")
-    public ResponseEntity<?> getMyAudiobooks(@RequestHeader(value = "Authorization", required = false) String header) {
-        Integer userId = extractUserId(header);
+    public ResponseEntity<?> getMyAudiobooks() {
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
         if (userId == null) {
             return ResponseEntity.status(401).body("{\"message\":\"Cần đăng nhập\"}");
         }
@@ -96,11 +94,9 @@ public class UserBookChaptersApiController {
      * Trả về vị trí nghe gần nhất của user cho cuốn sách này.
      */
     @GetMapping("/{bookId}/progress")
-    public ResponseEntity<?> getProgress(
-            @PathVariable Integer bookId,
-            @RequestHeader(value = "Authorization", required = false) String header) {
+    public ResponseEntity<?> getProgress(@PathVariable Integer bookId) {
 
-        Integer userId = extractUserId(header);
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
         if (userId == null) {
             return ResponseEntity.ok(PlaybackProgressDTO.builder().build());
         }
@@ -122,10 +118,9 @@ public class UserBookChaptersApiController {
     @PostMapping("/{bookId}/progress")
     public ResponseEntity<?> saveProgress(
             @PathVariable Integer bookId,
-            @RequestBody PlaybackProgressDTO dto,
-            @RequestHeader(value = "Authorization", required = false) String header) {
+            @RequestBody PlaybackProgressDTO dto) {
 
-        Integer userId = extractUserId(header);
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
         if (userId == null) {
             return ResponseEntity.status(401).body("{\"message\":\"Cần đăng nhập để lưu tiến trình\"}");
         }
@@ -146,21 +141,6 @@ public class UserBookChaptersApiController {
     }
 
     // ========== PRIVATE HELPERS ==========
-
-    private Integer extractUserId(String header) {
-        try {
-            if (header != null && header.startsWith("Bearer ")) {
-                String token = header.substring(7);
-                if (jwtService.validate(token)) {
-                    Claims claims = jwtService.getBody(token);
-                    return claims.get("userId", Integer.class);
-                }
-            }
-        } catch (Exception e) {
-            // Ignore token error, treat as guest
-        }
-        return null;
-    }
 
     private UserChapterDTO convertToUserDTO(BookChapter chapter) {
         UserChapterDTO dto = new UserChapterDTO();

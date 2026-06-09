@@ -174,7 +174,7 @@ public class AdminBookChaptersApiController {
 							}
 						},
 						error -> {
-                            // Nếu lỗi ngay từ lúc request FPT, tạo 1 bản ghi báo lỗi
+                            // Nếu lỗi ngay từ lúc request Python TTS, tạo 1 bản ghi báo lỗi
 							AudioBook newAudioBook = AudioBook.builder()
 									.chapter(chapter)
 									.language(language)
