@@ -97,6 +97,8 @@ public class SecurityConfig {
             }))
             .addFilterBefore(authFilter, UsernamePasswordAuthenticationFilter.class);
 
+
+
         return http.build();
     }
 
@@ -122,10 +124,14 @@ public class SecurityConfig {
         return source;
     }
 
+
     private void oauth2SuccessHandler(HttpServletRequest request, HttpServletResponse response,
                                       Authentication authentication) throws IOException, ServletException {
         OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
         OAuth2User oauth2User = oauthToken.getPrincipal();
+
+	// OAuth2 Success Handler (Xử lý khi đăng nhập Google thành công)
+	
 
         String email = oauth2User.getAttribute("email");
         String name = oauth2User.getAttribute("name");

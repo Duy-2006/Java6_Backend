@@ -9,6 +9,7 @@ build/
 .mvn/
 mvnw
 mvnw.cmd
+.env
 
 # =====================
 # IDE / Editor

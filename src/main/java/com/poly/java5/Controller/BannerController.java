@@ -3,23 +3,29 @@ package com.poly.java5.Controller;
 import com.poly.java5.Entity.Banner;
 import com.poly.java5.Repository.BannerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
 import java.util.List;
+
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/banners")
+@CrossOrigin("*") // Cho phép Frontend Next.js gọi API không bị lỗi CORS
 public class BannerController {
 
     @Autowired
     private BannerRepository bannerRepository;
+
 
     private static final String UPLOAD_DIR = "src/main/resources/static/uploads/banners/";
 
@@ -35,10 +41,12 @@ public class BannerController {
     }
 
     // 1. Lấy danh sách toàn bộ banner
+
     @GetMapping
     public ResponseEntity<List<Banner>> getAllBanners() {
-        return ResponseEntity.ok(bannerRepository.findAll());
+        return ResponseEntity.ok(bannerRepository.findAllByOrderByPositionAsc());
     }
+
 
     // 2. Thêm mới banner
     @PostMapping(consumes = "multipart/form-data")
@@ -74,6 +82,7 @@ public class BannerController {
             banner.setImage_url(imageUrl);
         }
         
+   
         return ResponseEntity.ok(bannerRepository.save(banner));
     }
 
