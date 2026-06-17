@@ -24,7 +24,6 @@ import com.poly.java5.Repository.OrderRepository;
 
 @RestController
 @RequestMapping("/api/admin/revenue")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class RevenueDashboardApiController {
     @Autowired
     private OrderRepository orderRepo;

@@ -36,7 +36,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/books")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+
 @RequiredArgsConstructor
 public class BookApiController {
 

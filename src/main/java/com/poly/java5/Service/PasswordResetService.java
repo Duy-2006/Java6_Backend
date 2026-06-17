@@ -108,7 +108,7 @@ public class PasswordResetService {
         }
         
         // Đặt lại mật khẩu
-        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPassword(com.poly.java5.Utils.Utils.hashPassword(newPassword));
         
         // Xóa OTP sau khi dùng
         user.setResetOtp(null);

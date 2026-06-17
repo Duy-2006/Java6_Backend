@@ -219,29 +219,25 @@ public class OrderService {
 
     public void unlockAudiobooksForOrder(Order order) {
         if (order == null || order.getUser() == null) return;
-        List<OrderDetail> orderDetails = (List<OrderDetail>) order.getOrderDetails();
+        java.util.Collection<OrderDetail> orderDetails = order.getOrderDetails();
         if (orderDetails == null || orderDetails.isEmpty()) {
             orderDetails = em.createQuery("SELECT od FROM OrderDetail od WHERE od.order.id = :oid", OrderDetail.class)
                     .setParameter("oid", order.getId()).getResultList();
         }
-        String addr = order.getCustomerAddress();
-        boolean isDigital = (addr != null && (addr.contains("Digital Delivery") || addr.contains("Sách nói")));
         for (OrderDetail od : orderDetails) {
             Book book = od.getBook();
             BookFormat audioVariant = bookFormatRepository.findByBookIdAndFormatType(book.getId(), "AUDIO").orElse(null);
             if (audioVariant != null) {
-                if (isDigital || od.getPrice().compareTo(audioVariant.getPrice()) == 0) {
-                    if (!userLibraryRepo.existsByUser_IdAndBook_IdAndVariant_FormatType(order.getUser().getId(), book.getId(), "AUDIO")) {
-                        UserLibrary lib = UserLibrary.builder()
-                                .user(order.getUser())
-                                .book(book)
-                                .variant(audioVariant)
-                                .status("ACTIVE")
-                                .purchasedAt(java.time.LocalDateTime.now())
-                                .build();
-                        userLibraryRepo.save(lib);
-                        log.info("Unlocked audiobook {} for user {} upon order completion", book.getId(), order.getUser().getId());
-                    }
+                if (!userLibraryRepo.existsByUser_IdAndBook_IdAndVariant_FormatType(order.getUser().getId(), book.getId(), "AUDIO")) {
+                    UserLibrary lib = UserLibrary.builder()
+                            .user(order.getUser())
+                            .book(book)
+                            .variant(audioVariant)
+                            .status("ACTIVE")
+                            .purchasedAt(java.time.LocalDateTime.now())
+                            .build();
+                    userLibraryRepo.save(lib);
+                    log.info("Unlocked bonus audiobook {} for user {} upon order completion", book.getId(), order.getUser().getId());
                 }
             }
         }

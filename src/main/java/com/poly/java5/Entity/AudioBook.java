@@ -49,9 +49,13 @@ public class AudioBook {
     // File Audio này đọc bằng ngôn ngữ/giọng nào?
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "language_id")
-    private AudioLanguage language;
+    private TTS_Voice language;
     
- // Thêm vào class AudioBook của bạn
+    // Thêm vào class AudioBook của bạn
     @Column(name = "sequence_order")
     private Integer sequenceOrder; // Lưu thứ tự: 0, 1, 2, 3...
+
+    @Builder.Default
+    @Column(name = "is_outdated")
+    private Boolean isOutdated = false;
 }

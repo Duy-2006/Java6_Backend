@@ -30,7 +30,6 @@ import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/auth") // đổi path cho chuẩn
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true") // cho Next.js gọi
 public class LoginController {
 	@Autowired
 	private UserService userService;
@@ -109,6 +108,7 @@ public class LoginController {
         response.put("role", user.getRole() != null ? user.getRole().name() : "USER");
         response.put("phone", user.getPhone());
         response.put("address", user.getAddress());
+        response.put("avatar", user.getAvatar());
 
         return ResponseEntity.ok(response);
     

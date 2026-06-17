@@ -17,4 +17,5 @@ public class CustomerHistoryDTO {
 	    private Boolean active;
 	    private Double totalSpending;
 	    private List<?> orders;  // Có thể thay bằng List<OrderDTO> nếu có
+	    private String avatar;
 }

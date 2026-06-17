@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 // ─────────────────────────────────────────────────────────────
 @RestController
 @RequestMapping("/api/admin/authors")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+
 class AdminAuthorsApiController {
 
 	@Autowired

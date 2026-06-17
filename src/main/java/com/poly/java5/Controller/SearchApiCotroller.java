@@ -16,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/search")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 @RequiredArgsConstructor
 public class SearchApiCotroller {
 

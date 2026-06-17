@@ -5,8 +5,14 @@ import com.poly.java5.Repository.BannerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/banners")
@@ -15,6 +21,19 @@ public class BannerController {
     @Autowired
     private BannerRepository bannerRepository;
 
+    private static final String UPLOAD_DIR = "src/main/resources/static/uploads/banners/";
+
+    private String saveImage(MultipartFile file) throws IOException {
+        Path uploadPath = Paths.get(UPLOAD_DIR);
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+        }
+        String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+        Path filePath = uploadPath.resolve(filename);
+        Files.copy(file.getInputStream(), filePath);
+        return filename;
+    }
+
     // 1. Lấy danh sách toàn bộ banner
     @GetMapping
     public ResponseEntity<List<Banner>> getAllBanners() {
@@ -22,22 +41,83 @@ public class BannerController {
     }
 
     // 2. Thêm mới banner
-    @PostMapping
-    public ResponseEntity<Banner> createBanner(@RequestBody Banner banner) {
+    @PostMapping(consumes = "multipart/form-data")
+    public ResponseEntity<?> createBanner(
+            @RequestParam(value = "image_url", required = false) String imageUrl,
+            @RequestParam(value = "link", required = false) String link,
+            @RequestParam(value = "position", defaultValue = "0") Integer position,
+            @RequestParam(value = "active", defaultValue = "true") Boolean active,
+            @RequestParam(value = "start_date", required = false) String startDateStr,
+            @RequestParam(value = "end_date", required = false) String endDateStr,
+            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile) {
+        
+        Banner banner = new Banner();
+        banner.setLink(link);
+        banner.setPosition(position);
+        banner.setActive(active);
+        
+        if (startDateStr != null && !startDateStr.isEmpty()) {
+            banner.setStart_date(java.time.LocalDateTime.parse(startDateStr));
+        }
+        if (endDateStr != null && !endDateStr.isEmpty()) {
+            banner.setEnd_date(java.time.LocalDateTime.parse(endDateStr));
+        }
+
+        if (imageFile != null && !imageFile.isEmpty()) {
+            try {
+                String filename = saveImage(imageFile);
+                banner.setImage_url("/uploads/banners/" + filename);
+            } catch (IOException e) {
+                return ResponseEntity.status(500).body("{\"message\": \"Lỗi lưu ảnh: " + e.getMessage() + "\"}");
+            }
+        } else {
+            banner.setImage_url(imageUrl);
+        }
+        
         return ResponseEntity.ok(bannerRepository.save(banner));
     }
 
     // 3. Cập nhật (Sửa) banner
-    @PutMapping("/{id}")
-    public ResponseEntity<Banner> updateBanner(@PathVariable Integer id, @RequestBody Banner bannerDetails) {
+    @PutMapping(value = "/{id}", consumes = "multipart/form-data")
+    public ResponseEntity<?> updateBanner(
+            @PathVariable Integer id,
+            @RequestParam(value = "image_url", required = false) String imageUrl,
+            @RequestParam(value = "link", required = false) String link,
+            @RequestParam(value = "position", defaultValue = "0") Integer position,
+            @RequestParam(value = "active", defaultValue = "true") Boolean active,
+            @RequestParam(value = "start_date", required = false) String startDateStr,
+            @RequestParam(value = "end_date", required = false) String endDateStr,
+            @RequestParam(value = "imageFile", required = false) MultipartFile imageFile) {
+            
         Banner banner = bannerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy banner có ID: " + id));
         
-        // Cập nhật chuẩn theo thuộc tính biến có dấu gạch dưới của bạn
-        banner.setImage_url(bannerDetails.getImage_url());
-        banner.setLink(bannerDetails.getLink());
-        banner.setActive(bannerDetails.getActive());
-        banner.setPosition(bannerDetails.getPosition());
+        banner.setLink(link);
+        banner.setPosition(position);
+        banner.setActive(active);
+        
+        if (startDateStr != null && !startDateStr.isEmpty()) {
+            banner.setStart_date(java.time.LocalDateTime.parse(startDateStr));
+        } else {
+            banner.setStart_date(null);
+        }
+        
+        if (endDateStr != null && !endDateStr.isEmpty()) {
+            banner.setEnd_date(java.time.LocalDateTime.parse(endDateStr));
+        } else {
+            banner.setEnd_date(null);
+        }
+
+        if (imageFile != null && !imageFile.isEmpty()) {
+            try {
+                String filename = saveImage(imageFile);
+                banner.setImage_url("/uploads/banners/" + filename);
+            } catch (IOException e) {
+                return ResponseEntity.status(500).body("{\"message\": \"Lỗi lưu ảnh: " + e.getMessage() + "\"}");
+            }
+        } else {
+            banner.setImage_url(imageUrl);
+        }
         
         return ResponseEntity.ok(bannerRepository.save(banner));
     }

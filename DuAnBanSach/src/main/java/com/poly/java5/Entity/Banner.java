@@ -6,6 +6,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "banners")
@@ -22,5 +23,9 @@ public class Banner {
 	    private Boolean active = true;
 
 	    private Integer position; // thứ tự hiển thị
+
+	    private LocalDateTime start_date; // thời gian bắt đầu áp dụng
+
+	    private LocalDateTime end_date; // thời gian kết thúc áp dụng
 
 }

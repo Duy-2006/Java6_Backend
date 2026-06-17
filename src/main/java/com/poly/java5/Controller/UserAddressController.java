@@ -99,4 +99,73 @@ public class UserAddressController {
             return ResponseEntity.status(500).body("Error saving address: " + e.getMessage());
         }
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getAddress(@PathVariable Long id) {
+        try {
+            User user = AuthUtil.getAuthenticatedUser(userService);
+            if (user == null) return ResponseEntity.status(401).body("Unauthorized");
+
+            UserAddress address = userAddressRepository.findById(id).orElse(null);
+            if (address == null || !address.getUser().getId().equals(user.getId())) {
+                return ResponseEntity.status(404).body("Address not found");
+            }
+
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", address.getId());
+            map.put("receiverName", address.getReceiverName());
+            map.put("receiverPhone", address.getReceiverPhone());
+            map.put("provinceId", address.getProvinceId());
+            map.put("provinceName", address.getProvinceName());
+            map.put("districtId", address.getDistrictId());
+            map.put("wardCode", address.getWardCode());
+            map.put("wardName", address.getWardName());
+            map.put("street", address.getStreet());
+            map.put("isDefault", address.getIsDefault());
+
+            return ResponseEntity.ok(map);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateAddress(@PathVariable Long id, @RequestBody UserAddress userAddress) {
+        try {
+            User user = AuthUtil.getAuthenticatedUser(userService);
+            if (user == null) return ResponseEntity.status(401).body("Unauthorized");
+
+            UserAddress existing = userAddressRepository.findById(id).orElse(null);
+            if (existing == null || !existing.getUser().getId().equals(user.getId())) {
+                return ResponseEntity.status(404).body("Address not found");
+            }
+
+            if (Boolean.TRUE.equals(userAddress.getIsDefault())) {
+                List<UserAddress> oldAddresses = userAddressRepository.findByUserId(user.getId());
+                for (UserAddress old : oldAddresses) {
+                    if (Boolean.TRUE.equals(old.getIsDefault()) && !old.getId().equals(id)) {
+                        old.setIsDefault(false);
+                        userAddressRepository.save(old);
+                    }
+                }
+            }
+
+            existing.setReceiverName(userAddress.getReceiverName());
+            existing.setReceiverPhone(userAddress.getReceiverPhone());
+            existing.setProvinceId(userAddress.getProvinceId());
+            existing.setProvinceName(userAddress.getProvinceName());
+            existing.setDistrictId(userAddress.getDistrictId());
+            existing.setWardCode(userAddress.getWardCode());
+            existing.setWardName(userAddress.getWardName());
+            existing.setStreet(userAddress.getStreet());
+            if (userAddress.getIsDefault() != null) {
+                existing.setIsDefault(userAddress.getIsDefault());
+            }
+
+            UserAddress saved = userAddressRepository.save(existing);
+            return ResponseEntity.ok("Cập nhật thành công");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error updating address: " + e.getMessage());
+        }
+    }
 }

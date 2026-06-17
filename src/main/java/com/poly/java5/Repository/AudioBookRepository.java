@@ -2,6 +2,7 @@ package com.poly.java5.Repository;
 import com.poly.java5.Entity.AudioBook;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +17,23 @@ public interface AudioBookRepository extends JpaRepository<AudioBook, Integer>{
     AudioBook findByChapterIdAndLanguageId(Integer chapterId, Integer languageId);
     
     List<AudioBook> findByChapterIdOrderBySequenceOrderAsc(Integer chapterId);
+    
+    List<AudioBook> findByChapterIdAndTtsStatusOrderBySequenceOrderAsc(Integer chapterId, String ttsStatus);
+    
+    List<AudioBook> findByChapterIdAndTtsStatusInOrderBySequenceOrderAsc(Integer chapterId, List<String> ttsStatuses);
+
     int countByChapterId(Integer chapterId);
 
     @Transactional
     @Modifying
     void deleteByChapterId(Integer chapterId);
+    
+    @Transactional
+    @Modifying
+    void deleteByChapterIdAndLanguageId(Long chapterId, Long languageId);
+
+    @Transactional
+    @Modifying
+    @Query("UPDATE AudioBook a SET a.isOutdated = true WHERE a.chapter.id = :chapterId")
+    void markAllAudiobooksAsOutdated(Integer chapterId);
 }

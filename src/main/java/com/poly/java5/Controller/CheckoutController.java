@@ -10,8 +10,10 @@ import org.springframework.web.bind.annotation.*;
 
 import com.poly.java5.Entity.Order;
 import com.poly.java5.Entity.User;
+import com.poly.java5.Repository.UserAddressRepository;
 import com.poly.java5.Service.CartService;
 import com.poly.java5.Service.CheckoutService;
+import com.poly.java5.Service.GhtkService;
 import com.poly.java5.Service.UserService;
 import com.poly.java5.Service.VoucherService;
 import com.poly.java5.Utils.AuthUtil;
@@ -22,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/checkout")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+
 @RequiredArgsConstructor
 @Slf4j 
 public class CheckoutController {
@@ -30,7 +32,8 @@ public class CheckoutController {
     private final CheckoutService checkoutService;
     private final UserService userService;
     private final VoucherService voucherService;
-    private final com.poly.java5.Repository.UserAddressRepository userAddressRepository;
+    private final GhtkService ghtkService;
+    private final UserAddressRepository userAddressRepository;
 
     //  API XEM TRƯỚC ĐƠN HÀNG 
     @GetMapping("/preview")
@@ -104,6 +107,53 @@ public class CheckoutController {
         }
     }
 
+    // API TÍNH PHÍ SHIP (PREVIEW TỪ FRONTEND)
+    @PostMapping("/shipping-fee")
+    public ResponseEntity<?> calculateShippingFee(@RequestBody Map<String, Object> payload) {
+        String provinceName = (String) payload.get("provinceName");
+        String districtName = (String) payload.get("districtName");
+        String wardName = (String) payload.get("wardName");
+        
+        
+        // 🌟 CHUẨN HÓA TÊN TỈNH/THÀNH PHỐ THEO CHUẨN GHTK
+        if (provinceName != null) {
+            provinceName = provinceName.replace("Thành phố ", "").replace("TP. ", "").replace("Tỉnh ", "").trim();
+        }
+        if (districtName != null) {
+            districtName = districtName.replace("Quận ", "").replace("Huyện ", "").trim();
+        }
+        if (wardName != null) {
+            wardName = wardName.replace("Phường ", "").replace("Xã ", "").trim();
+        }
+        
+        List<Map<String, Object>> items = (List<Map<String, Object>>) payload.get("items");
+
+        if (provinceName == null || districtName == null || items == null || items.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Vui lòng cung cấp đầy đủ thông tin địa chỉ và giỏ hàng"));
+        }
+
+        try {
+            int totalWeight = checkoutService.calculateTotalWeight(items);
+            
+            if (totalWeight == 0) {
+                return ResponseEntity.ok(Map.of("success", true, "fee", 0));
+            }
+
+            BigDecimal orderTotal = BigDecimal.ZERO;
+            for (Map<String, Object> item : items) {
+                BigDecimal price = new BigDecimal(item.get("price").toString());
+                Integer qty = Integer.parseInt(item.get("quantity").toString());
+                orderTotal = orderTotal.add(price.multiply(new BigDecimal(qty)));
+            }
+
+            
+			Double fee = ghtkService.calculateShippingFee(provinceName, districtName, wardName, totalWeight, orderTotal.doubleValue());
+            return ResponseEntity.ok(Map.of("success", true, "fee", fee));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     //  API TẠO ĐƠN HÀNG (CHECKOUT) 
      // Checkout - nhận thêm items từ frontend
     @PostMapping
@@ -133,10 +183,42 @@ public class CheckoutController {
             return ResponseEntity.badRequest().body(Map.of("error", "Không có sản phẩm nào để thanh toán"));
         }
 
-        // Extract shipping fee
+     // Extract address parameters
+        String provName = (String) payload.get("provinceName");
+        String distName = (String) payload.get("districtName");
+        String wardName = (String) payload.get("wardName"); 
+        
+     // 🌟 THÊM ĐOẠN NÀY VÀO ĐỂ CHUẨN HÓA TÊN TỈNH/THÀNH PHỐ THEO CHUẨN GHTK
+        if (provName != null) {
+            provName = provName.replace("Thành phố ", "").replace("TP. ", "").replace("Tỉnh ", "").trim();
+        }
+        
+        // (Tùy chọn) Chuẩn hóa cả Quận/Huyện nếu cần
+        // if (districtName != null) {
+        //     districtName = districtName.replace("Thành phố ", "").trim(); // Xử lý case "Thành phố Thủ Đức"
+        // }
+
+        // Xử lý Ward null (Tránh lỗi URL như vừa rồi)
+        if (wardName == null || wardName.isBlank()) {
+            wardName = ""; 
+        }
+        
+        // Tính toán trước tổng tiền đơn hàng để apply voucher
+        BigDecimal orderTotal = BigDecimal.ZERO;
+        for (Map<String, Object> item : items) {
+            BigDecimal price = new BigDecimal(item.get("price").toString());
+            Integer qty = Integer.parseInt(item.get("quantity").toString());
+            orderTotal = orderTotal.add(price.multiply(new BigDecimal(qty)));
+        }
+
+        // BẢO MẬT: Bắt buộc Backend tự tính phí ship
+        int totalWeight = checkoutService.calculateTotalWeight(items);
         BigDecimal shippingFee = BigDecimal.ZERO;
-        if (payload.containsKey("shippingFee") && payload.get("shippingFee") != null) {
-            shippingFee = new BigDecimal(payload.get("shippingFee").toString());
+        
+        if (totalWeight > 0 && provName != null && distName != null) {
+            // 🌟 SỬA DÒNG NÀY: Truyền thêm wardName vào vị trí thứ 3
+            Double fee = ghtkService.calculateShippingFee(provName, distName, wardName, totalWeight, orderTotal.doubleValue());
+            shippingFee = BigDecimal.valueOf(fee);
         }
 
         try {
@@ -146,7 +228,7 @@ public class CheckoutController {
                 if (user != null) {
                     Integer provId = payload.containsKey("provinceId") && payload.get("provinceId") != null ? Integer.parseInt(payload.get("provinceId").toString()) : 0;
                     Integer distId = payload.containsKey("districtId") && payload.get("districtId") != null ? Integer.parseInt(payload.get("districtId").toString()) : 0;
-                    String provName = (String) payload.get("provinceName");
+                    String provname = (String) payload.get("provinceName");
                     String street = (String) payload.get("street");
                     
                     com.poly.java5.Entity.UserAddress ua = new com.poly.java5.Entity.UserAddress();
@@ -156,6 +238,12 @@ public class CheckoutController {
                     ua.setProvinceId(provId);
                     ua.setDistrictId(distId);
                     ua.setProvinceName(provName);
+                    
+                    // Thêm phường/xã
+                    String wCode = payload.get("wardCode") != null ? payload.get("wardCode").toString() : null;
+                    ua.setWardName(wardName);
+                    ua.setWardCode(wCode);
+                    
                     ua.setStreet(street != null ? street : customerAddress);
                     
                     List<com.poly.java5.Entity.UserAddress> existings = userAddressRepository.findByUserId(user.getId());
@@ -163,14 +251,6 @@ public class CheckoutController {
                     
                     userAddressRepository.save(ua);
                 }
-            }
-
-            // Tính toán trước tổng tiền đơn hàng để apply voucher
-            BigDecimal orderTotal = BigDecimal.ZERO;
-            for (Map<String, Object> item : items) {
-                BigDecimal price = new BigDecimal(item.get("price").toString());
-                Integer qty = (Integer) item.get("quantity");
-                orderTotal = orderTotal.add(price.multiply(new BigDecimal(qty)));
             }
 
             BigDecimal discountAmount = BigDecimal.ZERO;

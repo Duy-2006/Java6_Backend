@@ -18,7 +18,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/customers")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+
 public class AdminCustomerApiController {
 
 	@Autowired
@@ -47,7 +47,7 @@ public class AdminCustomerApiController {
 			}
 
 			result.add(new CustomerDTO(u.getUsername(), u.getName(), u.getEmail(), u.getPhone(), u.getActive(),
-					spending, type));
+					spending, type, u.getAvatar()));
 		}
 		return ResponseEntity.ok(result);
 	}
@@ -62,7 +62,7 @@ public class AdminCustomerApiController {
 		List<OrderDTO> orders = orderService.findByUsername(username); // ✅ giờ là DTO
 
 		return ResponseEntity.ok(new CustomerHistoryDTO(user.getUsername(), user.getName(), user.getEmail(),
-				user.getPhone(), user.getActive(), spending != null ? spending : 0.0, orders));
+				user.getPhone(), user.getActive(), spending != null ? spending : 0.0, orders, user.getAvatar()));
 	}
 
 	@PutMapping("/toggle/{username}")

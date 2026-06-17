@@ -23,7 +23,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/payment")
-@CrossOrigin(origins = "http://localhost:3000")
 @RequiredArgsConstructor
 @Slf4j
 public class VNPayController {

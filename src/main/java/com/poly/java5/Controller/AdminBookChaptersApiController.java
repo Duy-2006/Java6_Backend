@@ -3,7 +3,7 @@ package com.poly.java5.Controller;
 import com.poly.java5.DTO.AudioSegmentDTO;
 import com.poly.java5.DTO.ChapterDTO;
 import com.poly.java5.Entity.AudioBook;
-import com.poly.java5.Entity.AudioLanguage;
+import com.poly.java5.Entity.TTS_Voice;
 import com.poly.java5.Entity.Book;
 import com.poly.java5.Entity.BookChapter;
 import com.poly.java5.Repository.AudioBookRepository;
@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/books")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+
 @RequiredArgsConstructor
 public class AdminBookChaptersApiController {
 
@@ -45,14 +45,14 @@ public class AdminBookChaptersApiController {
 	@PostConstruct
 	public void initLanguages() {
 		if (languageRepository.count() == 0) {
-			List.of(AudioLanguage.builder().languageName("Ban Mai (Nữ miền Bắc)").narratorCode("banmai").build(),
-					AudioLanguage.builder().languageName("Lê Minh (Nam miền Bắc)").narratorCode("leminh").build(),
-					AudioLanguage.builder().languageName("Gia Huy (Nam miền Nam)").narratorCode("giahuy").build(),
-					AudioLanguage.builder().languageName("Thu Minh (Nữ miền Nam)").narratorCode("thuminh").build(),
-					AudioLanguage.builder().languageName("Ngọc Lâm (Nữ giọng chuẩn)").narratorCode("ngoclam").build(),
-					AudioLanguage.builder().languageName("Bảo Tín (Nam đa ngôn ngữ)").narratorCode("baotin").build(),
-					AudioLanguage.builder().languageName("Vy Vy (Nữ đa ngôn ngữ)").narratorCode("vyvy").build(),
-					AudioLanguage.builder().languageName("Phước Lộc (Nam đa ngôn ngữ)").narratorCode("phuocloc").build())
+			List.of(TTS_Voice.builder().languageName("Ban Mai (Nữ miền Bắc)").narratorCode("banmai").build(),
+					TTS_Voice.builder().languageName("Lê Minh (Nam miền Bắc)").narratorCode("leminh").build(),
+					TTS_Voice.builder().languageName("Gia Huy (Nam miền Nam)").narratorCode("giahuy").build(),
+					TTS_Voice.builder().languageName("Thu Minh (Nữ miền Nam)").narratorCode("thuminh").build(),
+					TTS_Voice.builder().languageName("Ngọc Lâm (Nữ giọng chuẩn)").narratorCode("ngoclam").build(),
+					TTS_Voice.builder().languageName("Bảo Tín (Nam đa ngôn ngữ)").narratorCode("baotin").build(),
+					TTS_Voice.builder().languageName("Vy Vy (Nữ đa ngôn ngữ)").narratorCode("vyvy").build(),
+					TTS_Voice.builder().languageName("Phước Lộc (Nam đa ngôn ngữ)").narratorCode("phuocloc").build())
 					.forEach(languageRepository::save);
 		}
 	}
@@ -65,7 +65,7 @@ public class AdminBookChaptersApiController {
 	 * Tìm AudioLanguage theo tên hoặc narratorCode. Nếu không tìm thấy, trả về bản
 	 * ghi đầu tiên (mặc định).
 	 */
-	private AudioLanguage findLanguage(String voice) {
+	private TTS_Voice findLanguage(String voice) {
 		if (voice == null || voice.isBlank()) {
 			return languageRepository.findAll().stream().findFirst().orElse(null);
 		}
@@ -92,13 +92,30 @@ public class AdminBookChaptersApiController {
 		List<AudioBook> audios = audioBookRepository.findByChapterIdOrderBySequenceOrderAsc(chapter.getId().intValue());
 
 		if (audios != null && !audios.isEmpty()) {
-			// Map sang List<AudioSegmentDTO> để frontend dùng cho gapless playback
+			System.out.println("ℹ️ [DTO Mapping] Chapter ID: " + chapter.getId() + " has " + audios.size() + " audio segments.");
 			List<AudioSegmentDTO> segments = audios.stream()
-					.map(a -> AudioSegmentDTO.builder()
-							.audioUrl(a.getAudioUrl())
-							.sequenceOrder(a.getSequenceOrder())
-							.durationSeconds(a.getDurationSeconds())
-							.build())
+					.map(a -> {
+						String langCode = "vi";
+						if (a.getLanguage() != null) {
+							if (a.getLanguage().getSystemLanguage() != null) {
+								langCode = a.getLanguage().getSystemLanguage().getCode();
+							} else {
+								System.out.println("⚠️ [DTO Mapping] TTS_Voice " + a.getLanguage().getId() + " has NULL systemLanguage!");
+							}
+						} else {
+							System.out.println("⚠️ [DTO Mapping] AudioBook " + a.getId() + " has NULL language!");
+						}
+						System.out.println("   ➜ Segment ID: " + a.getId() + " | Voice: " + (a.getLanguage() != null ? a.getLanguage().getNarratorCode() : "null") + " | Mapped langCode: " + langCode);
+						return AudioSegmentDTO.builder()
+								.audioUrl(a.getAudioUrl())
+								.sequenceOrder(a.getSequenceOrder())
+								.durationSeconds(a.getDurationSeconds())
+								.languageCode(langCode)
+								.languageId(a.getLanguage() != null ? a.getLanguage().getId().intValue() : null)
+								.ttsStatus(a.getTtsStatus())
+								.isOutdated(a.getIsOutdated())
+								.build();
+					})
 					.collect(Collectors.toList());
 			dto.setAudioSegments(segments);
 
@@ -143,6 +160,7 @@ public class AdminBookChaptersApiController {
 			return "pending";
 		return switch (dbStatus.toUpperCase()) {
 		case "SUCCESS" -> "completed";
+		case "INACTIVE" -> "completed";
 		case "PROCESSING" -> "processing";
 		case "FAILED" -> "failed";
 		default -> "pending";
@@ -153,33 +171,56 @@ public class AdminBookChaptersApiController {
 	/**
 	 * Tạo hoặc lấy AudioBook cho một chapter, rồi kích hoạt TTS bất đồng bộ.
 	 */
-	private void triggerTts(BookChapter chapter, AudioLanguage language) {
-		// 1. Xóa dữ liệu cũ của chương để tránh trùng lặp
-		audioBookRepository.deleteByChapterId(chapter.getId().intValue());
+	private void triggerTts(BookChapter chapter, TTS_Voice language) {
+		// 1. Chỉ xóa audio của chương này VÀ ngôn ngữ này
+		audioBookRepository.deleteByChapterIdAndLanguageId(chapter.getId(), language.getId());
 
-		// 2. Gọi service chuyển đổi nhiều đoạn
+		// 2. Tạo và lưu bản ghi placeholder với trạng thái PROCESSING để UI hiển thị spin loader lập tức
+		AudioBook placeholder = AudioBook.builder()
+				.chapter(chapter)
+				.language(language)
+				.ttsStatus("PROCESSING")
+				.sequenceOrder(1)
+				.isOutdated(false)
+				.build();
+		final AudioBook savedPlaceholder = audioBookRepository.save(placeholder);
+
+		// 3. Gọi service chuyển đổi nhiều đoạn bất đồng bộ
 		ttsService.requestMultiSegmentsTTS(chapter.getContentText(), language.getNarratorCode())
 				.collectList()
 				.subscribe(
 						audioUrls -> {
+							try {
+								// Xóa bản ghi tạm
+								audioBookRepository.delete(savedPlaceholder);
+							} catch (Exception e) {
+								System.err.println("⚠️ Lỗi xóa placeholder: " + e.getMessage());
+							}
 							for (int i = 0; i < audioUrls.size(); i++) {
 								AudioBook newAudioBook = AudioBook.builder()
 										.chapter(chapter)
 										.language(language)
 										.ttsStatus("PROCESSING")
 										.sequenceOrder(i + 1) // Gán thứ tự chuẩn
+										.isOutdated(false)
 										.build();
 								AudioBook saved = audioBookRepository.save(newAudioBook);
 								onTtsSuccess(saved, chapter, audioUrls.get(i));
 							}
 						},
 						error -> {
-                            // Nếu lỗi ngay từ lúc request Python TTS, tạo 1 bản ghi báo lỗi
+							try {
+								// Xóa bản ghi tạm
+								audioBookRepository.delete(savedPlaceholder);
+							} catch (Exception e) {
+								System.err.println("⚠️ Lỗi xóa placeholder: " + e.getMessage());
+							}
 							AudioBook newAudioBook = AudioBook.builder()
 									.chapter(chapter)
 									.language(language)
 									.ttsStatus("FAILED")
 									.sequenceOrder(1) // Lỗi toàn cục thì đoạn 1 báo lỗi
+									.isOutdated(false)
 									.build();
 							AudioBook saved = audioBookRepository.save(newAudioBook);
 							onTtsError(saved, chapter, error);
@@ -193,6 +234,7 @@ public class AdminBookChaptersApiController {
 			audioBookRepository.findById(audioBook.getId().intValue()).ifPresent(existingAudio -> {
 				existingAudio.setAudioUrl(audioUrl); // audioUrl is already the final Cloudinary URL from Python
 				existingAudio.setTtsStatus("SUCCESS");
+				existingAudio.setIsOutdated(false);
 				int wordCount = chapter.getContentText() != null ? chapter.getContentText().split("\\s+").length : 0;
 				existingAudio.setDurationSeconds(Math.max(5, wordCount / 2));
 				audioBookRepository.save(existingAudio);
@@ -298,6 +340,67 @@ public class AdminBookChaptersApiController {
 		return ResponseEntity.noContent().build();
 	}
 
+	@DeleteMapping("/{bookId}/chapters/{chapterId}/audio/{langCode}")
+	public ResponseEntity<?> deleteChapterAudio(
+			@PathVariable Integer bookId, 
+			@PathVariable Integer chapterId,
+			@PathVariable String langCode) {
+		
+		BookChapter chapter = chapterRepository.findById(chapterId).orElse(null);
+		if (chapter == null) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		}
+
+		// Find all audiobooks for this chapter
+		List<AudioBook> audios = audioBookRepository.findByChapterId(chapterId);
+		if (audios != null) {
+			List<AudioBook> toToggle = audios.stream().filter(a -> 
+				a.getLanguage() != null && 
+				a.getLanguage().getSystemLanguage() != null && 
+				langCode.equalsIgnoreCase(a.getLanguage().getSystemLanguage().getCode())
+			).collect(Collectors.toList());
+
+			if (!toToggle.isEmpty()) {
+				audioBookRepository.deleteAll(toToggle);
+			}
+		}
+		
+		// Trả về DTO cập nhật mới nhất
+		return ResponseEntity.ok(convertToDTO(chapter));
+	}
+
+	@PutMapping("/{bookId}/chapters/{chapterId}/audio/{languageId}/toggle")
+	public ResponseEntity<?> toggleAudioStatus(
+			@PathVariable Integer bookId, 
+			@PathVariable Integer chapterId,
+			@PathVariable Integer languageId) {
+		
+		BookChapter chapter = chapterRepository.findById(chapterId).orElse(null);
+		if (chapter == null) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+					.body(Map.of("error", "Không tìm thấy chương với ID: " + chapterId));
+		}
+
+		List<AudioBook> audios = audioBookRepository.findByChapterId(chapterId);
+		if (audios != null) {
+			List<AudioBook> targetAudios = audios.stream()
+					.filter(a -> a.getLanguage() != null && a.getLanguage().getId().intValue() == languageId)
+					.collect(Collectors.toList());
+
+			if (!targetAudios.isEmpty()) {
+				String currentStatus = targetAudios.get(0).getTtsStatus();
+				String newStatus = "INACTIVE".equalsIgnoreCase(currentStatus) ? "SUCCESS" : "INACTIVE";
+				
+				for (AudioBook a : targetAudios) {
+					a.setTtsStatus(newStatus);
+				}
+				audioBookRepository.saveAll(targetAudios);
+			}
+		}
+
+		return ResponseEntity.ok(convertToDTO(chapter));
+	}
+
 	// ===========================
 	// 4. TTS MỘT CHƯƠNG
 	// ===========================
@@ -316,7 +419,14 @@ public class AdminBookChaptersApiController {
 			return ResponseEntity.badRequest().body(Map.of("error", "Chương này chưa có nội dung văn bản."));
 		}
 
-		AudioLanguage language = findLanguage(body.get("voice"));
+		// Hỗ trợ thêm trường languageCode ("vi", "en", ...) trong body
+		// Hiện tại được log lại để backend có thể dùng cho logic dịch thuật sau này.
+		String languageCode = body.get("languageCode");
+		if (languageCode != null && !languageCode.isBlank()) {
+			System.out.println("ℹ️ [TTS] Ngôn ngữ đích được chọn: " + languageCode);
+		}
+
+		TTS_Voice language = findLanguage(body.get("voice"));
 		if (language == null) {
 			return ResponseEntity.badRequest().body(Map.of("error", "Không tìm thấy giọng đọc phù hợp."));
 		}
@@ -347,7 +457,13 @@ public class AdminBookChaptersApiController {
 	@PostMapping("/{bookId}/chapters/tts-bulk")
 	public ResponseEntity<?> generateTTSBulk(@PathVariable Integer bookId, @RequestBody Map<String, String> body) {
 
-		AudioLanguage language = findLanguage(body.get("voice"));
+		// Hỗ trợ thêm trường languageCode ("vi", "en", ...) trong body
+		String languageCode = body.get("languageCode");
+		if (languageCode != null && !languageCode.isBlank()) {
+			System.out.println("ℹ️ [TTS-Bulk] Ngôn ngữ đích được chọn: " + languageCode);
+		}
+
+		TTS_Voice language = findLanguage(body.get("voice"));
 		if (language == null) {
 			return ResponseEntity.badRequest().body(Map.of("error", "Không tìm thấy giọng đọc phù hợp."));
 		}
@@ -384,38 +500,48 @@ public class AdminBookChaptersApiController {
         if (textSegment == null || textSegment.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "textSegment không được để trống."));
         }
-        AudioLanguage language = findLanguage(voice);
+        
+        TTS_Voice language = null;
+        String languageIdStr = body.get("languageId");
+        if (languageIdStr != null && !languageIdStr.isBlank()) {
+            try {
+                language = languageRepository.findById(Integer.parseInt(languageIdStr)).orElse(null);
+            } catch (NumberFormatException e) {
+                // Ignore
+            }
+        }
+        if (language == null && voice != null && !voice.isBlank()) {
+            language = findLanguage(voice);
+        }
         if (language == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Không tìm thấy giọng đọc phù hợp."));
         }
+        
         // Determine next sequence order
         List<AudioBook> existing = audioBookRepository.findByChapterIdOrderBySequenceOrderAsc(chapter.getId().intValue());
         int nextSeq = (existing == null || existing.isEmpty()) ? 1 : existing.get(existing.size() - 1).getSequenceOrder() + 1;
-        // Request TTS for the single segment
+        // Create and save the new AudioBook segment synchronously first
+        AudioBook newAudio = AudioBook.builder()
+                .chapter(chapter)
+                .language(language)
+                .ttsStatus("PROCESSING")
+                .sequenceOrder(nextSeq)
+                .isOutdated(false)
+                .build();
+        AudioBook saved = audioBookRepository.save(newAudio);
+
+        // Request TTS for the single segment asynchronously in the background
+        final AudioBook finalSaved = saved;
         ttsService.requestMultiSegmentsTTS(textSegment, language.getNarratorCode())
                 .subscribe(urls -> {
                     String audioUrl = (urls != null && !urls.isEmpty()) ? urls : null;
-                    AudioBook newAudio = AudioBook.builder()
-                            .chapter(chapter)
-                            .language(language)
-                            .ttsStatus("PROCESSING")
-                            .sequenceOrder(nextSeq)
-                            .build();
-                    AudioBook saved = audioBookRepository.save(newAudio);
                     if (audioUrl != null) {
-                        onTtsSuccess(saved, chapter, audioUrl);
+                        onTtsSuccess(finalSaved, chapter, audioUrl);
                     } else {
-                        onTtsError(saved, chapter, new RuntimeException("Không nhận được URL audio từ TTS"));
+                        onTtsError(finalSaved, chapter, new RuntimeException("Không nhận được URL audio từ TTS"));
                     }
                 }, err -> {
-                    AudioBook errorAudio = AudioBook.builder()
-                            .chapter(chapter)
-                            .language(language)
-                            .ttsStatus("FAILED")
-                            .sequenceOrder(nextSeq)
-                            .build();
-                    AudioBook saved = audioBookRepository.save(errorAudio);
-                    onTtsError(saved, chapter, err);
+                    onTtsError(finalSaved, chapter, err);
                 });
         return ResponseEntity.ok(convertToDTO(chapter));
     }
@@ -448,17 +574,39 @@ public class AdminBookChaptersApiController {
 		}
 		
 		if (textContent != null) {
-			// Nếu nội dung thay đổi, xóa audio cũ để người dùng dịch lại
+			// Nếu nội dung thay đổi, đánh dấu các file audio cũ là outdated
 			if (!textContent.equals(chapter.getContentText())) {
 				chapter.setContentText(textContent);
-				List<AudioBook> audios = audioBookRepository.findByChapterId(chapterId);
-				if (audios != null && !audios.isEmpty()) {
-					audioBookRepository.deleteAll(audios);
-				}
+				audioBookRepository.markAllAudiobooksAsOutdated(chapterId);
 			}
 		}
 
 		BookChapter saved = chapterRepository.save(chapter);
 		return ResponseEntity.ok(convertToDTO(saved));
+	}
+
+	// =====================================
+	// 7. REGENERATE SINGLE LANGUAGE AUDIO
+	// =====================================
+	@PostMapping("/{bookId}/chapters/{chapterId}/audio/{languageId}/regenerate")
+	public ResponseEntity<?> regenerateLanguageAudio(
+			@PathVariable Integer bookId, 
+			@PathVariable Integer chapterId,
+			@PathVariable Integer languageId) {
+		
+		BookChapter chapter = chapterRepository.findById(chapterId).orElse(null);
+		if (chapter == null) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+					.body(Map.of("error", "Không tìm thấy chương với ID: " + chapterId));
+		}
+
+		TTS_Voice language = languageRepository.findById(languageId).orElse(null);
+		if (language == null) {
+			return ResponseEntity.badRequest().body(Map.of("error", "Không tìm thấy giọng đọc phù hợp."));
+		}
+
+		triggerTts(chapter, language);
+
+		return ResponseEntity.ok(convertToDTO(chapter));
 	}
 }

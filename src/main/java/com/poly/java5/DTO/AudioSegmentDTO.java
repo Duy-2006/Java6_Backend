@@ -22,4 +22,16 @@ public class AudioSegmentDTO {
 
     /** Thời lượng của đoạn này tính bằng giây */
     private Integer durationSeconds;
+
+    /** Mã ngôn ngữ (vi, en, ja...) */
+    private String languageCode;
+
+    /** ID của giọng đọc (TTS_Voice ID) */
+    private Integer languageId;
+
+    /** Trạng thái của file audio (SUCCESS, INACTIVE, PROCESSING, FAILED) */
+    private String ttsStatus;
+
+    /** Chỉ định xem audio có lỗi thời so với văn bản gốc hay không */
+    private Boolean isOutdated;
 }

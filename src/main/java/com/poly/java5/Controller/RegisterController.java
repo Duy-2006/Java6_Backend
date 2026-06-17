@@ -22,7 +22,6 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class RegisterController {
 	@Autowired
     private UserService userService;

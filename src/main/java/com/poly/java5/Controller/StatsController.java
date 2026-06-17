@@ -11,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/stats")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 @RequiredArgsConstructor
 public class StatsController {
 	 private final StatsService statsService;

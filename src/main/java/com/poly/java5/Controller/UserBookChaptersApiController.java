@@ -11,6 +11,7 @@ import com.poly.java5.Repository.AudioPlaybackProgressRepository;
 import com.poly.java5.Repository.BookChapterRepository;
 import com.poly.java5.Repository.OrderRepository;
 import com.poly.java5.Repository.UserLibraryRepository;
+import com.poly.java5.Entity.User;
 import com.poly.java5.Service.UserService;
 import com.poly.java5.Utils.AuthUtil;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/user/books")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 @RequiredArgsConstructor
 public class UserBookChaptersApiController {
 
@@ -33,6 +33,37 @@ public class UserBookChaptersApiController {
     private final UserLibraryRepository userLibraryRepository;
     private final UserService userService;
 
+    @GetMapping("/debug-list/{bookId}")
+    public ResponseEntity<?> getDebugList(@PathVariable Integer bookId) {
+        List<BookChapter> chapters = chapterRepository.findByBookIdOrderByChapterNumberAsc(bookId);
+        List<java.util.Map<String, Object>> result = new java.util.ArrayList<>();
+        for (BookChapter c : chapters) {
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("chapterId", c.getId());
+            map.put("title", c.getTitle());
+            
+            List<AudioBook> audios = audioBookRepository.findByChapterIdOrderBySequenceOrderAsc(c.getId().intValue());
+            List<java.util.Map<String, Object>> segments = new java.util.ArrayList<>();
+            if (audios != null) {
+                for (AudioBook a : audios) {
+                    java.util.Map<String, Object> sMap = new java.util.HashMap<>();
+                    sMap.put("audioId", a.getId());
+                    sMap.put("audioUrl", a.getAudioUrl());
+                    sMap.put("sequenceOrder", a.getSequenceOrder());
+                    sMap.put("voiceName", a.getLanguage() != null ? a.getLanguage().getLanguageName() : null);
+                    sMap.put("narratorCode", a.getLanguage() != null ? a.getLanguage().getNarratorCode() : null);
+                    sMap.put("languageCode", a.getLanguage() != null && a.getLanguage().getSystemLanguage() != null 
+                            ? a.getLanguage().getSystemLanguage().getCode() 
+                            : "vi");
+                    segments.add(sMap);
+                }
+            }
+            map.put("audioSegments", segments);
+            result.add(map);
+        }
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping("/{bookId}/chapters")
     public ResponseEntity<?> getUserChapters(@PathVariable Integer bookId) {
         
@@ -40,7 +71,8 @@ public class UserBookChaptersApiController {
 
         boolean hasAccess = false;
         if (userId != null) {
-            hasAccess = orderRepository.hasPurchasedBook(userId, bookId);
+            User user = userService.findById(userId);
+            hasAccess = user != null && (user.isAdmin() || orderRepository.hasPurchasedBook(userId, bookId));
         }
 
         List<BookChapter> chapters = chapterRepository.findByBookIdOrderByChapterNumberAsc(bookId);
@@ -50,7 +82,7 @@ public class UserBookChaptersApiController {
         List<UserChapterDTO> dtos = java.util.stream.IntStream.range(0, chapters.size())
                 .mapToObj(index -> {
                     BookChapter chapter = chapters.get(index);
-                    UserChapterDTO dto = convertToUserDTO(chapter);
+                    UserChapterDTO dto = convertToUserDTO(chapter, false, finalHasAccess);
                     
                     if (!finalHasAccess && index > 0) {
                         dto.setLocked(true);
@@ -58,6 +90,42 @@ public class UserBookChaptersApiController {
                         dto.setTextContent("Vui lòng mua sách để xem nội dung chương này.");
                     } else {
                         dto.setLocked(false);
+                    }
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
+    }
+
+    @GetMapping("/{bookId}/chapters/media")
+    public ResponseEntity<?> getMediaPlayerChapters(@PathVariable Integer bookId) {
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
+
+        boolean hasAccess = false;
+        if (userId != null) {
+            User user = userService.findById(userId);
+            hasAccess = user != null && (user.isAdmin() || orderRepository.hasPurchasedBook(userId, bookId));
+        }
+
+        List<BookChapter> chapters = chapterRepository.findByBookIdOrderByChapterNumberAsc(bookId);
+        
+        final boolean finalHasAccess = hasAccess;
+        
+        List<UserChapterDTO> dtos = java.util.stream.IntStream.range(0, chapters.size())
+                .mapToObj(index -> {
+                    BookChapter chapter = chapters.get(index);
+                    UserChapterDTO dto = convertToUserDTO(chapter, true, finalHasAccess);
+                    
+                    if (!finalHasAccess && index > 0) {
+                        dto.setLocked(true);
+                        dto.setAudioSegments(List.of());
+                        dto.setTextContent("Vui lòng mua sách để nghe chương này.");
+                    } else {
+                        dto.setLocked(false);
+                        if (dto.getAudioSegments() == null || dto.getAudioSegments().isEmpty()) {
+                            dto.setTextContent("Chương này đang bị ẩn hoặc chưa có âm thanh.");
+                        }
                     }
                     return dto;
                 })
@@ -142,22 +210,56 @@ public class UserBookChaptersApiController {
 
     // ========== PRIVATE HELPERS ==========
 
-    private UserChapterDTO convertToUserDTO(BookChapter chapter) {
+    private UserChapterDTO convertToUserDTO(BookChapter chapter, boolean isMediaPlayer, boolean hasAccess) {
         UserChapterDTO dto = new UserChapterDTO();
         dto.setId(chapter.getId());
         dto.setNumber(chapter.getChapterNumber() != null ? String.format("%02d", chapter.getChapterNumber()) : "00");
         dto.setTitle(chapter.getTitle());
         dto.setTextContent(chapter.getContentText());
 
-        List<AudioBook> audios = audioBookRepository.findByChapterIdOrderBySequenceOrderAsc(chapter.getId().intValue());
+        List<AudioBook> audios;
+        if (isMediaPlayer) {
+            if (hasAccess) {
+                audios = audioBookRepository.findByChapterIdAndTtsStatusInOrderBySequenceOrderAsc(
+                    chapter.getId().intValue(), 
+                    java.util.List.of("SUCCESS", "PROCESSING", "INACTIVE")
+                );
+            } else {
+                audios = audioBookRepository.findByChapterIdAndTtsStatusInOrderBySequenceOrderAsc(
+                    chapter.getId().intValue(), 
+                    java.util.List.of("SUCCESS", "PROCESSING")
+                );
+            }
+        } else {
+            if (hasAccess) {
+                audios = audioBookRepository.findByChapterIdAndTtsStatusInOrderBySequenceOrderAsc(
+                    chapter.getId().intValue(), 
+                    java.util.List.of("SUCCESS", "INACTIVE")
+                );
+            } else {
+                audios = audioBookRepository.findByChapterIdAndTtsStatusOrderBySequenceOrderAsc(
+                    chapter.getId().intValue(), 
+                    "SUCCESS"
+                );
+            }
+        }
 
         if (audios != null && !audios.isEmpty()) {
             List<AudioSegmentDTO> segments = audios.stream()
-                    .map(a -> AudioSegmentDTO.builder()
+                    .map(a -> {
+                        String langCode = "vi";
+                        if (a.getLanguage() != null && a.getLanguage().getSystemLanguage() != null) {
+                            langCode = a.getLanguage().getSystemLanguage().getCode();
+                        }
+                        return AudioSegmentDTO.builder()
                             .audioUrl(a.getAudioUrl())
                             .sequenceOrder(a.getSequenceOrder())
                             .durationSeconds(a.getDurationSeconds())
-                            .build())
+                            .languageCode(langCode)
+                            .languageId(a.getLanguage() != null ? a.getLanguage().getId().intValue() : null)
+                            .ttsStatus(a.getTtsStatus())
+                            .build();
+                    })
                     .collect(Collectors.toList());
             dto.setAudioSegments(segments);
 

@@ -25,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 // ✅ Bỏ wildcard "*" — phải chỉ rõ origin khi FE gửi Authorization header
 @RestController
 @RequestMapping("/api/admin/promotions")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+
 @RequiredArgsConstructor
 public class AdminPromotionApiController {
 

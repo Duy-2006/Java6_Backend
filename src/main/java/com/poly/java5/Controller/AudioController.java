@@ -1,6 +1,6 @@
 package com.poly.java5.Controller;
 import com.poly.java5.Entity.AudioBook;
-import com.poly.java5.Entity.AudioLanguage;
+import com.poly.java5.Entity.TTS_Voice;
 import com.poly.java5.Entity.BookChapter;
 import com.poly.java5.Repository.AudioBookRepository;
 import com.poly.java5.Repository.AudioLanguageRepository;
@@ -21,7 +21,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/audio")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+
 @RequiredArgsConstructor
 public class AudioController {
 	@Autowired
@@ -49,7 +49,7 @@ public class AudioController {
         BookChapter chapter = chapterRepository.findById(chapterId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy chương sách với ID: " + chapterId));
                 
-        AudioLanguage language = languageRepository.findById(languageId)
+        TTS_Voice language = languageRepository.findById(languageId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giọng đọc với ID: " + languageId));
 
         // 2. Xóa các đoạn cũ của chương sách trước khi tạo (để tránh trùng lặp)

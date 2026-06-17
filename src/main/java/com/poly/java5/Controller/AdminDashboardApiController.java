@@ -10,7 +10,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+
 public class AdminDashboardApiController {
 	@Autowired private BookRepository bookRepo;
     @Autowired private OrderRepository orderRepo;

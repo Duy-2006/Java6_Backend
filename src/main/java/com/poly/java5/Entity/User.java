@@ -37,6 +37,9 @@ public class User implements Serializable {
     @Column(length = 255)
     private String address;
 
+    @Column(length = 255)
+    private String avatar;
+
     // --- QUAN TRỌNG NHẤT: BẮT BUỘC PHẢI CÓ DÒNG NÀY ĐỂ FIX LỖI QUYỀN HẠN ---
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

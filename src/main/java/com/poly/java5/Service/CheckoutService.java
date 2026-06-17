@@ -104,6 +104,29 @@ public class CheckoutService {
 		return count > 0;
 	}
 
+	// ================= 4.5. TÍNH TỔNG TRỌNG LƯỢNG ĐƠN HÀNG =================
+	public int calculateTotalWeight(List<Map<String, Object>> requestItems) {
+		int totalWeight = 0;
+		for (Map<String, Object> reqItem : requestItems) {
+			Integer bookId = Integer.parseInt(reqItem.get("bookId").toString());
+			Integer quantity = Integer.parseInt(reqItem.get("quantity").toString());
+			BigDecimal price = new BigDecimal(reqItem.get("price").toString());
+
+			Book book = em.find(Book.class, bookId);
+			if (book != null) {
+				boolean isAudiobook = false;
+				BookFormat audioVariant = bookFormatRepository.findByBookIdAndFormatType(book.getId(), "AUDIO").orElse(null);
+				if (audioVariant != null && audioVariant.getPrice() != null && price.compareTo(audioVariant.getPrice()) == 0) {
+					isAudiobook = true;
+				}
+				if (!isAudiobook) {
+					totalWeight += quantity * 250;
+				}
+			}
+		}
+		return totalWeight > 0 ? Math.max(totalWeight, 500) : 0;
+	}
+
 	// ================= 5. CHECKOUT MỚI – HỖ TRỢ GIÁ KHUYẾN MÃI =================
 	@Transactional
 	public Order checkout(Integer userId, String customerName, String phone, String address, 
@@ -151,8 +174,8 @@ public class CheckoutService {
 		BigDecimal total = BigDecimal.ZERO;
 
 		for (Map<String, Object> reqItem : requestItems) {
-			Integer bookId = (Integer) reqItem.get("bookId");
-			Integer quantity = (Integer) reqItem.get("quantity");
+			Integer bookId = Integer.parseInt(reqItem.get("bookId").toString());
+			Integer quantity = Integer.parseInt(reqItem.get("quantity").toString());
 			BigDecimal price = new BigDecimal(reqItem.get("price").toString()); // giá đã giảm từ FE
 
 			Book book = em.find(Book.class, bookId, LockModeType.PESSIMISTIC_WRITE);
@@ -227,8 +250,8 @@ public class CheckoutService {
 
 		BigDecimal total = BigDecimal.ZERO;
 		for (Map<String, Object> reqItem : requestItems) {
-			Integer bookId = (Integer) reqItem.get("bookId");
-			Integer quantity = (Integer) reqItem.get("quantity");
+			Integer bookId = Integer.parseInt(reqItem.get("bookId").toString());
+			Integer quantity = Integer.parseInt(reqItem.get("quantity").toString());
 			BigDecimal price = new BigDecimal(reqItem.get("price").toString());
 
 			Book book = em.find(Book.class, bookId);
@@ -355,18 +378,9 @@ public class CheckoutService {
 			Book book = od.getBook();
 			BookFormat audioVariant = bookFormatRepository.findByBookIdAndFormatType(book.getId(), "AUDIO").orElse(null);
 			if (audioVariant != null) {
-				if (isDigitalOrder || od.getPrice().compareTo(audioVariant.getPrice()) == 0) {
-					if (!userLibraryRepo.existsByUser_IdAndBook_IdAndVariant_FormatType(order.getUser().getId(), book.getId(), "AUDIO")) {
-						UserLibrary lib = UserLibrary.builder()
-								.user(order.getUser())
-								.book(book)
-								.variant(audioVariant)
-								.status("ACTIVE")
-								.purchasedAt(LocalDateTime.now())
-								.build();
-						userLibraryRepo.save(lib);
-						log.info("Unlocked audiobook bookId={} for userId={} in library", book.getId(), order.getUser().getId());
-					}
+				boolean isPurchasedAsAudio = isDigitalOrder || od.getPrice().compareTo(audioVariant.getPrice()) == 0;
+				if (isPurchasedAsAudio) {
+					unlockSingleAudiobook(order.getUser(), book, audioVariant);
 				} else {
 					hasPhysical = true;
 				}
@@ -378,6 +392,20 @@ public class CheckoutService {
 		// Nếu đơn hàng không có sản phẩm vật lý nào, tự động hoàn thành đơn hàng luôn
 		if (!hasPhysical && ("CONFIRMED".equals(order.getStatus()) || "PENDING".equals(order.getStatus()))) {
 			order.setStatus("COMPLETED");
+		}
+	}
+
+	private void unlockSingleAudiobook(User user, Book book, BookFormat audioVariant) {
+		if (!userLibraryRepo.existsByUser_IdAndBook_IdAndVariant_FormatType(user.getId(), book.getId(), "AUDIO")) {
+			UserLibrary lib = UserLibrary.builder()
+					.user(user)
+					.book(book)
+					.variant(audioVariant)
+					.status("ACTIVE")
+					.purchasedAt(LocalDateTime.now())
+					.build();
+			userLibraryRepo.save(lib);
+			log.info("Unlocked audiobook bookId={} for userId={} in library", book.getId(), user.getId());
 		}
 	}
 
@@ -421,6 +449,19 @@ public class CheckoutService {
 		order.setStatus(status);
 		em.merge(order);
 		log.info("Updated order status for {}: {}", orderId, status);
+		
+		// Nếu đơn hàng chuyển sang trạng thái hoàn thành (khách đã nhận sách giấy)
+		if ("COMPLETED".equals(status)) {
+			List<OrderDetail> orderDetails = getOrderDetails(orderId);
+			for (OrderDetail od : orderDetails) {
+				Book book = od.getBook();
+				BookFormat audioVariant = bookFormatRepository.findByBookIdAndFormatType(book.getId(), "AUDIO").orElse(null);
+				if (audioVariant != null) {
+					// Tự động mở khóa bản sách nói đi kèm làm quà tặng ưu đãi sách giấy
+					unlockSingleAudiobook(order.getUser(), book, audioVariant);
+				}
+			}
+		}
 	}
 
 	// ================= 13. LẤY DANH SÁCH ĐƠN HÀNG CỦA USER =================

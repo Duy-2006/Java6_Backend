@@ -28,8 +28,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/categories")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true", allowedHeaders = "*", methods = {
-		RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS })
 public class CategoryApiController {
 
 	@PersistenceContext

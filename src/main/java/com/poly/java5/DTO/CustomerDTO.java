@@ -14,4 +14,5 @@ public class CustomerDTO {
 	    private Boolean active;
 	    private Double totalSpending;
 	    private String customerType;
+	    private String avatar;
 }

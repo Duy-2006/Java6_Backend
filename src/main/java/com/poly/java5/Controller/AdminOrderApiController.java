@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/orders")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+
 public class AdminOrderApiController {
 
 	 @Autowired private OrderService orderService;

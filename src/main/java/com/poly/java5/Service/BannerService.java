@@ -16,14 +16,14 @@ public class BannerService {
 	@PersistenceContext
     private EntityManager em;
 
-    public   List<Banner> getActiveBanners() {
-        
-			return em.createQuery(
-			    "SELECT b FROM Banner b WHERE b.active = true ORDER BY b.position",
-			    Banner.class
-			).getResultList();
-		
-		
+    public List<Banner> getActiveBanners() {
+        return em.createQuery(
+            "SELECT b FROM Banner b WHERE b.active = true " +
+            "AND (b.start_date IS NULL OR b.start_date <= CURRENT_TIMESTAMP) " +
+            "AND (b.end_date IS NULL OR b.end_date >= CURRENT_TIMESTAMP) " +
+            "ORDER BY b.position",
+            Banner.class
+        ).getResultList();
     }
 
 }
