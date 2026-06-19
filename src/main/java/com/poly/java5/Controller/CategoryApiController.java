@@ -6,6 +6,8 @@ import com.poly.java5.DTO.CategoryDetailDTO;
 import com.poly.java5.Entity.Book;
 import com.poly.java5.Entity.Category;
 import com.poly.java5.Repository.CategoryRepository;
+import com.poly.java5.Repository.BookRepository;
+import com.poly.java5.Repository.BookFormatRepository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -36,6 +38,12 @@ public class CategoryApiController {
 	@Autowired
 	private CategoryRepository catRepo;
 
+	@Autowired
+	private BookRepository bookRepo;
+
+	@Autowired
+	private BookFormatRepository bookFormatRepo;
+
 	// Đường dẫn lưu ảnh: thư mục static trong resources (giống như sách)
 	private static final String UPLOAD_DIR = "src/main/resources/static/uploads/categories/";
 
@@ -51,20 +59,36 @@ public class CategoryApiController {
 		return filename;
 	}
 
+	private BookDTO convertToDTO(Book b) {
+		BookDTO dto = new BookDTO();
+		dto.setId(b.getId());
+		dto.setTitle(b.getTitle());
+		dto.setPrice(b.getPrice());
+		dto.setQuantity(b.getQuantity());
+		dto.setImageUrl(b.getImageUrl());
+		dto.setAuthorName(b.getAuthor() != null ? b.getAuthor().getName() : null);
+		dto.setActive(b.getActive());
+
+		if (bookFormatRepo != null) {
+			bookFormatRepo.findByBookIdAndFormatType(b.getId(), "AUDIO")
+					.ifPresent(f -> dto.setAudioPrice(f.getPrice()));
+		}
+
+		if (bookRepo != null) {
+			dto.setSoldCount(bookRepo.getSoldCountById(b.getId()));
+		}
+
+		return dto;
+	}
+
 	// GET ALL
 	@GetMapping
 	public ResponseEntity<List<CategoryDetailDTO>> getAll() {
 		List<Category> categories = catRepo.findAllWithBooks();
 		List<CategoryDetailDTO> dtos = categories.stream().map(category -> {
-			List<BookDTO> bookDTOs = category.getBooks().stream().map(book -> {
-				BookDTO dto = new BookDTO();
-				dto.setId(book.getId());
-				dto.setTitle(book.getTitle());
-				dto.setPrice(book.getPrice());
-				dto.setQuantity(book.getQuantity());
-				dto.setImageUrl(book.getImageUrl());
-				return dto;
-			}).collect(Collectors.toList());
+			List<BookDTO> bookDTOs = category.getBooks().stream()
+					.map(this::convertToDTO)
+					.collect(Collectors.toList());
 			CategoryDetailDTO dto = new CategoryDetailDTO();
 			dto.setId(category.getId());
 			dto.setName(category.getName());
@@ -89,15 +113,9 @@ public class CategoryApiController {
 		dto.setId(category.getId());
 		dto.setName(category.getName());
 		dto.setImageUrl(category.getImageUrl());
-		List<BookDTO> bookDTOs = books.stream().map(b -> {
-			BookDTO bd = new BookDTO();
-			bd.setId(b.getId());
-			bd.setTitle(b.getTitle());
-			bd.setPrice(b.getPrice());
-			bd.setQuantity(b.getQuantity());
-			bd.setImageUrl(b.getImageUrl());
-			return bd;
-		}).collect(Collectors.toList());
+		List<BookDTO> bookDTOs = books.stream()
+				.map(this::convertToDTO)
+				.collect(Collectors.toList());
 		dto.setBooks(bookDTOs);
 		return ResponseEntity.ok(dto);
 	}

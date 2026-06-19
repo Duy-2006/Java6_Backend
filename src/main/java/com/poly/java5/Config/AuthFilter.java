@@ -126,30 +126,6 @@ public class AuthFilter extends OncePerRequestFilter {
 	            }
 	        } else {
 	            System.out.println("No token found (header or cookie)");
-	            // Nếu không có token và request cần xác thực -> trả về 401
-	            if (!path.startsWith("/api/auth") && 
-	            	!path.startsWith("/api/categories") &&
-	                !path.startsWith("/api/books") && 
-	                !path.startsWith("/api/search") &&
-	                !path.startsWith("/uploads") &&
-	                !path.startsWith("/api/checkout") && 
-	                !path.startsWith("/api/payment")&&
-	                !path.startsWith("/api/admin/audio") &&
-	                !path.startsWith("/api/admin/authors")&& 
-	                !path.startsWith("/api/admin/customers")&& 
-	                !path.startsWith("/api/admin/books")&& 
-	                !path.startsWith("/api/admin/orders")&&
-	                !path.startsWith("/api/vouchers")&&
-	                !path.startsWith("/swagger-ui")&&
-	                !path.startsWith("/v3/api-docs")&&
-	                !path.startsWith("/swagger-resources")&&
-	            	!path.startsWith("/api/orders")&&
-	            	!path.startsWith("/api/user/books")){   
-	                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-	                response.getWriter().write("{\"message\":\"Unauthorized\"}");
-	                response.setContentType("application/json");
-	                return;
-	            }
 	        }
 	        
 	        filterChain.doFilter(request, response);

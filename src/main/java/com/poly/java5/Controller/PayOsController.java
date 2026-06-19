@@ -25,6 +25,7 @@ public class PayOsController {
     private final PayOSService payOSService;
     private final SignatureUtil signatureUtil;
     private final PaymentOrderRepository paymentOrderRepository;
+    private final com.poly.java5.Service.CheckoutService checkoutService;
 
     @Value("${payos.checksum-key}") 
     private String checksumKey;
@@ -36,22 +37,33 @@ public class PayOsController {
     @PostMapping("/create")   // → Endpoint mới: POST /api/pay-os/create
     public ResponseEntity<?> createPayment(@RequestBody Map<String, Object> orderData) {
         try {
-            long orderCode = System.currentTimeMillis();
-            int amount = (int) orderData.get("amount");
+            // Lấy orderId thực từ Frontend để đồng bộ
+            long orderCode = orderData.containsKey("orderId") 
+                ? Long.parseLong(orderData.get("orderId").toString()) 
+                : System.currentTimeMillis();
+                
+            int amount = Integer.parseInt(orderData.get("amount").toString());
             String description = (String) orderData.get("description");
+            String returnUrl = orderData.containsKey("returnUrl") 
+                ? (String) orderData.get("returnUrl") 
+                : (frontendUrl + "/user/orders/" + orderCode + "/success");
+            String cancelUrl = orderData.containsKey("cancelUrl") 
+                ? (String) orderData.get("cancelUrl") 
+                : (frontendUrl + "/user/checkout");
 
             CreatePaymentRequestDTO req = CreatePaymentRequestDTO.builder()
                 .orderCode(orderCode)
                 .amount(amount)
                 .description(description)
-                .returnUrl(frontendUrl + "/payment/success")
-                .cancelUrl(frontendUrl + "/payment/cancel")
+                .returnUrl(returnUrl)
+                .cancelUrl(cancelUrl)
                 .build();
 
             PaymentResponseDTO result = payOSService.createPaymentLink(req);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
         }
     }
 
@@ -73,6 +85,13 @@ public class PayOsController {
                     orderCode,
                     PaymentOrder.PaymentStatus.PAID
                 );
+                
+                // Cập nhật trạng thái đơn hàng thực tế
+                try {
+                    checkoutService.updatePaymentStatus(orderCode.intValue(), "PAID", "PAYOS-" + orderCode);
+                } catch (Exception ex) {
+                    System.err.println("Không thể cập nhật Order ID " + orderCode + ": " + ex.getMessage());
+                }
             }
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {

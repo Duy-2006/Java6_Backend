@@ -29,6 +29,9 @@ public class VNPayController {
 	private final VNPayService vnPayService;
 	private final CheckoutService checkoutService;
 
+	@org.springframework.beans.factory.annotation.Value("${frontend.url}")
+	private String frontendUrl;
+
 	/**
 	 * API tạo URL thanh toán POST /api/payment/create
 	 */
@@ -101,8 +104,7 @@ public class VNPayController {
 		boolean isValid = vnPayService.verifySignature(params);
 		if (!isValid) {
 			log.error("Invalid VNPay signature for order: {}", params.get("vnp_TxnRef"));
-			String redirectUrl = "http://localhost:3000/user/payment-result?status=failure&message=Ch%E1%BB%AF+k%C3%BD+kh%C3%B4ng+h%E1%BB%A3p+l%E1%BB%87&orderId="
-					+ params.get("vnp_TxnRef");
+			String redirectUrl = frontendUrl + "/user/checkout";
 			response.sendRedirect(redirectUrl);
 			return;
 		}
@@ -128,16 +130,16 @@ public class VNPayController {
 				String[] parts = orderInfo.split("_");
 				if (parts.length >= 2) {
 					String bookId = parts[1];
-					redirectUrl = String.format("http://localhost:3000/user/books/%s/audiobook?payment=success&orderId=%s", bookId, orderId);
+					redirectUrl = String.format("%s/user/books/%s/audiobook?payment=success&orderId=%s", frontendUrl, bookId, orderId);
 				} else {
 					redirectUrl = String.format(
-							"http://localhost:3000/user/payment-result?status=success&orderId=%s&amount=%d&transactionNo=%s",
-							orderId, originalAmount, params.get("vnp_TransactionNo"));
+							"%s/user/payment-result?status=success&orderId=%s&amount=%d&transactionNo=%s",
+							frontendUrl, orderId, originalAmount, params.get("vnp_TransactionNo"));
 				}
 			} else {
 				redirectUrl = String.format(
-						"http://localhost:3000/user/payment-result?status=success&orderId=%s&amount=%d&transactionNo=%s",
-						orderId, originalAmount, params.get("vnp_TransactionNo"));
+						"%s/user/payment-result?status=success&orderId=%s&amount=%d&transactionNo=%s",
+						frontendUrl, orderId, originalAmount, params.get("vnp_TransactionNo"));
 			}
 			response.sendRedirect(redirectUrl);
 		} else {
@@ -151,12 +153,12 @@ public class VNPayController {
 				String[] parts = orderInfo.split("_");
 				if (parts.length >= 2) {
 					String bookId = parts[1];
-					redirectUrl = String.format("http://localhost:3000/user/books/%s/audiobook?payment=failure&orderId=%s", bookId, orderId);
+					redirectUrl = String.format("%s/user/books/%s/audiobook?payment=failure&orderId=%s", frontendUrl, bookId, orderId);
 				} else {
-					redirectUrl = "http://localhost:3000/user/payment-result?status=failure&message=Thanh+to%C3%A1n+th%E1%BA%A5t+b%E1%BA%A1i&orderId=" + orderId;
+					redirectUrl = frontendUrl + "/user/checkout";
 				}
 			} else {
-				redirectUrl = "http://localhost:3000/user/payment-result?status=failure&message=Thanh+to%C3%A1n+th%E1%BA%A5t+b%E1%BA%A1i&orderId=" + orderId;
+				redirectUrl = frontendUrl + "/user/checkout";
 			}
 			response.sendRedirect(redirectUrl);
 		}

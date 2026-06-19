@@ -20,7 +20,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/banners")
-@CrossOrigin("*") // Cho phép Frontend Next.js gọi API không bị lỗi CORS
 public class BannerController {
 
     @Autowired

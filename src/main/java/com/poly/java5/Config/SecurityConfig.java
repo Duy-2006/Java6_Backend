@@ -111,8 +111,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of(
-            "http://localhost:3000", 
-            "http://192.168.38.99:3000"
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://192.168.*:3000"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

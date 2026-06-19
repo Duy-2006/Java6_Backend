@@ -35,6 +35,9 @@ public class CheckoutController {
     private final GhtkService ghtkService;
     private final UserAddressRepository userAddressRepository;
 
+    @org.springframework.beans.factory.annotation.Value("${frontend.url}")
+    private String frontendUrl;
+
     //  API XEM TRƯỚC ĐƠN HÀNG 
     @GetMapping("/preview")
     public ResponseEntity<?> previewCheckout() {
@@ -411,7 +414,7 @@ public class CheckoutController {
     
     //  API CẬP NHẬT TRẠNG THÁI SAU THANH TOÁN VNPAY 
     @GetMapping("/vnpay-return")
-    public ResponseEntity<?> vnpayReturn(@RequestParam Map<String, String> params) {
+    public void vnpayReturn(@RequestParam Map<String, String> params, jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
         String vnp_ResponseCode = params.get("vnp_ResponseCode");
         String vnp_TxnRef = params.get("vnp_TxnRef");
         String vnp_TransactionNo = params.get("vnp_TransactionNo");
@@ -421,7 +424,8 @@ public class CheckoutController {
         String orderIdStr = vnp_TxnRef != null ? vnp_TxnRef.split("_")[0] : null;
         
         if (orderIdStr == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid transaction reference"));
+            response.sendRedirect(frontendUrl + "/user/checkout");
+            return;
         }
         
         Integer orderId = Integer.parseInt(orderIdStr);
@@ -429,19 +433,11 @@ public class CheckoutController {
         if ("00".equals(vnp_ResponseCode)) {
             // Thanh toán thành công
             checkoutService.updatePaymentStatus(orderId, "PAID", vnp_TransactionNo);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Thanh toán thành công",
-                "orderId", orderId
-            ));
+            response.sendRedirect(frontendUrl + "/user/orders/" + orderId + "/success");
         } else {
             // Thanh toán thất bại
             checkoutService.updatePaymentStatus(orderId, "FAILED", vnp_TransactionNo);
-            return ResponseEntity.ok(Map.of(
-                "success", false,
-                "message", "Thanh toán thất bại",
-                "code", vnp_ResponseCode
-            ));
+            response.sendRedirect(frontendUrl + "/user/checkout");
         }
     }
 }
