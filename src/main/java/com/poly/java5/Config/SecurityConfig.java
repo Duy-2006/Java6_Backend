@@ -1,4 +1,4 @@
-	package com.poly.java5.Config;
+package com.poly.java5.Config;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -60,11 +60,11 @@ public class SecurityConfig {
                 // 2. Mở cửa cho các API Auth công khai
                 .requestMatchers("/api/auth/forgot-password", "/api/auth/verify-otp", "/api/auth/login", "/api/auth/register").permitAll()
                 
-                // 3. MỞ CỬA THÊM API AUDIO VÀO ĐÂY ĐỂ TEST BẰNG SWAGGER (đã thêm /api/admin/audio/**)
+                // 3. MỞ CỬA CHO CÁC API TEST VÀ QUẢN LÝ (Đã cập nhật thêm /api/publishers/** để sửa lỗi 401)
                 .requestMatchers("/api/categories/**", "/api/books/**", "/uploads/**", 
                                  "/api/admin/authors/**", "/api/admin/books/**", 
                                  "/api/admin/orders/**", "/api/admin/customers/**", 
-                                 "/api/admin/audio/**").permitAll()
+                                 "/api/admin/audio/**", "/api/publishers/**").permitAll()
                 
                 // 4. Các API công khai khác
                 .requestMatchers("/api/search", "/oauth2/**", "/login/oauth2/**").permitAll()
@@ -73,7 +73,7 @@ public class SecurityConfig {
                 // 5. Sách nói: cho phép guest xem danh sách chương (Chapter 1 miễn phí)
                 .requestMatchers("/api/user/books/**").permitAll()
                 
-                // 5. Các API bắt buộc đăng nhập (Token)
+                // 6. Các API bắt buộc đăng nhập (Token)
                 .requestMatchers(HttpMethod.POST, "/api/books/*/reviews").authenticated()
                 .requestMatchers("/api/orders/**").authenticated()
                 
@@ -102,6 +102,7 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
+        // Trả về đối tượng mã hóa mật khẩu BCrypt mặc định
         return new BCryptPasswordEncoder();
     }
 
@@ -155,7 +156,7 @@ public class SecurityConfig {
         String jwtToken = jwtService.create(user, TOKEN_EXPIRY_SECONDS);
         request.getSession().invalidate();
 
-        // ✅ Gắn JWT vào HTTP-Only Cookie (an toàn hơn truyền qua URL)
+        // Gắn JWT vào HTTP-Only Cookie (an toàn hơn truyền qua URL)
         response.setHeader("Set-Cookie",
             String.format("jwt=%s; Path=/; HttpOnly; Max-Age=%d; SameSite=Lax", jwtToken, TOKEN_EXPIRY_SECONDS));
 

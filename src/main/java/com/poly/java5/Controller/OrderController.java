@@ -3,7 +3,6 @@ package com.poly.java5.Controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,7 +16,7 @@ import com.poly.java5.DTO.OrderDetailDTO;
 import com.poly.java5.DTO.OrderFullDTO;
 import com.poly.java5.Entity.Order;
 import com.poly.java5.Service.OrderService;
-import com.poly.java5.Entity.User; 
+
 import lombok.RequiredArgsConstructor;
 
 @RestController

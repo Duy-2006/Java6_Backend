@@ -16,7 +16,7 @@ import lombok.*;
 @Data
 @Entity
 @Table(name = "Books")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})  // ✅ THÊM DÒNG NÀY
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Book implements Serializable {
 
     @Id
@@ -56,57 +56,54 @@ public class Book implements Serializable {
     @Transient
     private BigDecimal tempDiscountPercent;
 
-    // ✅ THÊM @JsonBackReference ĐỂ TRÁNH VÒNG LẶP
-    @ManyToOne
+    // Relationships
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id")
-    @JsonBackReference  // THÊM DÒNG NÀY
+    @JsonBackReference
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private Author author;
 
-    // ✅ THÊM @JsonBackReference ĐỂ TRÁNH VÒNG LẶP
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
-    @JsonBackReference  // THÊM DÒNG NÀY
+    @JsonBackReference
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private Category category;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seller_id")
-    @JsonIgnore  // THÊM DÒNG NÀY
+    @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private User seller;
 
-    // ✅ THÊM @JsonIgnore CHO CÁC LIST
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore  // THÊM DÒNG NÀY
+    @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Review> reviews; 
 
     @OneToMany(mappedBy = "book")
-    @JsonIgnore  // THÊM DÒNG NÀY
+    @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<CartDetail> cartDetails; 
 
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL)
-    @JsonIgnore  // THÊM DÒNG NÀY
+    @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<OrderDetail> orderDetails; 
 
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL)
-    @JsonIgnore  // THÊM DÒNG NÀY
+    @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Wishlist> wishlists; 
     
- //  THÊM QUAN HỆ VỚI BẢNG CHƯƠNG SÁCH CHO TÍNH NĂNG AUDIO
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonIgnore // Dùng Ignore để tránh Next.js load quá nặng khi chỉ xem danh sách sách
+    @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<BookChapter> chapters;
@@ -117,7 +114,7 @@ public class Book implements Serializable {
     }
 
     public boolean isAvailable() {
-        return quantity != null && quantity > 0 && Boolean.TRUE.equals(active);
+        return quantity != null && quantity > 0 && Boolean.TRUE.equals(active) && Boolean.FALSE.equals(deleted);
     }
 
     public void decreaseStock(Integer amount) {
@@ -136,14 +133,5 @@ public class Book implements Serializable {
     public BigDecimal calculateTotalPrice(Integer quantity) {
         if (price == null || quantity == null) return BigDecimal.ZERO;
         return price.multiply(BigDecimal.valueOf(quantity));
-    }
-    
-    // Getter và setter cho tempDiscountPercent
-    public BigDecimal getTempDiscountPercent() {
-        return tempDiscountPercent;
-    }
-
-    public void setTempDiscountPercent(BigDecimal tempDiscountPercent) {
-        this.tempDiscountPercent = tempDiscountPercent;
     }
 }

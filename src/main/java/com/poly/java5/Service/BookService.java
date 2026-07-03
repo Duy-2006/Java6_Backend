@@ -2,7 +2,6 @@ package com.poly.java5.Service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,28 +35,51 @@ public class BookService {
     private final AuthorRepository authorRepository;
     private final CategoryRepository categoryRepository;
 
-    // ========== CÁC PHƯƠNG THỨC CŨ (TRẢ VỀ ENTITY) ==========
+    // ========== CÁC PHƯƠNG THỨC LẤY DỮ LIỆU ==========
+    
     public List<Book> getAllBooks() {
-        log.info("Lấy tất cả sách...");
+        log.info("Lấy tất cả sách (không bao gồm đã xóa)...");
         TypedQuery<Book> query = entityManager.createQuery(
-                "SELECT b FROM Book b ORDER BY b.id DESC",
+                "SELECT b FROM Book b WHERE b.deleted = false ORDER BY b.id DESC",
                 Book.class
         );
         return query.getResultList();
     }
 
+    // Phương thức gốc để Controller gọi (đã kiểm soát xóa mềm)
     public Book getBookById(Integer id) {
-        log.info("Tìm sách ID: {}", id);
-        Book book = entityManager.find(Book.class, id.intValue());
-        if (book == null) {
-            throw new RuntimeException("Không tìm thấy sách");
-        }
-        return book;
+        return bookRepository.findById(id.intValue())
+                .filter(b -> !Boolean.TRUE.equals(b.getDeleted()))
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy sách hoặc đã bị xóa"));
     }
+
+    // ========== BỔ SUNG: PHƯƠNG THỨC FIND_BY_ID CHO CONTROLLER CŨ ==========
+    public Book findById(Integer id) {
+        // Trả về sách nếu tồn tại và chưa bị xóa, nếu không trả về null
+        return bookRepository.findById(id.intValue())
+                .filter(b -> !Boolean.TRUE.equals(b.getDeleted()))
+                .orElse(null);
+    }
+
+    // ========== XỬ LÝ XÓA MỀM (SOFT DELETE) ==========
+
+    public void deleteById(Integer id) {
+        log.info("Thực hiện xóa mềm sách ID: {}", id);
+        Book book = bookRepository.findById(id.intValue())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy sách với ID: " + id));
+        
+        book.setDeleted(true);
+        book.setActive(false);
+        
+        bookRepository.save(book);
+        log.info("Đã cập nhật trạng thái xóa mềm thành công cho sách ID: {}", id);
+    }
+
+    // ========== CÁC PHƯƠNG THỨC HỖ TRỢ & DTO ==========
 
     public List<Book> searchBooks(String keyword) {
         if (keyword == null || keyword.isBlank()) return new ArrayList<>();
-        List<Book> allBooks = bookRepository.findByDeletedFalse();
+        List<Book> allBooks = bookRepository.findByDeletedFalse(); 
         String normalizedKeyword = normalize(keyword);
         return allBooks.stream()
                 .filter(b -> {
@@ -84,7 +106,7 @@ public class BookService {
 
     public List<Book> getNewBooks() {
         TypedQuery<Book> query = entityManager.createQuery(
-                "SELECT b FROM Book b ORDER BY b.id DESC",
+                "SELECT b FROM Book b WHERE b.deleted = false ORDER BY b.id DESC",
                 Book.class
         );
         query.setMaxResults(10);
@@ -95,72 +117,30 @@ public class BookService {
         return bookRepository.save(book);
     }
 
-    public void deleteById(Integer id) {
-        bookRepository.deleteById(id.intValue());
-    }
-
-    public Book findById(Integer id) {
-        return bookRepository.findById(id.intValue()).orElse(null);
-    }
-
     public Author findAuthorById(Long authorId) {
-        if (authorId == null) return null;
-        return authorRepository.findById(authorId).orElse(null);
+        return (authorId == null) ? null : authorRepository.findById(authorId).orElse(null);
     }
 
     public Category findCategoryById(Integer categoryId) {
-        if (categoryId == null) return null;
-        return categoryRepository.findById(categoryId.intValue()).orElse(null);
+        return (categoryId == null) ? null : categoryRepository.findById(categoryId.intValue()).orElse(null);
     }
 
-    public List<Book> findLowStock(int threshold) {
-        return bookRepository.findByQuantityLessThan(threshold);
-    }
-
-    public long countActive() {
-        return bookRepository.countByActiveTrue();
-    }
-
-    // ========== CÁC PHƯƠNG THỨC MỚI TRẢ VỀ DTO ==========
+    // ========== CÁC PHƯƠNG THỨC DTO ==========
 
     public List<BookDTO> getAllBooksDTO() {
-        log.info("Lấy tất cả sách (DTO)");
-        return getAllBooks().stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    public List<BookDTO> findLowStockDTO(int threshold) {
-        log.info("Lấy sách tồn kho thấp < {} (DTO)", threshold);
-        return findLowStock(threshold).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        return getAllBooks().stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
     public BookDTO getBookByIdDTO(Integer id) {
-        log.info("Tìm sách ID: {} (DTO)", id);
-        Book book = getBookById(id);
-        return convertToDTO(book);
+        return convertToDTO(getBookById(id));
     }
 
     public List<BookDTO> searchBooksDTO(String keyword) {
-        log.info("Tìm kiếm sách với keyword: {} (DTO)", keyword);
-        return searchBooks(keyword).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        return searchBooks(keyword).stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
-    public List<BookDTO> getNewBooksDTO() {
-        log.info("Lấy sách mới (DTO)");
-        return getNewBooks().stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    // Chuyển đổi từ Entity Book sang BookDTO
     private BookDTO convertToDTO(Book entity) {
         if (entity == null) return null;
-
         BookDTO dto = new BookDTO();
         dto.setId(entity.getId());
         dto.setTitle(entity.getTitle());
@@ -171,22 +151,16 @@ public class BookService {
         dto.setActive(entity.getActive());
         dto.setDescription(entity.getDescription());
         dto.setImageUrl(entity.getImageUrl());
-        
-        // Quan trọng: không bao giờ trả MultipartFile trong JSON response
         dto.setImageFile(null);
         
-        // Author info
         if (entity.getAuthor() != null) {
             dto.setAuthorId(entity.getAuthor().getId());
             dto.setAuthorName(entity.getAuthor().getName());
         }
-        
-        // Category info
         if (entity.getCategory() != null) {
             dto.setCategoryId(entity.getCategory().getId());
             dto.setCategoryName(entity.getCategory().getName());
         }
-        
         return dto;
     }
 }
