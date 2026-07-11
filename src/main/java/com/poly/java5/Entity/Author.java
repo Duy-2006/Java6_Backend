@@ -25,8 +25,8 @@ public class Author implements Serializable {
     @Email(message = "Email không hợp lệ")
     private String email; // Thông tin thêm nếu cần
 
-    // Quan hệ 1-Nhiều với Sách để thống kê
-    @OneToMany(mappedBy = "author")
+    // Quan hệ Nhiều-Nhiều với Sách để thống kê
+    @ManyToMany(mappedBy = "authors")
     @ToString.Exclude // <--- Đã thêm để ngắt vòng lặp với danh sách Book
     @JsonIgnore
     private List<Book> books;

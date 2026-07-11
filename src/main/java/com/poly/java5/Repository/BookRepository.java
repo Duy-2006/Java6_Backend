@@ -66,12 +66,14 @@ public interface BookRepository extends JpaRepository<Book, Integer> {
     
     // Lọc theo category, author (cho admin)
     List<Book> findByCategoryIdAndDeletedFalse(Integer categoryId);
-    List<Book> findByAuthorIdAndDeletedFalse(Integer authorId);
+    
+    @Query("SELECT b FROM Book b JOIN b.authors a WHERE a.id = :authorId AND b.deleted = false")
+    List<Book> findByAuthorIdAndDeletedFalse(@Param("authorId") Integer authorId);
     
     // Tìm kiếm đa trường cho admin
-    @Query("SELECT b FROM Book b WHERE " +
+    @Query("SELECT DISTINCT b FROM Book b LEFT JOIN b.authors a WHERE " +
            "LOWER(b.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "(b.author IS NOT NULL AND LOWER(b.author.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) OR " +
+           "(a IS NOT NULL AND LOWER(a.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) OR " +
            "(b.category IS NOT NULL AND LOWER(b.category.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) OR " +
            "LOWER(b.isbn) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Book> searchByKeyword(@Param("keyword") String keyword);

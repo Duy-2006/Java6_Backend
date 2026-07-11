@@ -38,8 +38,15 @@ public class Book implements Serializable {
     @Column(name = "stock_quantity", nullable = false)
     private Integer quantity;
 
-    @Column(length = 100)
-    private String publisher;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "Book_Publishers",
+        joinColumns = @JoinColumn(name = "book_id"),
+        inverseJoinColumns = @JoinColumn(name = "publisher_id")
+    )
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Publisher> publishers;
 
     @Column(name = "image_url", length = 500)
     private String imageUrl;
@@ -57,12 +64,39 @@ public class Book implements Serializable {
     private BigDecimal tempDiscountPercent;
 
     // Relationships
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id")
-    @JsonBackReference
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "Book_Authors",
+        joinColumns = @JoinColumn(name = "book_id"),
+        inverseJoinColumns = @JoinColumn(name = "author_id")
+    )
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private Author author;
+    private List<Author> authors;
+
+    public Author getAuthor() {
+        return (authors == null || authors.isEmpty()) ? null : authors.get(0);
+    }
+
+    public void setAuthor(Author author) {
+        if (this.authors == null) {
+            this.authors = new java.util.ArrayList<>();
+        }
+        this.authors.clear();
+        if (author != null) {
+            this.authors.add(author);
+        }
+    }
+
+    public String getPublisher() {
+        return (publishers == null || publishers.isEmpty())
+            ? ""
+            : publishers.stream().map(Publisher::getName).collect(java.util.stream.Collectors.joining(", "));
+    }
+
+    public void setPublisher(String publisher) {
+        // Dummy setter for compatibility
+    }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")

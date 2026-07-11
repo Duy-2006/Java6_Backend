@@ -17,6 +17,13 @@ import com.poly.java5.Utils.AuthUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.Cookie;
+import org.springframework.http.HttpHeaders;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -148,11 +155,67 @@ public class UserBookChaptersApiController {
             dto.setId(b.getId());
             dto.setTitle(b.getTitle());
             dto.setImageUrl(b.getImageUrl());
-            dto.setAuthorName(b.getAuthor() != null ? b.getAuthor().getName() : null);
+            if (b.getAuthors() != null && !b.getAuthors().isEmpty()) {
+                dto.setAuthorName(b.getAuthors().stream().map(a -> a.getName()).collect(Collectors.joining(", ")));
+            } else {
+                dto.setAuthorName(b.getAuthor() != null ? b.getAuthor().getName() : null);
+            }
             return dto;
         }).collect(Collectors.toList());
 
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * API Proxy Audio Stream 
+     * Hỗ trợ phát nhạc qua Backend để bảo mật DRM
+     */
+    @GetMapping("/audio/stream/{audioId}")
+    public ResponseEntity<Resource> streamAudio(@PathVariable Integer audioId, HttpServletRequest request) {
+        try {
+            // 🛡️ BẢO MẬT: Hotlink Protection (Kiểm tra Referer)
+            // Ngăn chặn copy link dán trực tiếp vào tab mới hoặc nhúng vào web khác
+            String referer = request.getHeader("Referer");
+            if (referer == null || (!referer.contains("localhost") && !referer.contains("192.168."))) {
+                System.out.println("❌ DRM Blocked: Invalid Referer (" + referer + ")");
+                return ResponseEntity.status(403).build();
+            }
+
+            AudioBook audio = audioBookRepository.findById(audioId).orElse(null);
+            if (audio == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            BookChapter chapter = audio.getChapter();
+            com.poly.java5.Entity.Book book = chapter.getBook();
+
+            // Kiểm tra xem có phải chương 1 không (Chương 1 luôn free)
+            List<BookChapter> chapters = chapterRepository.findByBookIdOrderByChapterNumberAsc(book.getId());
+            boolean isFirstChapter = (!chapters.isEmpty() && chapters.get(0).getId().equals(chapter.getId()));
+
+            if (!isFirstChapter) {
+                Integer userId = AuthUtil.getAuthenticatedUserId(userService);
+                if (userId == null) {
+                    return ResponseEntity.status(401).build();
+                }
+                User user = userService.findById(userId);
+                boolean hasAccess = user != null && (user.isAdmin() || orderRepository.hasPurchasedBook(userId, book.getId()));
+                if (!hasAccess) {
+                    return ResponseEntity.status(403).build();
+                }
+            }
+
+            // Chuyển tiếp luồng (stream) từ Cloudinary xuống Client
+            Resource resource = new UrlResource(audio.getAudioUrl());
+            
+            // Trả về Resource, Spring Boot sẽ tự động xử lý byte range (Tua tới lui)
+            return ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.parseMediaType("audio/mpeg"))
+                    .body(resource);
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     // ========== PLAYBACK PROGRESS ==========
@@ -251,8 +314,26 @@ public class UserBookChaptersApiController {
                         if (a.getLanguage() != null && a.getLanguage().getSystemLanguage() != null) {
                             langCode = a.getLanguage().getSystemLanguage().getCode();
                         }
+                        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+                        String token = request.getHeader("Authorization");
+                        if (token != null && token.startsWith("Bearer ")) {
+                            token = token.substring(7);
+                        } else {
+                            Cookie[] cookies = request.getCookies();
+                            if (cookies != null) {
+                                for (Cookie c : cookies) {
+                                    if ("jwt".equals(c.getName())) token = c.getValue();
+                                }
+                            }
+                        }
+                        
+                        String proxyUrl = "/api/user/books/audio/stream/" + a.getId();
+                        if (token != null) {
+                            proxyUrl += "?token=" + token;
+                        }
+
                         return AudioSegmentDTO.builder()
-                            .audioUrl(a.getAudioUrl())
+                            .audioUrl(proxyUrl)
                             .sequenceOrder(a.getSequenceOrder())
                             .durationSeconds(a.getDurationSeconds())
                             .languageCode(langCode)

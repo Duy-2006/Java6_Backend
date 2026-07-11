@@ -9,6 +9,7 @@ import com.poly.java5.DTO.BookDTO;
 import com.poly.java5.Entity.Author;
 import com.poly.java5.Entity.Book;
 import com.poly.java5.Entity.Category;
+import com.poly.java5.Entity.Publisher;
 import com.poly.java5.Repository.AuthorRepository;
 import com.poly.java5.Repository.BookRepository;
 import com.poly.java5.Repository.CategoryRepository;
@@ -153,9 +154,24 @@ public class BookService {
         dto.setImageUrl(entity.getImageUrl());
         dto.setImageFile(null);
         
-        if (entity.getAuthor() != null) {
-            dto.setAuthorId(entity.getAuthor().getId());
-            dto.setAuthorName(entity.getAuthor().getName());
+        if (entity.getAuthors() != null) {
+            dto.setAuthorIds(entity.getAuthors().stream().map(Author::getId).collect(Collectors.toList()));
+            dto.setAuthorNames(entity.getAuthors().stream().map(Author::getName).collect(Collectors.toList()));
+            if (!entity.getAuthors().isEmpty()) {
+                dto.setAuthorId(entity.getAuthors().get(0).getId());
+                dto.setAuthorName(entity.getAuthors().get(0).getName());
+            }
+        } else {
+            dto.setAuthorIds(new java.util.ArrayList<>());
+            dto.setAuthorNames(new java.util.ArrayList<>());
+        }
+        if (entity.getPublishers() != null) {
+            dto.setPublisherIds(entity.getPublishers().stream().map(Publisher::getId).collect(Collectors.toList()));
+            dto.setPublisherNames(entity.getPublishers().stream().map(Publisher::getName).collect(Collectors.toList()));
+            dto.setPublisher(entity.getPublishers().stream().map(Publisher::getName).collect(Collectors.joining(", ")));
+        } else {
+            dto.setPublisherIds(new java.util.ArrayList<>());
+            dto.setPublisherNames(new java.util.ArrayList<>());
         }
         if (entity.getCategory() != null) {
             dto.setCategoryId(entity.getCategory().getId());

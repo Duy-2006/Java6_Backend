@@ -5,8 +5,10 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -110,8 +112,12 @@ public class PromotionService {
     public Promotion createPromotion(Promotion promotion,
                                      List<Integer> bookIds,
                                      List<Integer> categoryIds) {
+        if (promotion.getDiscountValue() != null && promotion.getDiscountValue().compareTo(BigDecimal.valueOf(50)) > 0) {
+            throw new IllegalArgumentException("Mức giảm giá tối đa không được vượt quá 50%");
+        }
+        
         // null = đang tạo mới, không có KM nào cần bỏ qua khi kiểm tra
-        validateBooksNotInAnyPromotion(bookIds, null);
+        validateNoOverlappingPromotions(promotion, bookIds, categoryIds, null);
 
         promotion.setStatus(true); // mặc định bật active khi tạo mới
         Promotion saved = promotionRepository.save(promotion);
@@ -133,13 +139,17 @@ public class PromotionService {
                                      List<Integer> bookIds,
                                      List<Integer> categoryIds) {
 
+        if (promotion.getDiscountValue() != null && promotion.getDiscountValue().compareTo(BigDecimal.valueOf(50)) > 0) {
+            throw new IllegalArgumentException("Mức giảm giá tối đa không được vượt quá 50%");
+        }
+
         // Tìm KM cần sửa, không có → báo lỗi
         Promotion existing = promotionRepository.findById(promotion.getId())
                 .orElseThrow(() -> new RuntimeException(
                         "Không tìm thấy promotion id = " + promotion.getId()));
 
         // Kiểm tra sách trùng, bỏ qua chính KM này khi so sánh
-        validateBooksNotInAnyPromotion(bookIds, promotion.getId());
+        validateNoOverlappingPromotions(promotion, bookIds, categoryIds, promotion.getId());
 
         // Cập nhật thông tin cơ bản
         existing.setName(promotion.getName());
@@ -203,32 +213,66 @@ public class PromotionService {
      * Ví dụ: KM #5 đang có sách A → khi sửa KM #5, sách A vẫn hợp lệ
      *        nhưng nếu sách A đang thuộc KM #3 → báo lỗi
      */
-    private void validateBooksNotInAnyPromotion(List<Integer> bookIds, Integer excludePromotionId) {
-        if (bookIds == null || bookIds.isEmpty()) return;
+    private void validateNoOverlappingPromotions(Promotion newPromo, List<Integer> bookIds, List<Integer> categoryIds, Integer excludePromotionId) {
+        boolean newAffectsAll = "ALL".equalsIgnoreCase(newPromo.getApplyType());
+        Set<Integer> newAffectedBookIds = new HashSet<>();
+        
+        if (!newAffectsAll) {
+            if ("BOOK".equalsIgnoreCase(newPromo.getApplyType()) && bookIds != null) {
+                newAffectedBookIds.addAll(bookIds);
+            } else if ("CATEGORY".equalsIgnoreCase(newPromo.getApplyType()) && categoryIds != null && !categoryIds.isEmpty()) {
+                List<Book> catBooks = bookRepository.findByCategoryIdIn(categoryIds);
+                catBooks.forEach(b -> newAffectedBookIds.add(b.getId()));
+            }
+            if (newAffectedBookIds.isEmpty()) return;
+        }
 
-        for (Integer bookId : bookIds) {
-            // Tìm tất cả detail đang chứa sách này
-            List<PromotionDetail> existing = promotionDetailRepository.findByBookId(bookId);
+        List<Promotion> allPromos = promotionRepository.findAll();
 
-            // Kiểm tra xem có detail nào thuộc KM khác (không phải KM đang sửa) không
-            boolean conflict = existing.stream().anyMatch(detail -> {
-                if (excludePromotionId != null
-                        && detail.getPromotion().getId().equals(excludePromotionId)) {
-                    return false; // cùng KM đang sửa → bỏ qua, không tính là trùng
+        for (Promotion existingPromo : allPromos) {
+            if (excludePromotionId != null && existingPromo.getId().equals(excludePromotionId)) continue;
+            if (Boolean.FALSE.equals(existingPromo.getStatus())) continue;
+            
+            if (!isDateOverlapping(newPromo.getStartDate(), newPromo.getEndDate(), existingPromo.getStartDate(), existingPromo.getEndDate())) {
+                continue;
+            }
+
+            boolean existingAffectsAll = "ALL".equalsIgnoreCase(existingPromo.getApplyType());
+            
+            if (newAffectsAll || existingAffectsAll) {
+                throw new IllegalStateException("Không thể áp dụng khuyến mãi vì trùng lặp thời gian với khuyến mãi Toàn Sàn: \"" + existingPromo.getName() + "\"");
+            }
+
+            Set<Integer> existingAffectedBookIds = new HashSet<>();
+            if ("BOOK".equalsIgnoreCase(existingPromo.getApplyType())) {
+                existingPromo.getDetails().forEach(d -> {
+                    if (d.getBook() != null) existingAffectedBookIds.add(d.getBook().getId());
+                });
+            } else if ("CATEGORY".equalsIgnoreCase(existingPromo.getApplyType())) {
+                List<Integer> existingCatIds = existingPromo.getDetails().stream()
+                    .filter(d -> d.getCategory() != null)
+                    .map(d -> d.getCategory().getId())
+                    .collect(Collectors.toList());
+                if (!existingCatIds.isEmpty()) {
+                    List<Book> catBooks = bookRepository.findByCategoryIdIn(existingCatIds);
+                    catBooks.forEach(b -> existingAffectedBookIds.add(b.getId()));
                 }
-                return true; // thuộc KM khác → xung đột
-            });
+            }
 
-            if (conflict) {
-                // Lấy tên sách để thông báo lỗi rõ ràng
-                String bookTitle = bookRepository.findById(bookId)
-                        .map(Book::getTitle)
-                        .orElse("ID " + bookId);
-                throw new IllegalStateException(
-                        "Sách \"" + bookTitle + "\" đã thuộc một khuyến mãi khác. "
-                        + "Hãy xóa sách đó khỏi khuyến mãi cũ trước.");
+            for (Integer bookId : newAffectedBookIds) {
+                if (existingAffectedBookIds.contains(bookId)) {
+                    String bookTitle = bookRepository.findById(bookId).map(Book::getTitle).orElse("ID " + bookId);
+                    throw new IllegalStateException("Sách \"" + bookTitle + "\" đã thuộc chương trình khuyến mãi \"" + existingPromo.getName() + "\" trong cùng thời gian.");
+                }
             }
         }
+    }
+
+    private boolean isDateOverlapping(LocalDate start1, LocalDate end1, LocalDate start2, LocalDate end2) {
+        if (start1 == null || end1 == null || start2 == null || end2 == null) return true; 
+        if (end1.isBefore(start2)) return false;
+        if (start1.isAfter(end2)) return false;
+        return true;
     }
 
     /**

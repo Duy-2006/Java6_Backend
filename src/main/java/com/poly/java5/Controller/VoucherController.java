@@ -153,16 +153,16 @@ public class VoucherController {
 	    }
 
 	    private Map<String, Object> convertRequestToMap(VoucherRequestDTO req) {
-	        return Map.of(
-	            "code", req.getCode(),
-	            "discountType", req.getDiscountType(),
-	            "discountValue", req.getDiscountValue(),
-	            "minOrderValue", req.getMinOrderValue(),
-	            "maxDiscount", req.getMaxDiscount(),
-	            "usageLimit", req.getUsageLimit(),
-	            "startDate", req.getStartDate(),
-	            "endDate", req.getEndDate(),
-	            "active", req.getActive()
-	        );
+	        Map<String, Object> map = new java.util.HashMap<>();
+	        map.put("code", req.getCode());
+	        map.put("discountType", req.getDiscountType());
+	        map.put("discountValue", req.getDiscountValue());
+	        map.put("minOrderValue", req.getMinOrderValue());
+	        map.put("maxDiscount", req.getMaxDiscount());
+	        map.put("usageLimit", req.getUsageLimit());
+	        map.put("startDate", req.getStartDate());
+	        map.put("endDate", req.getEndDate());
+	        map.put("active", req.getActive());
+	        return map;
 	    }
 }

@@ -104,6 +104,15 @@ public class AuthFilter extends OncePerRequestFilter {
 	            }
 	        }
 	        
+	        // Ưu tiên 3: URL Parameter (cho các thẻ <audio>, <video> không gửi được header)
+	        if (token == null) {
+	            String tokenParam = request.getParameter("token");
+	            if (tokenParam != null && !tokenParam.isEmpty()) {
+	                token = tokenParam;
+	                System.out.println("Token from query parameter");
+	            }
+	        }
+	        
 	        if (token != null) {
 	            boolean isValid = jwtService.validate(token);
 	            System.out.println("Token valid: " + isValid);

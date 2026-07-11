@@ -75,7 +75,10 @@ public class VoucherService {
 
 	// ── Helper: map body → entity ────────────────────────────
 	private Voucher buildFromBody(Voucher v, Map<String, Object> body) {
-		if (body.containsKey("discountType"))
+		if (body.containsKey("code") && body.get("code") != null)
+			v.setCode(body.get("code").toString());
+
+		if (body.containsKey("discountType") && body.get("discountType") != null)
 			v.setDiscountType(body.get("discountType").toString());
 
 		if (body.containsKey("discountValue")) {

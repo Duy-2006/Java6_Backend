@@ -48,4 +48,9 @@ public class BookDTO {
 	    private String categoryName;      // chỉ để hiển thị   
 
         private Long soldCount;           // số lượng đã bán thực tế
+
+	    private java.util.List<Long> authorIds;
+	    private java.util.List<String> authorNames;
+	    private java.util.List<Integer> publisherIds;
+	    private java.util.List<String> publisherNames;
 }

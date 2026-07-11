@@ -26,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 public class FlashSaleController {
 	private final PromotionRepository promotionRepository;
 	private final BookRepository bookRepository;
+	private final com.poly.java5.Repository.BookFormatRepository bookFormatRepo;
 
 	@GetMapping("/flash-sale")
 	public ResponseEntity<List<FlashSaleBookDTO>> getFlashSaleBooks() {
@@ -109,10 +110,18 @@ public class FlashSaleController {
 				}
 			}
 
+			BigDecimal audioPrice = bookFormatRepo.findByBookIdAndFormatType(book.getId(), "AUDIO")
+					.map(f -> f.getPrice())
+					.orElse(null);
+
+			Long soldCount = bookRepository.getSoldCountById(book.getId());
+
 			result.add(FlashSaleBookDTO.builder().id(book.getId()).title(book.getTitle()).price(book.getPrice())
 					.imageUrl(book.getImageUrl()).discountValue(bestDiscount).discountPrice(finalPrice)
 					.usageLimit(usageLimit)
 					.quantity(book.getQuantity())
+					.audioPrice(audioPrice)
+					.soldCount(soldCount)
 					.endDate(promoEndDate)
 					.build());
 		}

@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.poly.java5.DTO.BookDTO;
 import com.poly.java5.DTO.ReviewRequestDTO;
 import com.poly.java5.Entity.Book;
+import com.poly.java5.Entity.Author;
+import com.poly.java5.Entity.Publisher;
 import com.poly.java5.Repository.AuthorRepository;
 import com.poly.java5.Repository.BookRepository;
 import com.poly.java5.Repository.CategoryRepository;
@@ -76,7 +78,25 @@ public class BookApiController {
         dto.setQuantity(b.getQuantity());
         dto.setImageUrl(b.getImageUrl());
         dto.setCategoryName(b.getCategory() != null ? b.getCategory().getName() : null);
-        dto.setAuthorName(b.getAuthor() != null ? b.getAuthor().getName() : null);
+        if (b.getAuthors() != null) {
+            dto.setAuthorIds(b.getAuthors().stream().map(Author::getId).collect(Collectors.toList()));
+            dto.setAuthorNames(b.getAuthors().stream().map(Author::getName).collect(Collectors.toList()));
+            if (!b.getAuthors().isEmpty()) {
+                dto.setAuthorId(b.getAuthors().get(0).getId());
+                dto.setAuthorName(b.getAuthors().get(0).getName());
+            }
+        } else {
+            dto.setAuthorIds(new java.util.ArrayList<>());
+            dto.setAuthorNames(new java.util.ArrayList<>());
+        }
+        if (b.getPublishers() != null) {
+            dto.setPublisherIds(b.getPublishers().stream().map(Publisher::getId).collect(Collectors.toList()));
+            dto.setPublisherNames(b.getPublishers().stream().map(Publisher::getName).collect(Collectors.toList()));
+            dto.setPublisher(b.getPublishers().stream().map(Publisher::getName).collect(Collectors.joining(", ")));
+        } else {
+            dto.setPublisherIds(new java.util.ArrayList<>());
+            dto.setPublisherNames(new java.util.ArrayList<>());
+        }
         dto.setActive(b.getActive()); // Thêm active để frontend có thể dùng nếu cần
         
         Long sold = bookRepo.getSoldCountById(b.getId());

@@ -19,5 +19,7 @@ public class FlashSaleBookDTO {
     private BigDecimal discountPrice;   // giá sau giảm
     private Integer usageLimit;         // giới hạn số lượng
     private Integer quantity;           // tồn kho hiện tại
+    private BigDecimal audioPrice;      // Giá sách nói
+    private Long soldCount;             // số lượng đã bán
     private java.time.LocalDate endDate; // Ngày kết thúc khuyến mãi
 }

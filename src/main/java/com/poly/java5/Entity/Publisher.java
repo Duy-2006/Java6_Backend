@@ -44,4 +44,8 @@ public class Publisher {
 
     public Boolean getActive() { return active; }
     public void setActive(Boolean active) { this.active = active; }
+
+    @ManyToMany(mappedBy = "publishers")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private java.util.List<Book> books;
 }

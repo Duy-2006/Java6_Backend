@@ -2,6 +2,8 @@ package com.poly.java5.Controller;
 
 import com.poly.java5.DTO.BookDTO;
 import com.poly.java5.Entity.Book;
+import com.poly.java5.Entity.Author;
+import com.poly.java5.Entity.Publisher;
 import com.poly.java5.Entity.BookFormat;
 import com.poly.java5.Service.BookService;
 import com.poly.java5.Repository.BookFormatRepository;
@@ -30,6 +32,12 @@ public class AdminBooksApiController {
 
 	@Autowired
 	private BookFormatRepository bookFormatRepository;
+
+	@Autowired
+	private com.poly.java5.Repository.AuthorRepository authorRepository;
+
+	@Autowired
+	private com.poly.java5.Repository.PublisherRepository publisherRepository;
 
 	private static final String UPLOAD_DIR = "src/main/resources/static/uploads/books/";
 
@@ -113,9 +121,27 @@ public class AdminBooksApiController {
 		existing.setActive(dto.getActive());
 		existing.setDescription(dto.getDescription());
 
-		// AUTHOR (Long)
-		if (dto.getAuthorId() != null) {
-			existing.setAuthor(bookService.findAuthorById(dto.getAuthorId()));
+		// AUTHORS (List<Long>)
+		if (dto.getAuthorIds() != null && !dto.getAuthorIds().isEmpty()) {
+			List<com.poly.java5.Entity.Author> authors = dto.getAuthorIds().stream()
+				.map(authorId -> authorRepository.findById(authorId).orElse(null))
+				.filter(java.util.Objects::nonNull)
+				.collect(Collectors.toList());
+			existing.setAuthors(authors);
+		} else if (dto.getAuthorId() != null) {
+			com.poly.java5.Entity.Author author = authorRepository.findById(dto.getAuthorId()).orElse(null);
+			if (author != null) {
+				existing.setAuthors(List.of(author));
+			}
+		}
+
+		// PUBLISHERS (List<Integer>)
+		if (dto.getPublisherIds() != null && !dto.getPublisherIds().isEmpty()) {
+			List<com.poly.java5.Entity.Publisher> publishers = dto.getPublisherIds().stream()
+				.map(pubId -> publisherRepository.findById(pubId).orElse(null))
+				.filter(java.util.Objects::nonNull)
+				.collect(Collectors.toList());
+			existing.setPublishers(publishers);
 		}
 
 		// CATEGORY (Integer)
@@ -164,7 +190,7 @@ public class AdminBooksApiController {
 		return ResponseEntity.ok("Đã ẩn sách thành công");
 	}
 
-// RESTORE (Hiện sách)
+	// RESTORE (Hiện sách)
 	@PutMapping("/{id}/restore")
 	public ResponseEntity<?> restore(@PathVariable Integer id) {
 		Book book = bookService.findById(id);
@@ -174,6 +200,24 @@ public class AdminBooksApiController {
 		book.setActive(true); // Hiện: active = true
 		bookService.save(book);
 		return ResponseEntity.ok("Đã bật sách thành công");
+	}
+
+	// UPDATE AUDIO PRICE
+	@PutMapping("/{id}/audio-price")
+	public ResponseEntity<?> updateAudioPrice(@PathVariable Integer id, @RequestParam java.math.BigDecimal audioPrice) {
+		Book existing = bookService.findById(id);
+		if (existing == null) {
+			return ResponseEntity.status(404).body("Không tìm thấy sách");
+		}
+		
+		BookFormat audio = bookFormatRepository.findByBookIdAndFormatType(existing.getId(), "AUDIO")
+				.orElse(new BookFormat());
+		audio.setBook(existing);
+		audio.setFormatType("AUDIO");
+		audio.setPrice(audioPrice);
+		bookFormatRepository.save(audio);
+		
+		return ResponseEntity.ok(convertToDTO(existing));
 	}
 
 	// ================= CONVERT ENTITY -> DTO =================
@@ -190,10 +234,27 @@ public class AdminBooksApiController {
 		dto.setDescription(book.getDescription());
 		dto.setImageUrl(book.getImageUrl());
 
-		// Author (Long)
-		if (book.getAuthor() != null) {
-			dto.setAuthorId(book.getAuthor().getId());
-			dto.setAuthorName(book.getAuthor().getName());
+		// Authors mapping
+		if (book.getAuthors() != null) {
+			dto.setAuthorIds(book.getAuthors().stream().map(Author::getId).collect(Collectors.toList()));
+			dto.setAuthorNames(book.getAuthors().stream().map(Author::getName).collect(Collectors.toList()));
+			if (!book.getAuthors().isEmpty()) {
+				dto.setAuthorId(book.getAuthors().get(0).getId());
+				dto.setAuthorName(book.getAuthors().get(0).getName());
+			}
+		} else {
+			dto.setAuthorIds(new java.util.ArrayList<>());
+			dto.setAuthorNames(new java.util.ArrayList<>());
+		}
+
+		// Publishers mapping
+		if (book.getPublishers() != null) {
+			dto.setPublisherIds(book.getPublishers().stream().map(Publisher::getId).collect(Collectors.toList()));
+			dto.setPublisherNames(book.getPublishers().stream().map(Publisher::getName).collect(Collectors.toList()));
+			dto.setPublisher(book.getPublishers().stream().map(Publisher::getName).collect(Collectors.joining(", ")));
+		} else {
+			dto.setPublisherIds(new java.util.ArrayList<>());
+			dto.setPublisherNames(new java.util.ArrayList<>());
 		}
 
 		// Category (Integer)
@@ -215,15 +276,32 @@ public class AdminBooksApiController {
 
 		book.setTitle(dto.getTitle());
 		book.setIsbn(dto.getIsbn());
-		book.setPublisher(dto.getPublisher());
 		book.setPrice(dto.getPrice());
 		book.setQuantity(dto.getQuantity());
 		book.setActive(dto.getActive());
 		book.setDescription(dto.getDescription());
 
-		// Author (Long)
-		if (dto.getAuthorId() != null) {
-			book.setAuthor(bookService.findAuthorById(dto.getAuthorId()));
+		// Authors mapping
+		if (dto.getAuthorIds() != null && !dto.getAuthorIds().isEmpty()) {
+			List<Author> authors = dto.getAuthorIds().stream()
+				.map(authorId -> authorRepository.findById(authorId).orElse(null))
+				.filter(java.util.Objects::nonNull)
+				.collect(Collectors.toList());
+			book.setAuthors(authors);
+		} else if (dto.getAuthorId() != null) {
+			Author author = authorRepository.findById(dto.getAuthorId()).orElse(null);
+			if (author != null) {
+				book.setAuthors(List.of(author));
+			}
+		}
+
+		// Publishers mapping
+		if (dto.getPublisherIds() != null && !dto.getPublisherIds().isEmpty()) {
+			List<Publisher> publishers = dto.getPublisherIds().stream()
+				.map(pubId -> publisherRepository.findById(pubId).orElse(null))
+				.filter(java.util.Objects::nonNull)
+				.collect(Collectors.toList());
+			book.setPublishers(publishers);
 		}
 
 		// Category (Integer)
