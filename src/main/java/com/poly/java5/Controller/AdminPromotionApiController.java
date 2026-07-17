@@ -43,6 +43,7 @@ public class AdminPromotionApiController {
 	        dto.setEndDate(p.getEndDate());
 	        dto.setStatus(p.getStatus());
 	        dto.setUsageLimit(p.getUsageLimit());
+	        dto.setUsedCount(p.getUsedCount());
 	        dto.setApplyType(p.getApplyType());
 	        dto.setComputedStatus(p.getComputedStatus()); // @Transient
 
@@ -86,6 +87,7 @@ public class AdminPromotionApiController {
 	        p.setEndDate(dto.getEndDate());
 	        p.setStatus(dto.getStatus() != null ? dto.getStatus() : true);
 	        p.setUsageLimit(dto.getUsageLimit());
+	        p.setUsedCount(dto.getUsedCount() != null ? dto.getUsedCount() : 0);
 	        p.setApplyType(dto.getApplyType());
 	        return p;
 	    }
@@ -121,6 +123,9 @@ public class AdminPromotionApiController {
 	    @PostMapping
 	    public ResponseEntity<?> createPromotion(@RequestBody PromotionDTO dto) {
 	        try {
+	            if (dto.getStartDate() != null && dto.getStartDate().isBefore(java.time.LocalDate.now())) {
+	                return ResponseEntity.badRequest().body("Lỗi: Ngày bắt đầu không được nằm trong quá khứ.");
+	            }
 	            Promotion promotion = toEntity(dto);
 	            promotionService.createPromotion(promotion, dto.getBookIds(), dto.getCategoryIds());
 	            return ResponseEntity.ok("Tạo khuyến mãi thành công");

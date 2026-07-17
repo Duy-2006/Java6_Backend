@@ -14,6 +14,7 @@ import com.poly.java5.Entity.Cart;
 import com.poly.java5.Entity.Order;
 import com.poly.java5.Entity.OrderDetail;
 import com.poly.java5.Entity.CartDetail;
+import com.poly.java5.Service.PromotionService;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -29,6 +30,8 @@ public class CheckoutService {
 
 	@PersistenceContext
 	private EntityManager em;
+
+	private final PromotionService promotionService;
 
 	// ================= 1. TẠO MÃ ĐƠN HÀNG =================
 	private String generateOrderCode() {
@@ -156,6 +159,9 @@ public class CheckoutService {
 			// Trừ kho
 			book.setQuantity(book.getQuantity() - quantity);
 			log.info("Stock reduced for: {}, remaining: {}", book.getTitle(), book.getQuantity());
+
+			// Tăng lượt sử dụng khuyến mãi (nếu có áp dụng)
+			promotionService.incrementPromotionUsage(bookId, quantity);
 
 			// Tạo OrderDetail với giá đã giảm
 			OrderDetail od = OrderDetail.builder()

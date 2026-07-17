@@ -34,6 +34,7 @@ public class PromotionDTO {
 	    private Boolean status = true;             // khớp với status trong entity
 	    
 	    private Integer usageLimit;                // giới hạn số lượng áp dụng
+	    private Integer usedCount;                 // số lượng đã sử dụng
 
 	    private String applyType;                  // ALL | BOOK | CATEGORY
 

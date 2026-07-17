@@ -98,6 +98,46 @@ public class PromotionService {
     }
 
     // ================================================================
+    // CẬP NHẬT TỒN KHO KHUYẾN MÃI
+    // ================================================================
+
+    /**
+     * Tăng số lượng đã dùng của khuyến mãi tốt nhất đang áp dụng cho sách.
+     * Nếu vượt quá số lượng cho phép, ném Exception để chặn đặt hàng.
+     */
+    @Transactional
+    public void incrementPromotionUsage(Integer bookId, Integer quantity) {
+        Book book = bookRepository.findById(bookId).orElse(null);
+        if (book == null) return;
+
+        List<Promotion> activePromos = getActivePromotionsForBook(book);
+        if (activePromos.isEmpty()) return;
+
+        // Tìm khuyến mãi có giảm giá tốt nhất đang được áp dụng
+        Promotion bestPromo = null;
+        BigDecimal bestDiscount = BigDecimal.ZERO;
+
+        for (Promotion promo : activePromos) {
+            if (promo.getDiscountValue() != null && promo.getDiscountValue().compareTo(bestDiscount) > 0) {
+                bestDiscount = promo.getDiscountValue();
+                bestPromo = promo;
+            }
+        }
+
+        if (bestPromo != null) {
+            int currentUsed = bestPromo.getUsedCount() != null ? bestPromo.getUsedCount() : 0;
+            int newUsed = currentUsed + quantity;
+
+            if (bestPromo.getUsageLimit() != null && newUsed > bestPromo.getUsageLimit()) {
+                throw new RuntimeException("Chương trình khuyến mãi '" + bestPromo.getName() + "' đã hết lượt áp dụng.");
+            }
+
+            bestPromo.setUsedCount(newUsed);
+            promotionRepository.save(bestPromo);
+        }
+    }
+
+    // ================================================================
     // TẠO MỚI
     // ================================================================
 

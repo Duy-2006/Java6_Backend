@@ -126,7 +126,7 @@ public class CheckoutController {
         }
 
         try {
-            Map<String, Object> result = voucherService.applyVoucher(code, orderValue);
+            Map<String, Object> result = voucherService.applyVoucher(code, orderValue, userId);
             // Map the result to match the frontend expectation
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -193,7 +193,7 @@ public class CheckoutController {
 
             // Xử lý voucher nếu có
             if (voucherCode != null && !voucherCode.isBlank()) {
-                Map<String, Object> voucherResult = voucherService.applyVoucher(voucherCode, orderTotal.doubleValue());
+                Map<String, Object> voucherResult = voucherService.applyVoucher(voucherCode, orderTotal.doubleValue(), userId);
                 discountAmount = BigDecimal.valueOf((Double) voucherResult.get("discount"));
                 appliedVoucherId = (Integer) voucherResult.get("voucherId");
             }
@@ -210,7 +210,7 @@ public class CheckoutController {
 
             // Tăng số lượt sử dụng voucher nếu có
             if (appliedVoucherId != null) {
-                voucherService.incrementUsedCount(appliedVoucherId);
+                voucherService.markVoucherAsUsedForUser(appliedVoucherId, userId);
             }
 
             return ResponseEntity.ok(Map.of(

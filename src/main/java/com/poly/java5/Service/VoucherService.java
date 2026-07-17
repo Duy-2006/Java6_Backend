@@ -16,6 +16,12 @@ public class VoucherService {
     @Autowired
     private VoucherRepository voucherRepository;
 
+    @Autowired
+    private com.poly.java5.Repository.UserVoucherRepository userVoucherRepository;
+
+    @Autowired
+    private com.poly.java5.Repository.UserRepository userRepository;
+
     // ── ADMIN: CRUD ───────────────────────────────────────────
 
     public List<Voucher> findAll() {
@@ -44,10 +50,17 @@ public class VoucherService {
 
     // ── USER: Áp dụng voucher ────────────────────────────────
 
-    public Map<String, Object> applyVoucher(String code, Double orderAmount) {
+    public Map<String, Object> applyVoucher(String code, Double orderAmount, Integer userId) {
         Voucher v = voucherRepository
                 .findValidVoucher(code.toUpperCase(), LocalDate.now(), orderAmount)
                 .orElseThrow(() -> new RuntimeException("Voucher không hợp lệ hoặc đã hết hạn."));
+
+        if (userId != null) {
+            com.poly.java5.Entity.User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("Không tìm thấy user."));
+            if (userVoucherRepository.existsByUserAndVoucherAndIsUsedTrue(user, v)) {
+                throw new RuntimeException("Bạn đã sử dụng voucher này rồi.");
+            }
+        }
 
         Double discount = v.calculateDiscount(orderAmount);
 
@@ -61,11 +74,28 @@ public class VoucherService {
     }
 
     @Transactional
-    public void incrementUsedCount(Integer voucherId) {
+    public void markVoucherAsUsedForUser(Integer voucherId, Integer userId) {
         Voucher v = voucherRepository.findById(voucherId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy voucher."));
+        
+        // Tăng số lượng đã dùng của hệ thống
         v.setUsedCount(v.getUsedCount() + 1);
         voucherRepository.save(v);
+
+        if (userId != null) {
+            com.poly.java5.Entity.User user = userRepository.findById(userId).orElse(null);
+            if (user != null) {
+                com.poly.java5.Entity.UserVoucher userVoucher = userVoucherRepository.findByUserAndVoucher(user, v).orElse(null);
+                if (userVoucher == null) {
+                    userVoucher = new com.poly.java5.Entity.UserVoucher();
+                    userVoucher.setUser(user);
+                    userVoucher.setVoucher(v);
+                }
+                userVoucher.setIsUsed(true);
+                userVoucher.setUsedDate(java.time.LocalDateTime.now());
+                userVoucherRepository.save(userVoucher);
+            }
+        }
     }
 
     public List<Voucher> findActiveVouchers() {
