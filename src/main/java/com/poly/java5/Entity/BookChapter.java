@@ -27,8 +27,9 @@ public class BookChapter {
     @Column(name = "title")
     private String title; // Tiêu đề chương
 
-    @Column(name = "content_text", columnDefinition = "NVARCHAR(MAX)")
-    private String contentText; // Chứa văn bản nguyên gốc để gửi sang AI
+    @Lob
+    @Column(name = "content_text", columnDefinition = "LONGTEXT")
+    private String contentText; // Đã sửa NVARCHAR(MAX) thành LONGTEXT để tương thích với MySQL
 
     // NHIỀU Chương thuộc về 1 Cuốn Sách
     @ManyToOne(fetch = FetchType.LAZY)
@@ -41,5 +42,4 @@ public class BookChapter {
     @JsonManagedReference
     @OrderBy("sequenceOrder ASC") // TỰ ĐỘNG sắp xếp khi lấy từ DB
     private List<AudioBook> audioBooks;
-    
 }

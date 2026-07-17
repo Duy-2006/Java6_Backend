@@ -2,8 +2,6 @@ package com.poly.java5.Entity;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.List;
 import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -14,7 +12,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import lombok.ToString; // Đã thêm import
+import lombok.ToString;
 
 @Data
 @Builder
@@ -65,12 +63,11 @@ public class Order {
 	@EqualsAndHashCode.Exclude
 	private Set<OrderDetail> orderDetails;
 	
-	// Trong Order.java, thêm field:
 	@Column(name = "transaction_no", length = 100)
-	private String transactionNo; // Mã giao dịch từ VNPay
+	private String transactionNo;
 	
-	 @Column(name = "cancel_reason", columnDefinition = "NVARCHAR(MAX)")
-	    private String cancelReason;   // <--- THÊM DÒNG NÀY
+	@Column(name = "cancel_reason", columnDefinition = "NVARCHAR(MAX)")
+	private String cancelReason;
 
 	@Column(name = "shipping_fee", precision = 10, scale = 2)
 	private BigDecimal shippingFee;	
@@ -78,6 +75,11 @@ public class Order {
 	@Column(name = "discount_amount", precision = 10, scale = 2)
 	private BigDecimal discountAmount;
 
+	@Column(name = "delivered_at")
+	private LocalDateTime deliveredAt;
+
+	@Column(name = "completed_at")
+	private LocalDateTime completedAt;
 
 	@PrePersist
 	protected void onCreate() {
@@ -86,7 +88,7 @@ public class Order {
 		}
 	}
 
-	// ===== Business helpers (NHẸ) =====
+	// ===== Business helpers =====
 	public boolean isCancellable() {
 		return "PENDING".equals(status) || "CONFIRMED".equals(status);
 	}
@@ -95,9 +97,4 @@ public class Order {
 		return orderDetails == null ? BigDecimal.ZERO
 				: orderDetails.stream().map(OrderDetail::calculateSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
-
-	
-
-	
-
 }

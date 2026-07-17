@@ -17,7 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 
 @RestController
-@RequestMapping("/api/pay-os")   // ← ĐÃ SỬA: Đổi từ /api/payment sang /api/pay-os
+@RequestMapping("/api/pay-os")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "${frontend.url}")
 public class PayOsController {
@@ -27,10 +27,12 @@ public class PayOsController {
     private final PaymentOrderRepository paymentOrderRepository;
     private final com.poly.java5.Service.CheckoutService checkoutService;
 
-    @Value("${payos.checksum-key}") 
+    // SỬA DÒNG NÀY: thêm :none
+    @Value("${payos.checksum-key:none}") 
     private String checksumKey;
 
-    @Value("${frontend.url}") 
+    // SỬA DÒNG NÀY: thêm :http://localhost:3000 (hoặc giá trị mặc định bạn muốn)
+    @Value("${frontend.url:http://localhost:3000}") 
     private String frontendUrl;
 
     // ① Tạo link thanh toán PayOS

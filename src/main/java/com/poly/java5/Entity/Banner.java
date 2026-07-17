@@ -1,5 +1,6 @@
 package com.poly.java5.Entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -12,20 +13,21 @@ import java.time.LocalDateTime;
 @Table(name = "banners")
 @Data
 public class Banner {
-	 @Id
-	    @GeneratedValue(strategy = GenerationType.IDENTITY)
-	    private Integer id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
 
-	    private String image_url; // /images/banners/banner1.jpg
+    @Column(name = "image_url", length = 1000, nullable = false)
+    private String image_url; 
 
-	    private String link; // /book/123 (optional)
+    @Column(name = "link", length = 500)
+    private String link; 
 
-	    private Boolean active = true;
+    private Boolean active = true;
 
-	    private Integer position; // thứ tự hiển thị
+    private Integer position; 
 
-	    private LocalDateTime start_date; // thời gian bắt đầu áp dụng
+    private LocalDateTime start_date; 
 
-	    private LocalDateTime end_date; // thời gian kết thúc áp dụng
-
+    private LocalDateTime end_date; 
 }

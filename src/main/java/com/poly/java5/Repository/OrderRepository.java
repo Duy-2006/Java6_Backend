@@ -1,4 +1,3 @@
-// File: OrderRepository.java
 package com.poly.java5.Repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,7 +23,7 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     
     List<Order> findAllByOrderByOrderDateDesc();
 
-    // ✅ Lấy đơn theo ID và userId (THÊM METHOD NÀY)
+    // ✅ Lấy đơn theo ID và userId
     @Query("SELECT DISTINCT o FROM Order o " +
            "LEFT JOIN FETCH o.orderDetails od " +
            "LEFT JOIN FETCH od.book b " +
@@ -42,6 +41,9 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
         @Param("code") String code,
         @Param("userId") Integer userId
     );
+
+    // ✅ Tìm đơn DELIVERED có mốc thời gian deliveredAt <= threshold (3 ngày trước)
+    List<Order> findByStatusAndDeliveredAtBefore(String status, LocalDateTime threshold);
 
     @Query("""
            SELECT COALESCE(SUM(o.totalAmount),0)
@@ -68,8 +70,6 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     long countTodayOrders(LocalDateTime startOfDay, LocalDateTime endOfDay);
 
     long countByStatus(String status);
-    
-    
 
     @Query("SELECT COUNT(o) FROM Order o WHERE o.status = 'CANCELLED'")
     long countCancelledOrders();

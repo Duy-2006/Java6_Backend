@@ -9,8 +9,9 @@ import lombok.Data;
 @ConfigurationProperties(prefix = "payos")
 @Data
 public class PayOSConfig {
-    private String clientId;
-    private String apiKey;
-    private String checksumKey;
-    private String baseUrl;
+    // Gán giá trị mặc định là "none" ngay tại đây
+    private String clientId = "none";
+    private String apiKey = "none";
+    private String checksumKey = "none";
+    private String baseUrl = "none";
 }
