@@ -59,26 +59,39 @@ public class CategoryApiController {
 		return filename;
 	}
 
-	private BookDTO convertToDTO(Book b) {
-		BookDTO dto = new BookDTO();
-		dto.setId(b.getId());
-		dto.setTitle(b.getTitle());
-		dto.setPrice(b.getPrice());
-		dto.setQuantity(b.getQuantity());
-		dto.setImageUrl(b.getImageUrl());
-		dto.setAuthorName(b.getAuthor() != null ? b.getAuthor().getName() : null);
-		dto.setActive(b.getActive());
+	private java.util.List<BookDTO> convertToDTOBulk(java.util.List<Book> books) {
+		if (books == null || books.isEmpty()) return new java.util.ArrayList<>();
+		java.util.List<Integer> ids = books.stream().map(Book::getId).collect(Collectors.toList());
 
-		if (bookFormatRepo != null) {
-			bookFormatRepo.findByBookIdAndFormatType(b.getId(), "AUDIO")
-					.ifPresent(f -> dto.setAudioPrice(f.getPrice()));
-		}
-
+		java.util.Map<Integer, Long> soldMap = new java.util.HashMap<>();
 		if (bookRepo != null) {
-			dto.setSoldCount(bookRepo.getSoldCountById(b.getId()));
+			java.util.List<Object[]> soldData = bookRepo.getSoldCountByBookIds(ids);
+			for (Object[] obj : soldData) {
+				soldMap.put((Integer) obj[0], ((Number) obj[1]).longValue());
+			}
 		}
 
-		return dto;
+		java.util.Map<Integer, java.math.BigDecimal> audioMap = new java.util.HashMap<>();
+		if (bookFormatRepo != null) {
+			java.util.List<com.poly.java5.Entity.BookFormat> formats = bookFormatRepo.findByBookIdInAndFormatType(ids, "AUDIO");
+			for (com.poly.java5.Entity.BookFormat f : formats) {
+				audioMap.put(f.getBook().getId(), f.getPrice());
+			}
+		}
+
+		return books.stream().map(b -> {
+			BookDTO dto = new BookDTO();
+			dto.setId(b.getId());
+			dto.setTitle(b.getTitle());
+			dto.setPrice(b.getPrice());
+			dto.setQuantity(b.getQuantity());
+			dto.setImageUrl(b.getImageUrl());
+			dto.setAuthorName(b.getAuthor() != null ? b.getAuthor().getName() : null);
+			dto.setActive(b.getActive());
+			dto.setSoldCount(soldMap.getOrDefault(b.getId(), 0L));
+			dto.setAudioPrice(audioMap.get(b.getId()));
+			return dto;
+		}).collect(Collectors.toList());
 	}
 
 	// GET ALL
@@ -86,9 +99,7 @@ public class CategoryApiController {
 	public ResponseEntity<List<CategoryDetailDTO>> getAll() {
 		List<Category> categories = catRepo.findAllWithBooks();
 		List<CategoryDetailDTO> dtos = categories.stream().map(category -> {
-			List<BookDTO> bookDTOs = category.getBooks().stream()
-					.map(this::convertToDTO)
-					.collect(Collectors.toList());
+			List<BookDTO> bookDTOs = convertToDTOBulk(category.getBooks());
 			CategoryDetailDTO dto = new CategoryDetailDTO();
 			dto.setId(category.getId());
 			dto.setName(category.getName());
@@ -113,9 +124,7 @@ public class CategoryApiController {
 		dto.setId(category.getId());
 		dto.setName(category.getName());
 		dto.setImageUrl(category.getImageUrl());
-		List<BookDTO> bookDTOs = books.stream()
-				.map(this::convertToDTO)
-				.collect(Collectors.toList());
+		List<BookDTO> bookDTOs = convertToDTOBulk(books);
 		dto.setBooks(bookDTOs);
 		return ResponseEntity.ok(dto);
 	}

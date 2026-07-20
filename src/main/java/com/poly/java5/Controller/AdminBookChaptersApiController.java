@@ -90,6 +90,11 @@ public class AdminBookChaptersApiController {
 
 		// Lấy toàn bộ danh sách audio của chương theo thứ tự sequenceOrder ASC
 		List<AudioBook> audios = audioBookRepository.findByChapterIdOrderBySequenceOrderAsc(chapter.getId().intValue());
+		if (audios != null) {
+			audios = audios.stream()
+					.filter(a -> !"DELETED".equalsIgnoreCase(a.getTtsStatus()))
+					.collect(Collectors.toList());
+		}
 
 		if (audios != null && !audios.isEmpty()) {
 			System.out.println("ℹ️ [DTO Mapping] Chapter ID: " + chapter.getId() + " has " + audios.size() + " audio segments.");
@@ -361,7 +366,10 @@ public class AdminBookChaptersApiController {
 			).collect(Collectors.toList());
 
 			if (!toToggle.isEmpty()) {
-				audioBookRepository.deleteAll(toToggle);
+				for (AudioBook a : toToggle) {
+					a.setTtsStatus("DELETED");
+				}
+				audioBookRepository.saveAll(toToggle);
 			}
 		}
 		
@@ -445,7 +453,15 @@ public class AdminBookChaptersApiController {
 		}
 		
 		// Xóa các AudioBook đang processing/pending
-		audioBookRepository.deleteByChapterId(chapterId);
+		List<AudioBook> audios = audioBookRepository.findByChapterId(chapterId);
+		if (audios != null) {
+			List<AudioBook> toDelete = audios.stream()
+				.filter(a -> "PROCESSING".equalsIgnoreCase(a.getTtsStatus()) || "PENDING".equalsIgnoreCase(a.getTtsStatus()))
+				.collect(Collectors.toList());
+			if (!toDelete.isEmpty()) {
+				audioBookRepository.deleteAll(toDelete);
+			}
+		}
 
 		return ResponseEntity.ok(convertToDTO(chapter));
 	}

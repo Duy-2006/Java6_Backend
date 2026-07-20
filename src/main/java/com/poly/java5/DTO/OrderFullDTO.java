@@ -22,6 +22,7 @@ public class OrderFullDTO {
 	    private List<OrderDetailDTO> orderDetails; // Nếu frontend dùng tên này
 	    private String cancelReason; // Lý do hủy đơn hàng
 	    private BigDecimal discountAmount; // Số tiền được giảm từ voucher
-	    private BigDecimal shippingFee;
-
+    private BigDecimal shippingFee;
+    private boolean requiresManualRefundContact;
+    private String refundContactMessage;
 }

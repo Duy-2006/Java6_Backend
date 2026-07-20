@@ -70,13 +70,16 @@ public class BookApiController {
         return ResponseEntity.ok(Map.of("stock", book.getQuantity()));
     }
 
-    private BookDTO convertToDTO(Book b) {
+    private BookDTO convertToDTOBasic(Book b) {
         BookDTO dto = new BookDTO();
         dto.setId(b.getId());
         dto.setTitle(b.getTitle());
+        dto.setIsbn(b.getIsbn());
         dto.setPrice(b.getPrice());
         dto.setQuantity(b.getQuantity());
+        dto.setDescription(b.getDescription());
         dto.setImageUrl(b.getImageUrl());
+        dto.setCategoryId(b.getCategory() != null ? b.getCategory().getId() : null);
         dto.setCategoryName(b.getCategory() != null ? b.getCategory().getName() : null);
         if (b.getAuthors() != null) {
             dto.setAuthorIds(b.getAuthors().stream().map(Author::getId).collect(Collectors.toList()));
@@ -97,16 +100,37 @@ public class BookApiController {
             dto.setPublisherIds(new java.util.ArrayList<>());
             dto.setPublisherNames(new java.util.ArrayList<>());
         }
-        dto.setActive(b.getActive()); // Thêm active để frontend có thể dùng nếu cần
-        
+        dto.setActive(b.getActive()); 
+        return dto;
+    }
+
+    private BookDTO convertToDTO(Book b) {
+        BookDTO dto = convertToDTOBasic(b);
         Long sold = bookRepo.getSoldCountById(b.getId());
         dto.setSoldCount(sold);
-        
-        // Lấy giá sách nói
         bookFormatRepo.findByBookIdAndFormatType(b.getId(), "AUDIO")
                 .ifPresent(f -> dto.setAudioPrice(f.getPrice()));
-        
         return dto;
+    }
+
+    private java.util.List<BookDTO> convertToDTOBulk(java.util.List<Book> books) {
+        if (books.isEmpty()) return new java.util.ArrayList<>();
+        java.util.List<Integer> ids = books.stream().map(Book::getId).collect(Collectors.toList());
+        
+        java.util.Map<Integer, Long> soldMap = new java.util.HashMap<>();
+        java.util.List<Object[]> soldData = bookRepo.getSoldCountByBookIds(ids);
+        for (Object[] obj : soldData) soldMap.put((Integer) obj[0], ((Number) obj[1]).longValue());
+        
+        java.util.Map<Integer, java.math.BigDecimal> audioMap = new java.util.HashMap<>();
+        java.util.List<com.poly.java5.Entity.BookFormat> formats = bookFormatRepo.findByBookIdInAndFormatType(ids, "AUDIO");
+        for (com.poly.java5.Entity.BookFormat f : formats) audioMap.put(f.getBook().getId(), f.getPrice());
+        
+        return books.stream().map(b -> {
+            BookDTO dto = convertToDTOBasic(b);
+            dto.setSoldCount(soldMap.getOrDefault(b.getId(), 0L));
+            dto.setAudioPrice(audioMap.get(b.getId()));
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     // Lấy tất cả sách (phân trang) - chỉ lấy active = true
@@ -114,7 +138,8 @@ public class BookApiController {
     public Page<BookDTO> getBooks(@RequestParam(defaultValue = "0") int page,
                                   @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return bookRepo.findByActiveTrue(pageable).map(this::convertToDTO);
+        Page<Book> pageResult = bookRepo.findByActiveTrue(pageable);
+        return new org.springframework.data.domain.PageImpl<>(convertToDTOBulk(pageResult.getContent()), pageable, pageResult.getTotalElements());
     }
 
     @GetMapping("/{id}")
@@ -170,8 +195,8 @@ public class BookApiController {
     public Page<BookDTO> newBooks(@RequestParam(defaultValue = "0") int page,
                                   @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
-        // Sửa thành findByActiveTrue (hoặc method riêng có sort)
-        return bookRepo.findByActiveTrue(pageable).map(this::convertToDTO);
+        Page<Book> pageResult = bookRepo.findByActiveTrue(pageable);
+        return new org.springframework.data.domain.PageImpl<>(convertToDTOBulk(pageResult.getContent()), pageable, pageResult.getTotalElements());
     }
 
     // SÁCH BÁN CHẠY - chỉ lấy active = true
@@ -180,14 +205,18 @@ public class BookApiController {
                                      @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Object[]> result = bookRepo.findTopSellingBooksActiveOnly(pageable);
-        return result.map(obj -> {
-            BookDTO dto = convertToDTO((Book) obj[0]);
-            // Ghi đè soldCount từ query nếu cần thiết, obj[1] là Long
+        
+        java.util.List<Book> books = result.getContent().stream().map(obj -> (Book) obj[0]).collect(Collectors.toList());
+        java.util.List<BookDTO> dtos = convertToDTOBulk(books);
+        
+        // Overwrite soldCount from the query result
+        for (int i = 0; i < dtos.size(); i++) {
+            Object[] obj = result.getContent().get(i);
             if (obj[1] != null) {
-                dto.setSoldCount(((Number) obj[1]).longValue());
+                dtos.get(i).setSoldCount(((Number) obj[1]).longValue());
             }
-            return dto;
-        });
+        }
+        return new org.springframework.data.domain.PageImpl<>(dtos, pageable, result.getTotalElements());
     }
 
     // SÁCH NÓI - chỉ lấy active = true và có định dạng AUDIO active
@@ -195,6 +224,7 @@ public class BookApiController {
     public Page<BookDTO> audiobooks(@RequestParam(defaultValue = "0") int page,
                                     @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return bookRepo.findAudiobooksActiveOnly(pageable).map(this::convertToDTO);
+        Page<Book> pageResult = bookRepo.findAudiobooksActiveOnly(pageable);
+        return new org.springframework.data.domain.PageImpl<>(convertToDTOBulk(pageResult.getContent()), pageable, pageResult.getTotalElements());
     }
 }

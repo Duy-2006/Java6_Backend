@@ -24,4 +24,6 @@ public class OrderDTO {
 	    private List<OrderDetailDTO> orderDetails;
 	    private java.math.BigDecimal discountAmount;
 	    private java.math.BigDecimal shippingFee;
+	    private boolean requiresManualRefundContact;
+	    private String refundContactMessage;
 }

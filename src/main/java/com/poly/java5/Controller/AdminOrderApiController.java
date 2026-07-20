@@ -36,6 +36,13 @@ public class AdminOrderApiController {
     dto.setPaymentMethod(order.getPaymentMethod());
     dto.setPaymentStatus(order.getPaymentStatus());
     dto.setCancelReason(order.getCancelReason());
+    
+    boolean isPaidOnlineOrder = "CANCELLED".equals(order.getStatus()) && "PAID".equalsIgnoreCase(order.getPaymentStatus()) 
+        && ("VNPAY".equalsIgnoreCase(order.getPaymentMethod()) || "PAYOS".equalsIgnoreCase(order.getPaymentMethod()));
+    dto.setRequiresManualRefundContact(isPaidOnlineOrder);
+    if (isPaidOnlineOrder) {
+        dto.setRefundContactMessage("Vui lòng liên hệ với khách hàng để xử lý hoàn tiền thủ công.");
+    }
 
     if (order.getOrderDetails() != null) {
         List<OrderDetailDTO> detailDTOs = order.getOrderDetails().stream()

@@ -60,11 +60,10 @@ public class SecurityConfig {
                 // 2. Mở cửa cho các API Auth công khai
                 .requestMatchers("/api/auth/forgot-password", "/api/auth/verify-otp", "/api/auth/login", "/api/auth/register").permitAll()
                 
-                // 3. MỔ CỬA THÊM API AUDIO VÀO ĐÂY ĐỂ TEST BẰNG SWAGGER (đã thêm /api/admin/audio/**)
                 .requestMatchers("/api/categories/**", "/api/books/**", "/uploads/**", 
                                  "/api/admin/authors/**", "/api/admin/books/**", 
                                  "/api/admin/orders/**", "/api/admin/customers/**", 
-                                 "/api/admin/audio/**", "/api/banners/**").permitAll()
+                                 "/api/admin/audio/**", "/api/banners/**", "/api/chatbot").permitAll()
                 
                 // 4. Các API công khai khác
                 .requestMatchers("/api/search", "/oauth2/**", "/login/oauth2/**").permitAll()

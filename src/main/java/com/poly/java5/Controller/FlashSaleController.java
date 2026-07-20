@@ -77,6 +77,24 @@ public class FlashSaleController {
 		//List<Book> flashBooks = bookRepository.findAllById(discountedBookIds);
 		// lấy 	theo danh sách id và active = true
 		List<Book> flashBooks = bookRepository.findAllByIdInAndActiveTrue(new ArrayList<>(discountedBookIds));
+		List<Integer> flashBookIds = flashBooks.stream().map(Book::getId).collect(Collectors.toList());
+		
+		Map<Integer, Long> soldCountMap = new HashMap<>();
+		if (!flashBookIds.isEmpty()) {
+			List<Object[]> soldData = bookRepository.getSoldCountByBookIds(flashBookIds);
+			for (Object[] obj : soldData) {
+				soldCountMap.put((Integer) obj[0], ((Number) obj[1]).longValue());
+			}
+		}
+
+		Map<Integer, BigDecimal> audioPriceMap = new HashMap<>();
+		if (!flashBookIds.isEmpty()) {
+			List<com.poly.java5.Entity.BookFormat> formats = bookFormatRepo.findByBookIdInAndFormatType(flashBookIds, "AUDIO");
+			for (com.poly.java5.Entity.BookFormat f : formats) {
+				audioPriceMap.put(f.getBook().getId(), f.getPrice());
+			}
+		}
+
 		List<FlashSaleBookDTO> result = new ArrayList<>();
 
 		for (Book book : flashBooks) {
@@ -110,11 +128,8 @@ public class FlashSaleController {
 				}
 			}
 
-			BigDecimal audioPrice = bookFormatRepo.findByBookIdAndFormatType(book.getId(), "AUDIO")
-					.map(f -> f.getPrice())
-					.orElse(null);
-
-			Long soldCount = bookRepository.getSoldCountById(book.getId());
+			BigDecimal audioPrice = audioPriceMap.get(book.getId());
+			Long soldCount = soldCountMap.getOrDefault(book.getId(), 0L);
 
 			result.add(FlashSaleBookDTO.builder().id(book.getId()).title(book.getTitle()).price(book.getPrice())
 					.imageUrl(book.getImageUrl()).discountValue(bestDiscount).discountPrice(finalPrice)

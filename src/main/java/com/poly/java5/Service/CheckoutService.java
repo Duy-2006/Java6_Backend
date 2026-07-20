@@ -130,7 +130,7 @@ public class CheckoutService {
 	// ================= 5. CHECKOUT MỚI – HỖ TRỢ GIÁ KHUYẾN MÃI =================
 	@Transactional
 	public Order checkout(Integer userId, String customerName, String phone, String address, 
-	                      String paymentMethod, List<Map<String, Object>> requestItems, BigDecimal discountAmount, BigDecimal shippingFee) {
+	                      String paymentMethod, List<Map<String, Object>> requestItems, BigDecimal discountAmount, BigDecimal shippingFee, List<Integer> cartDetailIds) {
 		log.info("========== START CHECKOUT (with discounted prices) ==========");
 		log.info("User ID: {}", userId);
 		log.info("Customer: {} - {} - {}", customerName, phone, address);
@@ -143,9 +143,16 @@ public class CheckoutService {
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy giỏ hàng"));
 
 		// 2. Lấy các sản phẩm đã chọn từ DB (chỉ để kiểm tra và xóa sau)
-		List<CartDetail> cartDetails = em
-				.createQuery("SELECT cd FROM CartDetail cd WHERE cd.cart.id = :cid AND cd.selected = true", CartDetail.class)
-				.setParameter("cid", cart.getId()).getResultList();
+		List<CartDetail> cartDetails;
+		if (cartDetailIds != null && !cartDetailIds.isEmpty()) {
+			cartDetails = em
+					.createQuery("SELECT cd FROM CartDetail cd WHERE cd.cart.id = :cid AND cd.id IN :ids", CartDetail.class)
+					.setParameter("cid", cart.getId()).setParameter("ids", cartDetailIds).getResultList();
+		} else {
+			cartDetails = em
+					.createQuery("SELECT cd FROM CartDetail cd WHERE cd.cart.id = :cid AND cd.selected = true", CartDetail.class)
+					.setParameter("cid", cart.getId()).getResultList();
+		}
 
 		if (cartDetails.isEmpty()) {
 			throw new RuntimeException("Chưa chọn sản phẩm nào để thanh toán");
@@ -312,7 +319,7 @@ public class CheckoutService {
 		if (order == null) throw new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId);
 		order.setPaymentStatus(paymentStatus);
 		if ("PAID".equals(paymentStatus)) {
-			order.setStatus("CONFIRMED");
+			order.setStatus("PENDING");
 			unlockAudiobooksForOrder(order, false);
 		} else if ("FAILED".equals(paymentStatus)) {
 			order.setStatus("CANCELLED");
@@ -347,7 +354,7 @@ public class CheckoutService {
 
 		order.setPaymentStatus(paymentStatus);
 		if ("PAID".equals(paymentStatus)) {
-			order.setStatus(isAudiobook ? "COMPLETED" : "CONFIRMED");
+			order.setStatus(isAudiobook ? "COMPLETED" : "PENDING");
 			unlockAudiobooksForOrder(order, isAudiobook);
 		} else if ("FAILED".equals(paymentStatus)) {
 			order.setStatus("CANCELLED");
@@ -415,7 +422,7 @@ public class CheckoutService {
 		Order order = getOrderByOrderCode(orderCode);
 		if (order == null) throw new RuntimeException("Không tìm thấy đơn hàng với mã: " + orderCode);
 		order.setPaymentStatus("PAID");
-		order.setStatus("CONFIRMED");
+		order.setStatus("PENDING");
 		order.setTransactionNo(transactionNo);
 		log.info("Payment successful for order: {}, transaction: {}", orderCode, transactionNo);
 		em.merge(order);

@@ -27,6 +27,10 @@ public interface BookRepository extends JpaRepository<Book, Integer> {
     @Query("SELECT COALESCE(SUM(od.quantity), 0) FROM OrderDetail od JOIN od.order o WHERE od.book.id = :bookId AND o.status = 'COMPLETED'")
     Long getSoldCountById(@Param("bookId") Integer bookId);
     
+    // Lấy số lượng đã bán hàng loạt
+    @Query("SELECT od.book.id, COALESCE(SUM(od.quantity), 0) FROM OrderDetail od JOIN od.order o WHERE od.book.id IN :bookIds AND o.status = 'COMPLETED' GROUP BY od.book.id")
+    List<Object[]> getSoldCountByBookIds(@Param("bookIds") List<Integer> bookIds);
+    
     // 3. Top sách bán chạy chỉ tính sách active = true, đơn hàng hoàn thành
     @Query("SELECT b, SUM(od.quantity) as sold " +
            "FROM OrderDetail od JOIN od.book b JOIN od.order o " +
@@ -34,8 +38,14 @@ public interface BookRepository extends JpaRepository<Book, Integer> {
            "GROUP BY b ORDER BY sold DESC")
     Page<Object[]> findTopSellingBooksActiveOnly(Pageable pageable);
     
-    // 4. Lấy danh sách sách nói active (phân trang)
-    @Query("SELECT bf.book FROM BookFormat bf WHERE bf.formatType = 'AUDIO' AND bf.active = true AND bf.book.active = true AND bf.book.deleted = false")
+    // 4. Lấy danh sách sách nói active và sắp xếp theo lượt bán chạy nhất (phân trang)
+    @Query("SELECT b " +
+           "FROM BookFormat bf JOIN bf.book b " +
+           "LEFT JOIN OrderDetail od ON od.book = b " +
+           "LEFT JOIN od.order o ON o = od.order AND o.status = 'COMPLETED' " +
+           "WHERE bf.formatType = 'AUDIO' AND bf.active = true AND b.active = true AND b.deleted = false " +
+           "GROUP BY b " +
+           "ORDER BY COALESCE(SUM(od.quantity), 0) DESC, b.id DESC")
     Page<Book> findAudiobooksActiveOnly(Pageable pageable);
     
 

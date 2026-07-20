@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface BookFormatRepository extends JpaRepository<BookFormat, Integer> {
     Optional<BookFormat> findByBookIdAndFormatType(Integer bookId, String formatType);
+    
+    java.util.List<BookFormat> findByBookIdInAndFormatType(java.util.List<Integer> bookIds, String formatType);
 }

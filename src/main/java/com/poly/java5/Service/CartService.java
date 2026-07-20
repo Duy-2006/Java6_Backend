@@ -255,12 +255,88 @@ public class CartService {
 
 		for (CartDetail cd : details) {
 			Map<String, Object> m = new HashMap<>();
+			m.put("cartDetailId", cd.getId());
 			m.put("bookId", cd.getBook().getId());   
 			m.put("title", cd.getBook().getTitle());
 			m.put("imageUrl", cd.getBook().getImageUrl());
 			m.put("price", cd.getPrice());
 			m.put("quantity", cd.getQuantity());
 			m.put("itemTotal", cd.calculateTotal());
+
+			BigDecimal audioPrice = em.createQuery(
+				"SELECT bf.price FROM BookFormat bf WHERE bf.book.id = :bid AND bf.formatType = 'AUDIO'",
+				BigDecimal.class)
+				.setParameter("bid", cd.getBook().getId())
+				.getResultStream()
+				.findFirst()
+				.orElse(BigDecimal.ZERO);
+
+			Map<String, Object> bookMap = new HashMap<>();
+			bookMap.put("id", cd.getBook().getId());
+			bookMap.put("title", cd.getBook().getTitle());
+			bookMap.put("imageUrl", cd.getBook().getImageUrl());
+			bookMap.put("price", cd.getBook().getPrice());
+			bookMap.put("audioPrice", audioPrice);
+			
+			Map<String, Object> authorMap = new HashMap<>();
+			if (cd.getBook().getAuthor() != null) {
+				authorMap.put("name", cd.getBook().getAuthor().getName());
+			}
+			bookMap.put("author", authorMap);
+			
+			m.put("book", bookMap);
+			items.add(m);
+		}
+
+		return items;
+	}
+
+	public List<Map<String, Object>> getCartItemsByDetails(Integer userId, List<Integer> cartDetailIds) {
+		if (cartDetailIds == null || cartDetailIds.isEmpty()) {
+			return new ArrayList<>();
+		}
+		Cart cart = getOrCreateCart(userId);
+
+		List<CartDetail> details = em
+				.createQuery("SELECT cd FROM CartDetail cd JOIN FETCH cd.book WHERE cd.cart.id = :cid AND cd.id IN :ids", CartDetail.class)
+				.setParameter("cid", cart.getId())
+				.setParameter("ids", cartDetailIds)
+				.getResultList();
+
+		List<Map<String, Object>> items = new ArrayList<>();
+
+		for (CartDetail cd : details) {
+			Map<String, Object> m = new HashMap<>();
+			m.put("cartDetailId", cd.getId());
+			m.put("bookId", cd.getBook().getId());   
+			m.put("title", cd.getBook().getTitle());
+			m.put("imageUrl", cd.getBook().getImageUrl());
+			m.put("price", cd.getPrice());
+			m.put("quantity", cd.getQuantity());
+			m.put("itemTotal", cd.calculateTotal());
+			
+			BigDecimal audioPrice = em.createQuery(
+				"SELECT bf.price FROM BookFormat bf WHERE bf.book.id = :bid AND bf.formatType = 'AUDIO'",
+				BigDecimal.class)
+				.setParameter("bid", cd.getBook().getId())
+				.getResultStream()
+				.findFirst()
+				.orElse(BigDecimal.ZERO);
+
+			Map<String, Object> bookMap = new HashMap<>();
+			bookMap.put("id", cd.getBook().getId());
+			bookMap.put("title", cd.getBook().getTitle());
+			bookMap.put("imageUrl", cd.getBook().getImageUrl());
+			bookMap.put("price", cd.getBook().getPrice());
+			bookMap.put("audioPrice", audioPrice);
+			
+			Map<String, Object> authorMap = new HashMap<>();
+			if (cd.getBook().getAuthor() != null) {
+				authorMap.put("name", cd.getBook().getAuthor().getName());
+			}
+			bookMap.put("author", authorMap);
+			
+			m.put("book", bookMap);
 			items.add(m);
 		}
 

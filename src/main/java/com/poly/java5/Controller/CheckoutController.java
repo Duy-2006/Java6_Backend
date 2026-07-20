@@ -39,21 +39,32 @@ public class CheckoutController {
     private String frontendUrl;
 
     //  API XEM TRƯỚC ĐƠN HÀNG 
-    @GetMapping("/preview")
-    public ResponseEntity<?> previewCheckout() {
+    @PostMapping("/preview")
+    public ResponseEntity<?> previewCheckout(@RequestBody Map<String, Object> payload) {
         Integer userId = AuthUtil.getAuthenticatedUserId(userService);
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Phiên đăng nhập hết hạn hoặc không hợp lệ"));
         }
 
         try {
-            List<Map<String, Object>> selectedItems = cartService.getSelectedCartItems(userId);
+            @SuppressWarnings("unchecked")
+            List<Integer> cartDetailIds = (List<Integer>) payload.get("cartDetailIds");
+            
+            List<Map<String, Object>> selectedItems;
+            if (cartDetailIds != null && !cartDetailIds.isEmpty()) {
+                selectedItems = cartService.getCartItemsByDetails(userId, cartDetailIds);
+            } else {
+                selectedItems = cartService.getSelectedCartItems(userId);
+            }
             
             if (selectedItems.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Chưa có sản phẩm nào được chọn trong giỏ hàng"));
             }
 
-            BigDecimal totalAmount = cartService.getSelectedTotalAmount(userId);
+            BigDecimal totalAmount = BigDecimal.ZERO;
+            for (Map<String, Object> item : selectedItems) {
+                totalAmount = totalAmount.add((BigDecimal) item.get("itemTotal"));
+            }
             
             // Tính phí ship: miễn phí cho đơn > 500k, ngược lại 30k
             BigDecimal shippingFee = totalAmount.compareTo(new BigDecimal("500000")) >= 0 
@@ -175,6 +186,9 @@ public class CheckoutController {
         Boolean saveAddress = payload.containsKey("saveAddress") ? (Boolean) payload.get("saveAddress") : false;
         String voucherCode = (String) payload.get("voucherCode");
         List<Map<String, Object>> items = (List<Map<String, Object>>) payload.get("items");
+        
+        @SuppressWarnings("unchecked")
+        List<Integer> cartDetailIds = (List<Integer>) payload.get("cartDetailIds");
 
         // Validate cơ bản
         if (customerName == null || customerName.isBlank() ||
@@ -274,7 +288,8 @@ public class CheckoutController {
                 paymentMethod,
                 items,
                 discountAmount,
-                shippingFee
+                shippingFee,
+                cartDetailIds
             );
 
             // Tăng số lượt sử dụng voucher nếu có

@@ -36,6 +36,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final BookFormatRepository bookFormatRepository;
     private final UserLibraryRepository userLibraryRepo;
+    private final EmailService emailService;
 
     @PersistenceContext
     private EntityManager em;
@@ -171,6 +172,13 @@ public class OrderService {
                 throw new RuntimeException("Vui lòng nhập lý do hủy đơn hàng");
             }
             order.setCancelReason(cancelReason);
+            
+            // Hoàn lại số lượng sản phẩm vào kho
+            for (OrderDetail od : order.getOrderDetails()) {
+                Book book = em.find(Book.class, od.getBook().getId(), LockModeType.PESSIMISTIC_WRITE);
+                book.setQuantity(book.getQuantity() + od.getQuantity());
+                em.merge(book);
+            }
         }
 
         order.setStatus(target);
@@ -180,6 +188,23 @@ public class OrderService {
                 unlockAudiobooksForOrder(order);
             } catch (Exception e) {
                 log.error("Error unlocking audiobooks for order {}: {}", order.getId(), e.getMessage());
+            }
+        }
+        
+        if ("CANCELLED".equals(target) && order.getUser() != null && order.getUser().getEmail() != null) {
+            try {
+                emailService.sendOrderCancelledEmail(
+                    order.getUser().getEmail(),
+                    order.getCustomerName() != null ? order.getCustomerName() : order.getUser().getName(),
+                    order.getOrderCode(),
+                    order.getCancelReason(),
+                    order.getPaymentStatus(),
+                    order.getPaymentMethod(),
+                    order.getTotalAmount()
+                );
+                log.info("Sent cancellation email for order {}", order.getOrderCode());
+            } catch (Exception e) {
+                log.error("Failed to send cancellation email for order {}: {}", order.getOrderCode(), e.getMessage());
             }
         }
     }

@@ -33,10 +33,30 @@ public class OrderController {
     dto.setOrderCode(o.getOrderCode());
     dto.setStatus(o.getStatus());
     dto.setTotalAmount(o.getTotalAmount());
+    dto.setCustomerName(o.getCustomerName());
+    dto.setCustomerPhone(o.getCustomerPhone());
+    dto.setCustomerAddress(o.getCustomerAddress());
+    dto.setPaymentMethod(o.getPaymentMethod());
+    dto.setPaymentStatus(o.getPaymentStatus());
+    dto.setCancelReason(o.getCancelReason());
 
     dto.setDiscountAmount(o.getDiscountAmount() != null ? o.getDiscountAmount() : java.math.BigDecimal.ZERO);
     dto.setShippingFee(o.getShippingFee() != null ? o.getShippingFee() : java.math.BigDecimal.ZERO);
     dto.setOrderDate(o.getOrderDate());
+    
+    if (o.getOrderDetails() != null) {
+        List<OrderDetailDTO> details = o.getOrderDetails().stream().map(d -> {
+            OrderDetailDTO od = new OrderDetailDTO();
+            od.setId(d.getId());
+            od.setBookId(d.getBook().getId());
+            od.setBookTitle(d.getBook().getTitle());
+            od.setQuantity(d.getQuantity());
+            od.setPrice(d.getPrice());
+            od.setBookImageUrl(d.getBook().getImageUrl()); 
+            return od;
+        }).toList();
+        dto.setOrderDetails(details);
+    }
 
     return dto;
 }
@@ -77,6 +97,13 @@ public class OrderController {
 
             dto.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : java.math.BigDecimal.ZERO);
             dto.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : java.math.BigDecimal.ZERO);
+            
+            boolean isPaidOnlineOrder = "CANCELLED".equals(order.getStatus()) && "PAID".equalsIgnoreCase(order.getPaymentStatus()) 
+                && ("VNPAY".equalsIgnoreCase(order.getPaymentMethod()) || "PAYOS".equalsIgnoreCase(order.getPaymentMethod()));
+            dto.setRequiresManualRefundContact(isPaidOnlineOrder);
+            if (isPaidOnlineOrder) {
+                dto.setRefundContactMessage("Đơn hàng đã được thanh toán online. Cửa hàng sẽ liên hệ với bạn qua số điện thoại hoặc email để xử lý hoàn tiền.");
+            }
 
             List<OrderDetailDTO> details = order.getOrderDetails().stream().map(d -> {
                 OrderDetailDTO od = new OrderDetailDTO();
@@ -123,6 +150,13 @@ public class OrderController {
             
             dto.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : java.math.BigDecimal.ZERO);
             dto.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : java.math.BigDecimal.ZERO);
+            
+            boolean isPaidOnlineOrder = "CANCELLED".equals(order.getStatus()) && "PAID".equalsIgnoreCase(order.getPaymentStatus()) 
+                && ("VNPAY".equalsIgnoreCase(order.getPaymentMethod()) || "PAYOS".equalsIgnoreCase(order.getPaymentMethod()));
+            dto.setRequiresManualRefundContact(isPaidOnlineOrder);
+            if (isPaidOnlineOrder) {
+                dto.setRefundContactMessage("Đơn hàng đã được thanh toán online. Cửa hàng sẽ liên hệ với bạn qua số điện thoại hoặc email để xử lý hoàn tiền.");
+            }
 
             List<OrderDetailDTO> details = order.getOrderDetails().stream().map(d -> {
                 OrderDetailDTO od = new OrderDetailDTO();
