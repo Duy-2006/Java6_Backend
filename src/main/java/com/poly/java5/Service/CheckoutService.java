@@ -20,6 +20,9 @@ import com.poly.java5.Entity.UserLibrary;
 import com.poly.java5.Repository.UserLibraryRepository;
 import com.poly.java5.Repository.BookFormatRepository;
 
+import com.poly.java5.Service.PromotionService;
+
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.LockModeType;
@@ -37,6 +40,8 @@ public class CheckoutService {
 	
 	private final UserLibraryRepository userLibraryRepo;
 	private final BookFormatRepository bookFormatRepository;
+
+	private final PromotionService promotionService;
 
 	// ================= 1. TẠO MÃ ĐƠN HÀNG =================
 	private String generateOrderCode() {
@@ -196,6 +201,9 @@ public class CheckoutService {
 			// Trừ kho
 			book.setQuantity(book.getQuantity() - quantity);
 			log.info("Stock reduced for: {}, remaining: {}", book.getTitle(), book.getQuantity());
+
+			// Tăng lượt sử dụng khuyến mãi (nếu có áp dụng)
+			promotionService.incrementPromotionUsage(bookId, quantity);
 
 			// Tạo OrderDetail với giá đã giảm
 			OrderDetail od = OrderDetail.builder()

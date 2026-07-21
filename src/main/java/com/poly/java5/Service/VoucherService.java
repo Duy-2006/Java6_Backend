@@ -16,6 +16,12 @@ public class VoucherService {
 	@Autowired
 	private VoucherRepository voucherRepository;
 
+	@Autowired
+	private com.poly.java5.Repository.UserVoucherRepository userVoucherRepository;
+
+	@Autowired
+	private com.poly.java5.Repository.UserRepository userRepository;
+
 	// ── ADMIN: CRUD ───────────────────────────────────────────
 
 	public List<Voucher> findAll() {
@@ -35,13 +41,6 @@ public class VoucherService {
 	}
 
 	@Transactional
-	public Voucher update(Integer id, Map<String, Object> body) {
-		Voucher v = voucherRepository.findById(id)
-				.orElseThrow(() -> new RuntimeException("Không tìm thấy voucher ID: " + id));
-		return voucherRepository.save(buildFromBody(v, body));
-	}
-
-	@Transactional
 	public void delete(Integer id) {
 		if (!voucherRepository.existsById(id)) {
 			throw new RuntimeException("Không tìm thấy voucher ID: " + id);
@@ -51,22 +50,68 @@ public class VoucherService {
 
 	// ── USER: Áp dụng voucher ────────────────────────────────
 
-	public Map<String, Object> applyVoucher(String code, Double orderAmount) {
-		Voucher v = voucherRepository.findValidVoucher(code.toUpperCase(), LocalDate.now(), orderAmount)
+	public Map<String, Object> applyVoucher(String code, Double orderAmount, Integer userId) {
+
+		if (code == null || code.isBlank()) {
+			throw new RuntimeException("Vui lòng nhập mã voucher.");
+		}
+
+		if (orderAmount == null || orderAmount <= 0) {
+			throw new RuntimeException("Giá trị đơn hàng không hợp lệ.");
+		}
+
+		Voucher v = voucherRepository.findValidVoucher(code.trim().toUpperCase(), LocalDate.now(), orderAmount)
 				.orElseThrow(() -> new RuntimeException("Voucher không hợp lệ hoặc đã hết hạn."));
 
-		Double discount = v.calculateDiscount(orderAmount);
+		if (userId != null) {
+			com.poly.java5.Entity.User user = userRepository.findById(userId)
+					.orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng."));
+
+			boolean alreadyUsed = userVoucherRepository.existsByUserAndVoucherAndIsUsedTrue(user, v);
+
+			if (alreadyUsed) {
+				throw new RuntimeException("Bạn đã sử dụng voucher này rồi.");
+			}
+		}
+
+		double discount = v.calculateDiscount(orderAmount);
+		double finalAmount = Math.max(0, orderAmount - discount);
 
 		return Map.of("voucherId", v.getId(), "code", v.getCode(), "discountType", v.getDiscountType(), "discount",
-				discount, "finalAmount", Math.max(0, orderAmount - discount));
+				discount, "finalAmount", finalAmount);
 	}
 
 	@Transactional
-	public void incrementUsedCount(Integer voucherId) {
+	public Voucher update(Integer id, Map<String, Object> body) {
+		Voucher v = voucherRepository.findById(id)
+				.orElseThrow(() -> new RuntimeException("Không tìm thấy voucher ID: " + id));
+		return voucherRepository.save(buildFromBody(v, body));
+	}
+
+	@Transactional
+	public void markVoucherAsUsedForUser(Integer voucherId, Integer userId) {
 		Voucher v = voucherRepository.findById(voucherId)
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy voucher."));
+
+		// Tăng số lượng đã dùng của hệ thống
 		v.setUsedCount(v.getUsedCount() + 1);
 		voucherRepository.save(v);
+
+		if (userId != null) {
+			com.poly.java5.Entity.User user = userRepository.findById(userId).orElse(null);
+			if (user != null) {
+				com.poly.java5.Entity.UserVoucher userVoucher = userVoucherRepository.findByUserAndVoucher(user, v)
+						.orElse(null);
+				if (userVoucher == null) {
+					userVoucher = new com.poly.java5.Entity.UserVoucher();
+					userVoucher.setUser(user);
+					userVoucher.setVoucher(v);
+				}
+				userVoucher.setIsUsed(true);
+				userVoucher.setUsedDate(java.time.LocalDateTime.now());
+				userVoucherRepository.save(userVoucher);
+			}
+		}
 	}
 
 	public List<Voucher> findActiveVouchers() {
@@ -75,10 +120,7 @@ public class VoucherService {
 
 	// ── Helper: map body → entity ────────────────────────────
 	private Voucher buildFromBody(Voucher v, Map<String, Object> body) {
-		if (body.containsKey("code") && body.get("code") != null)
-			v.setCode(body.get("code").toString());
-
-		if (body.containsKey("discountType") && body.get("discountType") != null)
+		if (body.containsKey("discountType"))
 			v.setDiscountType(body.get("discountType").toString());
 
 		if (body.containsKey("discountValue")) {
@@ -145,33 +187,26 @@ public class VoucherService {
 		if (v.getDiscountValue() == null) {
 			throw new IllegalArgumentException("Giá trị phần trăm giảm không được để trống.");
 		}
-		// Phần trăm giảm phải trong khoảng 5% - 50%
-		if (v.getDiscountValue() < 5 || v.getDiscountValue() > 50) {
-			throw new IllegalArgumentException("Phần trăm giảm phải trong khoảng 5% - 50%.");
+		// Phần trăm giảm phải trong khoảng 10% - 50%
+		if (v.getDiscountValue() < 10 || v.getDiscountValue() > 50) {
+			throw new IllegalArgumentException("Phần trăm giảm phải trong khoảng 10% - 50%.");
 		}
-		// Tiền giảm tối đa phải trong khoảng 5.000đ - 1.000.000đ (nếu cung cấp)
+		// Tiền giảm tối đa phải trong khoảng 10.000đ - 1.000.000đ (nếu cung cấp)
 		if (v.getMaxDiscount() != null) {
-			if (v.getMaxDiscount() < 5000) {
-				throw new IllegalArgumentException("Tiền giảm tối đa không được dưới 5.000 VND.");
+			if (v.getMaxDiscount() < 10000) {
+				throw new IllegalArgumentException("Tiền giảm tối đa không được dưới 10.000 VND.");
 			}
 			if (v.getMaxDiscount() > 1000000) {
 				throw new IllegalArgumentException("Tiền giảm tối đa không được vượt quá 1.000.000 VND.");
 			}
 		}
-		// Giá trị đơn hàng tối thiểu phải ít nhất 0 VND
-		if (v.getMinOrderValue() != null && v.getMinOrderValue() < 0) {
-			throw new IllegalArgumentException("Giá trị đơn hàng tối thiểu phải ít nhất không được âm.");
+		// Giá trị đơn hàng tối thiểu phải ít nhất 300.000 VND
+		if (v.getMinOrderValue() != null && v.getMinOrderValue() < 300000) {
+			throw new IllegalArgumentException("Giá trị đơn hàng tối thiểu phải ít nhất 300.000 VND.");
 		}
-		// Số lượt sử dụng không được âm
-		if (v.getUsageLimit() != null && v.getUsageLimit() < 0) {
-			throw new IllegalArgumentException("Số lượt sử dụng không được dưới 0.");
+		// Phần trăm giảm không được vượt quá 80%
+		if (v.getDiscountValue() != null && v.getDiscountValue() > 80) {
+			throw new IllegalArgumentException("Phần trăm giảm không được vượt quá 80%.");
 		}
-
-		// Ngày kết thúc không được trước ngày bắt đầu
-		if (v.getStartDate() != null && v.getEndDate() != null && v.getEndDate().isBefore(v.getStartDate())) {
-			throw new IllegalArgumentException("Ngày kết thúc không được trước ngày bắt đầu.");
-		}
-
 	}
-
 }

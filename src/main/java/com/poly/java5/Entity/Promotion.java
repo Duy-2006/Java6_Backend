@@ -62,12 +62,16 @@ public class Promotion {
 	    @Column(name = "usage_limit")
 	    private Integer usageLimit;
 	    
+	    @Column(name = "used_count")
+	    private Integer usedCount = 0;
+	    
 	    @Transient
 	    public String getComputedStatus() {
 	        if (startDate == null || endDate == null) return "UNKNOWN";
 	        LocalDate today = LocalDate.now();
 	        if (today.isBefore(startDate))  return "UPCOMING";
 	        if (today.isAfter(endDate))     return "EXPIRED";
+	        if (usageLimit != null && usedCount >= usageLimit) return "EXPIRED"; // Hoặc OUT_OF_STOCK
 	        return "ACTIVE";
 	    }
 
