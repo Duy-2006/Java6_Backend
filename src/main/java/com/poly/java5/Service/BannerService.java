@@ -17,8 +17,8 @@ public class BannerService {
     public List<Banner> getActiveBanners() {
         return em.createQuery(
             "SELECT b FROM Banner b WHERE b.active = true " +
-            "AND (b.start_date IS NULL OR b.start_date <= CURRENT_TIMESTAMP) " +
-            "AND (b.end_date IS NULL OR b.end_date >= CURRENT_TIMESTAMP) " +
+            "AND (b.start_date IS NULL OR b.start_date <= CURRENT_DATE) " +
+            "AND (b.end_date IS NULL OR b.end_date >= CURRENT_DATE) " +
             "ORDER BY b.position ASC", // Thêm khoảng trắng an toàn và chỉ định rõ ràng ASC
             Banner.class
         ).getResultList();

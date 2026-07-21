@@ -48,9 +48,19 @@ public class BannerController {
         return ResponseEntity.ok(bannerService.getActiveBanners());
     }
 
+    // 2.5. Lấy chi tiết một banner (để hiển thị lên Form khi chỉnh sửa)
+    @GetMapping("/{id}")
+    public ResponseEntity<Banner> getBannerById(@PathVariable Integer id) {
+        Banner banner = bannerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy banner có ID: " + id));
+        return ResponseEntity.ok(banner);
+    }
+
     // 3. Thêm mới banner
     @PostMapping(consumes = "multipart/form-data")
     public ResponseEntity<?> createBanner(
+            @RequestParam(value = "title", required = false) String title,
+            @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "image_url", required = false) String imageUrl,
             @RequestParam(value = "link", required = false) String link,
             @RequestParam(value = "position", defaultValue = "0") Integer position,
@@ -60,15 +70,17 @@ public class BannerController {
             @RequestParam(value = "imageFile", required = false) MultipartFile imageFile) {
         
         Banner banner = new Banner();
+        banner.setTitle(title);
+        banner.setDescription(description);
         banner.setLink(link);
         banner.setPosition(position);
         banner.setActive(active);
         
         if (startDateStr != null && !startDateStr.isEmpty()) {
-            banner.setStart_date(java.time.LocalDateTime.parse(startDateStr));
+            banner.setStart_date(java.time.LocalDate.parse(startDateStr.substring(0, 10)));
         }
         if (endDateStr != null && !endDateStr.isEmpty()) {
-            banner.setEnd_date(java.time.LocalDateTime.parse(endDateStr));
+            banner.setEnd_date(java.time.LocalDate.parse(endDateStr.substring(0, 10)));
         }
 
         // Thay đổi ở đây: Upload thẳng lên Cloudinary
@@ -87,9 +99,11 @@ public class BannerController {
     }
 
     // 4. Cập nhật (Sửa) banner
-    @PutMapping(value = "/{id}", consumes = "multipart/form-data")
+    @PostMapping(value = "/{id}", consumes = "multipart/form-data")
     public ResponseEntity<?> updateBanner(
             @PathVariable Integer id,
+            @RequestParam(value = "title", required = false) String title,
+            @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "image_url", required = false) String imageUrl,
             @RequestParam(value = "link", required = false) String link,
             @RequestParam(value = "position", defaultValue = "0") Integer position,
@@ -101,18 +115,20 @@ public class BannerController {
         Banner banner = bannerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy banner có ID: " + id));
         
+        banner.setTitle(title);
+        banner.setDescription(description);
         banner.setLink(link);
         banner.setPosition(position);
         banner.setActive(active);
         
         if (startDateStr != null && !startDateStr.isEmpty()) {
-            banner.setStart_date(java.time.LocalDateTime.parse(startDateStr));
+            banner.setStart_date(java.time.LocalDate.parse(startDateStr.substring(0, 10)));
         } else {
             banner.setStart_date(null);
         }
         
         if (endDateStr != null && !endDateStr.isEmpty()) {
-            banner.setEnd_date(java.time.LocalDateTime.parse(endDateStr));
+            banner.setEnd_date(java.time.LocalDate.parse(endDateStr.substring(0, 10)));
         } else {
             banner.setEnd_date(null);
         }

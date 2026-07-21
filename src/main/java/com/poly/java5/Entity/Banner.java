@@ -7,7 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "banners")
@@ -16,6 +16,12 @@ public class Banner {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
+    @Column(name = "title", length = 255)
+    private String title;
+
+    @Column(name = "description", length = 1000)
+    private String description;
 
     @Column(name = "image_url", length = 1000, nullable = false)
     private String image_url; 
@@ -27,7 +33,7 @@ public class Banner {
 
     private Integer position; 
 
-    private LocalDateTime start_date; 
+    private LocalDate start_date; 
 
-    private LocalDateTime end_date; 
+    private LocalDate end_date; 
 }
