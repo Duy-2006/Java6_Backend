@@ -1,6 +1,7 @@
 package com.poly.java5.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -10,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.poly.java5.DTO.OrderDTO;
 import com.poly.java5.DTO.OrderDetailDTO;
-import com.poly.java5.DTO.OrderFullDTO;
 import com.poly.java5.Entity.Book;
 import com.poly.java5.Entity.BookFormat;
 import com.poly.java5.Entity.Order;
@@ -36,14 +36,12 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final BookFormatRepository bookFormatRepository;
     private final UserLibraryRepository userLibraryRepo;
-    private final EmailService emailService;
 
     @PersistenceContext
     private EntityManager em;
 
     // ─────────────────────────────────────────────
     //  LẤY CHI TIẾT ĐƠN HÀNG THEO ID + USER
-    //  JOIN FETCH để tránh LazyInitializationException
     // ─────────────────────────────────────────────
     @Transactional(readOnly = true)
     public Order findByIdAndUser(Integer id, Integer userId) {
@@ -77,7 +75,7 @@ public class OrderService {
     }
 
     // ─────────────────────────────────────────────
-    //  DANH SÁCH ĐƠN HÀNG CỦA USER (có lọc trạng thái)
+    //  DANH SÁCH ĐƠN HÀNG CỦA USER
     // ─────────────────────────────────────────────
     @Transactional(readOnly = true)
     public List<Order> findOrdersByUser(Integer userId, String status) {
@@ -114,6 +112,7 @@ public class OrderService {
                 "ORDER BY o.orderDate DESC", Order.class)
                 .getResultList();
     }
+
     // ─────────────────────────────────────────────
     //  HỦY ĐƠN HÀNG (user tự hủy)
     // ─────────────────────────────────────────────
@@ -129,7 +128,6 @@ public class OrderService {
         if (!order.isCancellable() || "PAID".equals(order.getPaymentStatus())) {
             throw new RuntimeException("Đơn hàng không thể hủy");
         }
-        // Hoàn lại số lượng sản phẩm vào kho
         for (OrderDetail od : order.getOrderDetails()) {
             Book book = em.find(Book.class, od.getBook().getId(), LockModeType.PESSIMISTIC_WRITE);
             book.setQuantity(book.getQuantity() + od.getQuantity());
@@ -140,7 +138,7 @@ public class OrderService {
     }
 
     // ─────────────────────────────────────────────
-    //  CẬP NHẬT TRẠNG THÁI (dành cho admin)
+    //  CẬP NHẬT TRẠNG THÁI (dành cho admin - MỤC 4)
     // ─────────────────────────────────────────────
     @Transactional
     public void updateStatus(Integer id, String newStatus, String cancelReason) {
@@ -150,21 +148,27 @@ public class OrderService {
         String current = order.getStatus();
         String target = newStatus.toUpperCase().trim();
 
+        // 🛑 MỤC 4: CHẶN ADMIN KHÔNG ĐƯỢC ĐẶT TRẠNG THÁI COMPLETED
+        if ("COMPLETED".equals(target)) {
+            throw new RuntimeException("Admin không thể chuyển trực tiếp sang trạng thái 'Hoàn thành'. " +
+                    "Trạng thái này do Khách hàng bấm xác nhận hoặc hệ thống tự động chuyển sau 3 ngày giao hàng thành công.");
+        }
+
         try {
             OrderStatus.valueOf(target);
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Trạng thái không hợp lệ: " + newStatus);
         }
 
-        List<String> forwardFlow = Arrays.asList("PENDING", "CONFIRMED", "SHIPPING", "COMPLETED");
+        List<String> forwardFlow = Arrays.asList("PENDING", "CONFIRMED", "SHIPPING", "DELIVERED");
         boolean isForwardStep = forwardFlow.indexOf(current) + 1 == forwardFlow.indexOf(target);
         boolean isCancel = target.equals("CANCELLED") &&
                 (current.equals("PENDING") || current.equals("CONFIRMED"));
 
         if (!isForwardStep && !isCancel) {
             throw new RuntimeException(String.format(
-                    "Không thể chuyển từ %s sang %s. Chỉ được: %s → %s, hoặc hủy từ PENDING/CONFIRMED.",
-                    current, target, current, getNextStatus(current)));
+                    "Không thể chuyển từ %s sang %s. Chu trình hợp lệ: PENDING -> CONFIRMED -> SHIPPING -> DELIVERED.",
+                    current, target));
         }
 
         if (target.equals("CANCELLED")) {
@@ -172,54 +176,19 @@ public class OrderService {
                 throw new RuntimeException("Vui lòng nhập lý do hủy đơn hàng");
             }
             order.setCancelReason(cancelReason);
-            
-            // Hoàn lại số lượng sản phẩm vào kho
-            for (OrderDetail od : order.getOrderDetails()) {
-                Book book = em.find(Book.class, od.getBook().getId(), LockModeType.PESSIMISTIC_WRITE);
-                book.setQuantity(book.getQuantity() + od.getQuantity());
-                em.merge(book);
-            }
+        }
+
+        // 🛑 MỤC 4: Ghi nhận thời điểm giao hàng thành công
+        if ("DELIVERED".equals(target)) {
+            order.setDeliveredAt(LocalDateTime.now());
         }
 
         order.setStatus(target);
         orderRepository.save(order);
-        if ("COMPLETED".equals(target)) {
-            try {
-                unlockAudiobooksForOrder(order);
-            } catch (Exception e) {
-                log.error("Error unlocking audiobooks for order {}: {}", order.getId(), e.getMessage());
-            }
-        }
-        
-        if ("CANCELLED".equals(target) && order.getUser() != null && order.getUser().getEmail() != null) {
-            try {
-                emailService.sendOrderCancelledEmail(
-                    order.getUser().getEmail(),
-                    order.getCustomerName() != null ? order.getCustomerName() : order.getUser().getName(),
-                    order.getOrderCode(),
-                    order.getCancelReason(),
-                    order.getPaymentStatus(),
-                    order.getPaymentMethod(),
-                    order.getTotalAmount()
-                );
-                log.info("Sent cancellation email for order {}", order.getOrderCode());
-            } catch (Exception e) {
-                log.error("Failed to send cancellation email for order {}: {}", order.getOrderCode(), e.getMessage());
-            }
-        }
-    }
-
-    private String getNextStatus(String current) {
-        switch (current) {
-            case "PENDING":   return "CONFIRMED";
-            case "CONFIRMED": return "SHIPPING";
-            case "SHIPPING":  return "COMPLETED";
-            default:          return "";
-        }
     }
 
     // ─────────────────────────────────────────────
-    //  USER XÁC NHẬN ĐÃ NHẬN HÀNG
+    //  USER XÁC NHẬN ĐÃ NHẬN HÀNG (MỤC 4)
     // ─────────────────────────────────────────────
     @Transactional
     public void confirmReceived(Integer orderId, Integer userId) {
@@ -229,17 +198,46 @@ public class OrderService {
         if (!order.getUser().getId().equals(userId)) {
             throw new RuntimeException("Bạn không có quyền thực hiện thao tác này");
         }
-        if (!"SHIPPING".equals(order.getStatus())) {
-            throw new RuntimeException("Chỉ xác nhận nhận hàng khi đơn đang ở trạng thái SHIPPING");
+        
+        // 🛑 MỤC 4: Chỉ xác nhận khi Admin đã chuyển sang DELIVERED
+        if (!"DELIVERED".equals(order.getStatus())) {
+            throw new RuntimeException("Chỉ có thể bấm xác nhận khi đơn hàng đã được giao hàng thành công (DELIVERED).");
         }
 
         order.setStatus("COMPLETED");
+        order.setCompletedAt(LocalDateTime.now());
+        order.setPaymentStatus("PAID");
         orderRepository.save(order);
+
         try {
             unlockAudiobooksForOrder(order);
         } catch (Exception e) {
             log.error("Error unlocking audiobooks for order {}: {}", order.getId(), e.getMessage());
         }
+    }
+
+    // ─────────────────────────────────────────────
+    //  TỰ ĐỘNG HOÀN THÀNH TỪ JOB SCHEDULER (MỤC 4)
+    // ─────────────────────────────────────────────
+    @Transactional
+    public void autoCompleteOrder(Order order) {
+        if (!"DELIVERED".equals(order.getStatus())) return;
+
+        order.setStatus("COMPLETED");
+        order.setCompletedAt(LocalDateTime.now());
+        order.setPaymentStatus("PAID");
+        orderRepository.save(order);
+
+        try {
+            unlockAudiobooksForOrder(order);
+        } catch (Exception e) {
+            log.error("Error unlocking audiobooks for order {}: {}", order.getId(), e.getMessage());
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<Order> findExpiredDeliveredOrders(LocalDateTime threshold) {
+        return orderRepository.findByStatusAndDeliveredAtBefore("DELIVERED", threshold);
     }
 
     public void unlockAudiobooksForOrder(Order order) {
@@ -268,26 +266,17 @@ public class OrderService {
         }
     }
 
-    // ─────────────────────────────────────────────
-    //  TÌM THEO USERNAME (dùng cho admin/dashboard)
-    // ─────────────────────────────────────────────
     @Transactional(readOnly = true)
     public List<OrderDTO> findByUsername(String username) {
         return orderRepository.findByUserUsernameOrderByOrderDateDesc(username)
                 .stream().map(this::convertToOrderDTO).collect(Collectors.toList());
     }
 
-    // ─────────────────────────────────────────────
-    //  TỔNG CHI TIÊU CỦA KHÁCH HÀNG
-    // ─────────────────────────────────────────────
     @Transactional(readOnly = true)
     public Double sumSpendingByUsername(String username) {
         return orderRepository.sumSpendingByUsername(username);
     }
 
-    // ─────────────────────────────────────────────
-    //  CONVERT HELPERS
-    // ─────────────────────────────────────────────
     private OrderDTO convertToOrderDTO(Order order) {
         List<OrderDetailDTO> detailDTOs = null;
         if (order.getOrderDetails() != null && !order.getOrderDetails().isEmpty()) {

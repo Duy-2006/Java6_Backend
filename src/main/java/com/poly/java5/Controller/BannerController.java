@@ -1,22 +1,18 @@
 package com.poly.java5.Controller;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.poly.java5.Entity.Banner;
 import com.poly.java5.Repository.BannerRepository;
+import com.poly.java5.Service.BannerService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
 import java.util.List;
-
-import java.util.UUID;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/banners")
@@ -25,64 +21,36 @@ public class BannerController {
     @Autowired
     private BannerRepository bannerRepository;
 
+    @Autowired
+    private BannerService bannerService;
 
-    private static final String UPLOAD_DIR = "src/main/resources/static/uploads/banners/";
+    @Autowired
+    private Cloudinary cloudinary; // Tiêm Bean Cloudinary vừa cấu hình ở Bước 3
 
-    private java.time.LocalDateTime parseDateString(String dateStr, boolean isEnd) {
-        if (dateStr == null) return null;
-        dateStr = dateStr.trim();
-        if (dateStr.isEmpty() || dateStr.equalsIgnoreCase("null") || dateStr.equalsIgnoreCase("undefined")) {
-            return null;
-        }
-        try {
-            if (dateStr.length() == 10) {
-                if (isEnd) {
-                    return java.time.LocalDate.parse(dateStr).atTime(23, 59, 59);
-                } else {
-                    return java.time.LocalDate.parse(dateStr).atStartOfDay();
-                }
-            } else {
-                if (dateStr.contains(" ") && !dateStr.contains("T")) {
-                    dateStr = dateStr.replace(" ", "T");
-                }
-                return java.time.LocalDateTime.parse(dateStr);
-            }
-        } catch (Exception e) {
-            System.err.println("Error parsing date: " + dateStr + " - " + e.getMessage());
-            return null;
-        }
+    // Hàm upload ảnh lên Cloudinary và lấy URL về
+    private String uploadToCloudinary(MultipartFile file) throws IOException {
+        // Cấu hình thư mục lưu trữ trên Cloudinary là "libris/banners" để dễ quản lý
+        Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
+            "folder", "libris/banners"
+        ));
+        return uploadResult.get("secure_url").toString(); // Trả về link https tuyệt đối
     }
 
-    private String saveImage(MultipartFile file) throws IOException {
-        Path uploadPath = Paths.get(UPLOAD_DIR);
-        if (!Files.exists(uploadPath)) {
-            Files.createDirectories(uploadPath);
-        }
-        String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-        Path filePath = uploadPath.resolve(filename);
-        Files.copy(file.getInputStream(), filePath);
-        return filename;
-    }
-
-    // 1. Lấy danh sách toàn bộ banner
+    // 1. Lấy danh sách cho Admin
     @GetMapping
     public ResponseEntity<List<Banner>> getAllBanners() {
         return ResponseEntity.ok(bannerRepository.findAllByOrderByPositionAsc());
     }
 
-    // 1.5. Lấy chi tiết banner bằng ID
-    @GetMapping("/{id}")
-    public ResponseEntity<Banner> getBannerById(@PathVariable Integer id) {
-        Banner banner = bannerRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy banner có ID: " + id));
-        return ResponseEntity.ok(banner);
+    // 2. API mới bổ sung dành riêng cho trang chủ Next.js Client
+    @GetMapping("/active")
+    public ResponseEntity<List<Banner>> getActiveBanners() {
+        return ResponseEntity.ok(bannerService.getActiveBanners());
     }
 
-    // 2. Thêm mới banner
+    // 3. Thêm mới banner
     @PostMapping(consumes = "multipart/form-data")
     public ResponseEntity<?> createBanner(
-            @RequestParam(value = "title", required = false) String title,
-            @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "image_url", required = false) String imageUrl,
             @RequestParam(value = "link", required = false) String link,
             @RequestParam(value = "position", defaultValue = "0") Integer position,
@@ -92,21 +60,24 @@ public class BannerController {
             @RequestParam(value = "imageFile", required = false) MultipartFile imageFile) {
         
         Banner banner = new Banner();
-        banner.setTitle(title);
-        banner.setDescription(description);
         banner.setLink(link);
         banner.setPosition(position);
         banner.setActive(active);
         
-        banner.setStart_date(parseDateString(startDateStr, false));
-        banner.setEnd_date(parseDateString(endDateStr, true));
+        if (startDateStr != null && !startDateStr.isEmpty()) {
+            banner.setStart_date(java.time.LocalDateTime.parse(startDateStr));
+        }
+        if (endDateStr != null && !endDateStr.isEmpty()) {
+            banner.setEnd_date(java.time.LocalDateTime.parse(endDateStr));
+        }
 
+        // Thay đổi ở đây: Upload thẳng lên Cloudinary
         if (imageFile != null && !imageFile.isEmpty()) {
             try {
-                String filename = saveImage(imageFile);
-                banner.setImage_url("/uploads/banners/" + filename);
+                String cloudinaryUrl = uploadToCloudinary(imageFile);
+                banner.setImage_url(cloudinaryUrl); // URL lưu vào DB bây giờ là link https://res.cloudinary...
             } catch (IOException e) {
-                return ResponseEntity.status(500).body("{\"message\": \"Lỗi lưu ảnh: " + e.getMessage() + "\"}");
+                return ResponseEntity.status(500).body("{\"message\": \"Lỗi upload lên Cloudinary: " + e.getMessage() + "\"}");
             }
         } else {
             banner.setImage_url(imageUrl);
@@ -115,12 +86,10 @@ public class BannerController {
         return ResponseEntity.ok(bannerRepository.save(banner));
     }
 
-    // 3. Cập nhật (Sửa) banner
+    // 4. Cập nhật (Sửa) banner
     @PutMapping(value = "/{id}", consumes = "multipart/form-data")
     public ResponseEntity<?> updateBanner(
             @PathVariable Integer id,
-            @RequestParam(value = "title", required = false) String title,
-            @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "image_url", required = false) String imageUrl,
             @RequestParam(value = "link", required = false) String link,
             @RequestParam(value = "position", defaultValue = "0") Integer position,
@@ -132,21 +101,29 @@ public class BannerController {
         Banner banner = bannerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy banner có ID: " + id));
         
-        banner.setTitle(title);
-        banner.setDescription(description);
         banner.setLink(link);
         banner.setPosition(position);
         banner.setActive(active);
         
-        banner.setStart_date(parseDateString(startDateStr, false));
-        banner.setEnd_date(parseDateString(endDateStr, true));
+        if (startDateStr != null && !startDateStr.isEmpty()) {
+            banner.setStart_date(java.time.LocalDateTime.parse(startDateStr));
+        } else {
+            banner.setStart_date(null);
+        }
+        
+        if (endDateStr != null && !endDateStr.isEmpty()) {
+            banner.setEnd_date(java.time.LocalDateTime.parse(endDateStr));
+        } else {
+            banner.setEnd_date(null);
+        }
 
+        // Thay đổi ở đây: Upload thẳng lên Cloudinary khi cập nhật ảnh mới
         if (imageFile != null && !imageFile.isEmpty()) {
             try {
-                String filename = saveImage(imageFile);
-                banner.setImage_url("/uploads/banners/" + filename);
+                String cloudinaryUrl = uploadToCloudinary(imageFile);
+                banner.setImage_url(cloudinaryUrl);
             } catch (IOException e) {
-                return ResponseEntity.status(500).body("{\"message\": \"Lỗi lưu ảnh: " + e.getMessage() + "\"}");
+                return ResponseEntity.status(500).body("{\"message\": \"Lỗi upload lên Cloudinary: " + e.getMessage() + "\"}");
             }
         } else {
             banner.setImage_url(imageUrl);
@@ -155,7 +132,7 @@ public class BannerController {
         return ResponseEntity.ok(bannerRepository.save(banner));
     }
 
-    // 4. Xóa banner
+    // 5. Xóa banner
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteBanner(@PathVariable Integer id) {
         Banner banner = bannerRepository.findById(id)

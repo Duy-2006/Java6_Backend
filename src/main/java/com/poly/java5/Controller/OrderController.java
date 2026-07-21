@@ -25,42 +25,21 @@ import lombok.RequiredArgsConstructor;
 public class OrderController {
 	private final OrderService orderService;
 
-    // Thêm method toDTO
     private OrderDTO toDTO(Order o) {
-    OrderDTO dto = new OrderDTO();
+        OrderDTO dto = new OrderDTO();
 
-    dto.setId(o.getId());
-    dto.setOrderCode(o.getOrderCode());
-    dto.setStatus(o.getStatus());
-    dto.setTotalAmount(o.getTotalAmount());
-    dto.setCustomerName(o.getCustomerName());
-    dto.setCustomerPhone(o.getCustomerPhone());
-    dto.setCustomerAddress(o.getCustomerAddress());
-    dto.setPaymentMethod(o.getPaymentMethod());
-    dto.setPaymentStatus(o.getPaymentStatus());
-    dto.setCancelReason(o.getCancelReason());
+        dto.setId(o.getId());
+        dto.setOrderCode(o.getOrderCode());
+        dto.setStatus(o.getStatus());
+        dto.setTotalAmount(o.getTotalAmount());
 
-    dto.setDiscountAmount(o.getDiscountAmount() != null ? o.getDiscountAmount() : java.math.BigDecimal.ZERO);
-    dto.setShippingFee(o.getShippingFee() != null ? o.getShippingFee() : java.math.BigDecimal.ZERO);
-    dto.setOrderDate(o.getOrderDate());
-    
-    if (o.getOrderDetails() != null) {
-        List<OrderDetailDTO> details = o.getOrderDetails().stream().map(d -> {
-            OrderDetailDTO od = new OrderDetailDTO();
-            od.setId(d.getId());
-            od.setBookId(d.getBook().getId());
-            od.setBookTitle(d.getBook().getTitle());
-            od.setQuantity(d.getQuantity());
-            od.setPrice(d.getPrice());
-            od.setBookImageUrl(d.getBook().getImageUrl()); 
-            return od;
-        }).toList();
-        dto.setOrderDetails(details);
+        dto.setDiscountAmount(o.getDiscountAmount() != null ? o.getDiscountAmount() : java.math.BigDecimal.ZERO);
+        dto.setShippingFee(o.getShippingFee() != null ? o.getShippingFee() : java.math.BigDecimal.ZERO);
+        dto.setOrderDate(o.getOrderDate());
+
+        return dto;
     }
 
-    return dto;
-}
-    // LẤY DANH SÁCH 
     @GetMapping
     public List<OrderDTO> getOrders(@RequestParam Integer userId,
                                    @RequestParam(required = false) String status) {
@@ -68,17 +47,9 @@ public class OrderController {
                 .stream().map(this::toDTO).toList();  
     }
 
-  
-
-    //  CHI TIẾT THEO ID 
     @GetMapping("/{id}")
     public ResponseEntity<OrderFullDTO> getOrderById(@PathVariable Integer id,
                                                       @RequestParam Integer userId) {
-        
-        System.out.println("=== Get Order by ID ===");
-        System.out.println("Order ID: " + id);
-        System.out.println("User ID: " + userId);
-        
         try {
             Order order = orderService.findByIdAndUser(id, userId);
 
@@ -97,13 +68,6 @@ public class OrderController {
 
             dto.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : java.math.BigDecimal.ZERO);
             dto.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : java.math.BigDecimal.ZERO);
-            
-            boolean isPaidOnlineOrder = "CANCELLED".equals(order.getStatus()) && "PAID".equalsIgnoreCase(order.getPaymentStatus()) 
-                && ("VNPAY".equalsIgnoreCase(order.getPaymentMethod()) || "PAYOS".equalsIgnoreCase(order.getPaymentMethod()));
-            dto.setRequiresManualRefundContact(isPaidOnlineOrder);
-            if (isPaidOnlineOrder) {
-                dto.setRefundContactMessage("Đơn hàng đã được thanh toán online. Cửa hàng sẽ liên hệ với bạn qua số điện thoại hoặc email để xử lý hoàn tiền.");
-            }
 
             List<OrderDetailDTO> details = order.getOrderDetails().stream().map(d -> {
                 OrderDetailDTO od = new OrderDetailDTO();
@@ -112,23 +76,20 @@ public class OrderController {
                 od.setBookTitle(d.getBook().getTitle());
                 od.setQuantity(d.getQuantity());
                 od.setPrice(d.getPrice());
-                od.setBookImageUrl(d.getBook().getImageUrl()); // giả sử Book có field imageUrl
+                od.setBookImageUrl(d.getBook().getImageUrl());
                 return od;
             }).toList();
 
             dto.setDetails(details);
-            dto.setOrderDetails(details); // Set cả hai tên cho frontend
+            dto.setOrderDetails(details);
 
             return ResponseEntity.ok(dto);
             
         } catch (Exception e) {
-            System.out.println("Error: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.notFound().build();
         }
     }
 
-    // CHI TIẾT THEO CODE (GIỮ LẠI) 
     @GetMapping("/code/{code}")
     public ResponseEntity<OrderFullDTO> getOrderByCode(@PathVariable String code,
                                                         @RequestParam Integer userId) {
@@ -150,13 +111,6 @@ public class OrderController {
             
             dto.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : java.math.BigDecimal.ZERO);
             dto.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : java.math.BigDecimal.ZERO);
-            
-            boolean isPaidOnlineOrder = "CANCELLED".equals(order.getStatus()) && "PAID".equalsIgnoreCase(order.getPaymentStatus()) 
-                && ("VNPAY".equalsIgnoreCase(order.getPaymentMethod()) || "PAYOS".equalsIgnoreCase(order.getPaymentMethod()));
-            dto.setRequiresManualRefundContact(isPaidOnlineOrder);
-            if (isPaidOnlineOrder) {
-                dto.setRefundContactMessage("Đơn hàng đã được thanh toán online. Cửa hàng sẽ liên hệ với bạn qua số điện thoại hoặc email để xử lý hoàn tiền.");
-            }
 
             List<OrderDetailDTO> details = order.getOrderDetails().stream().map(d -> {
                 OrderDetailDTO od = new OrderDetailDTO();
@@ -165,7 +119,7 @@ public class OrderController {
                 od.setBookTitle(d.getBook().getTitle());
                 od.setQuantity(d.getQuantity());
                 od.setPrice(d.getPrice());
-                od.setBookImageUrl(d.getBook().getImageUrl()); // giả sử Book có field imageUrl
+                od.setBookImageUrl(d.getBook().getImageUrl());
                 return od;
             }).toList();
 
@@ -174,13 +128,10 @@ public class OrderController {
 
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
-            System.out.println("Error: " + e.getMessage());
             return ResponseEntity.notFound().build();
         }
     }
 
-    //  HỦY ĐƠN 
- // HỦY ĐƠN 
     @PostMapping("/cancel/{id}")
     public ResponseEntity<?> cancelOrder(@PathVariable Integer id,
                                          @RequestParam Integer userId,
@@ -192,7 +143,7 @@ public class OrderController {
             return ResponseEntity.badRequest().body("Không thể hủy đơn: " + e.getMessage());
         }
     }
-    // user xác nhận giao hàng thành công 
+
     @PostMapping("/{id}/confirm-received")
     public ResponseEntity<?> confirmReceived(@PathVariable Integer id,
                                              @RequestParam Integer userId) {
@@ -203,5 +154,4 @@ public class OrderController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
- 
 }
