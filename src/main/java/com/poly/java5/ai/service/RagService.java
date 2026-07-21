@@ -47,8 +47,8 @@ public class RagService {
     }
 
     interface BookstoreAssistant {
-        @SystemMessage(ChatbotPrompt.SYSTEM_PROMPT)
-        dev.langchain4j.service.Result<String> chat(@MemoryId String conversationId, @UserMessage String userMessage);
+        @SystemMessage(ChatbotPrompt.SYSTEM_PROMPT + "\n\nHệ thống hiện tại có các khuyến mãi và voucher sau:\n{{systemData}}")
+        dev.langchain4j.service.Result<String> chat(@MemoryId String conversationId, @dev.langchain4j.service.V("systemData") String systemData, @UserMessage String userMessage);
     }
 
     public dev.langchain4j.service.Result<String> getAnswer(String conversationId, String message, Integer userId) {
@@ -56,7 +56,8 @@ public class RagService {
             bookstoreTools.setCurrentUserId(userId);
         }
         try {
-            return assistant.chat(conversationId, message);
+            String systemData = "KHUYẾN MÃI:\n" + bookstoreTools.getActivePromotions() + "\n\nVOUCHERS:\n" + bookstoreTools.getActiveVouchers();
+            return assistant.chat(conversationId, systemData, message);
         } finally {
             bookstoreTools.clearCurrentUserId();
         }

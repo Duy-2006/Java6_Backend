@@ -5,6 +5,7 @@ import com.poly.java5.Repository.BookRepository;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.document.splitter.DocumentSplitters;
+import com.poly.java5.Repository.BookFormatRepository;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
@@ -14,8 +15,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional
 public class BookIndexingService {
 
     private static final Logger log = LoggerFactory.getLogger(BookIndexingService.class);
@@ -23,13 +26,16 @@ public class BookIndexingService {
     private final BookRepository bookRepository;
     private final EmbeddingStore<TextSegment> embeddingStore;
     private final EmbeddingModel embeddingModel;
+    private final BookFormatRepository bookFormatRepository;
 
     public BookIndexingService(BookRepository bookRepository, 
                                EmbeddingStore<TextSegment> embeddingStore, 
-                               EmbeddingModel embeddingModel) {
+                               EmbeddingModel embeddingModel,
+                               BookFormatRepository bookFormatRepository) {
         this.bookRepository = bookRepository;
         this.embeddingStore = embeddingStore;
         this.embeddingModel = embeddingModel;
+        this.bookFormatRepository = bookFormatRepository;
     }
 
     public void indexAllBooks() {
@@ -58,13 +64,46 @@ public class BookIndexingService {
         String categoryName = book.getCategory() != null ? book.getCategory().getName() : "Unknown";
         String publisherName = book.getPublisher();
 
+        boolean isAudiobook = bookFormatRepository.findByBookIdAndFormatType(book.getId(), "AUDIO").isPresent();
+        String formatInfo = isAudiobook ? "Sách nói, Audiobook, Nghe audio" : "Sách giấy, Sách in";
+        
+        String chapterInfo = "";
+        if (isAudiobook) {
+            int totalChapters = 0;
+            java.util.Set<String> languages = new java.util.HashSet<>();
+            java.util.Set<String> voices = new java.util.HashSet<>();
+            if (book.getChapters() != null) {
+                totalChapters = book.getChapters().size();
+                for (com.poly.java5.Entity.BookChapter ch : book.getChapters()) {
+                    if (ch.getAudioBooks() != null) {
+                        for (com.poly.java5.Entity.AudioBook ab : ch.getAudioBooks()) {
+                            if (ab.getLanguage() != null && "SUCCESS".equalsIgnoreCase(ab.getTtsStatus())) {
+                                voices.add(ab.getLanguage().getLanguageName());
+                                if (ab.getLanguage().getSystemLanguage() != null) {
+                                    languages.add(ab.getLanguage().getSystemLanguage().getName());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (totalChapters > 0) {
+                chapterInfo = String.format("\nAudiobook Chapters: %d (Languages: %s, Voices: %s)", 
+                        totalChapters, 
+                        languages.isEmpty() ? "Unknown" : String.join(", ", languages),
+                        voices.isEmpty() ? "Unknown" : String.join(", ", voices));
+            }
+        }
+
         String content = String.format(
-                "Book ID: %d\nTitle: %s\nAuthors: %s\nCategories: %s\nPublisher: %s\nDescription: %s",
+                "Book ID: %d\nTitle: %s\nAuthors: %s\nCategories: %s\nPublisher: %s\nFormats: %s%s\nDescription: %s",
                 book.getId(),
                 book.getTitle(),
                 authorNames,
                 categoryName,
                 publisherName,
+                formatInfo,
+                chapterInfo,
                 book.getDescription() != null ? book.getDescription() : ""
         );
 

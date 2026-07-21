@@ -5,6 +5,7 @@ import com.poly.java5.ai.dto.ChatResponse;
 import com.poly.java5.ai.service.ChatbotService;
 import com.poly.java5.Utils.AuthUtil;
 import com.poly.java5.Service.UserService;
+import com.poly.java5.ai.tool.BookstoreTools;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,10 +17,12 @@ public class ChatbotController {
 
     private final ChatbotService chatbotService;
     private final UserService userService;
+    private final BookstoreTools bookstoreTools;
 
-    public ChatbotController(ChatbotService chatbotService, UserService userService) {
+    public ChatbotController(ChatbotService chatbotService, UserService userService, BookstoreTools bookstoreTools) {
         this.chatbotService = chatbotService;
         this.userService = userService;
+        this.bookstoreTools = bookstoreTools;
     }
 
     @PostMapping

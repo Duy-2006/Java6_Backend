@@ -99,6 +99,42 @@ public class PromotionService {
                 .orElse(null);
     }
 
+    /**
+     * Lấy danh sách sách đang được khuyến mãi (giới hạn 5 sách) để Chatbot gợi ý.
+     */
+    @Transactional(readOnly = true)
+    public List<Book> getBooksForActivePromotions() {
+        List<Promotion> activePromos = getAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getStatus()) && "ACTIVE".equals(p.getComputedStatus()))
+                .toList();
+
+        Set<Integer> bookIds = new HashSet<>();
+        for (Promotion promo : activePromos) {
+            if ("ALL".equalsIgnoreCase(promo.getApplyType())) {
+                // Return top 5 books if it applies to all
+                return bookRepository.findAll().stream().limit(5).collect(Collectors.toList());
+            } else if ("BOOK".equalsIgnoreCase(promo.getApplyType())) {
+                promo.getDetails().forEach(d -> {
+                    if (d.getBook() != null) bookIds.add(d.getBook().getId());
+                });
+            } else if ("CATEGORY".equalsIgnoreCase(promo.getApplyType())) {
+                List<Integer> catIds = promo.getDetails().stream()
+                        .filter(d -> d.getCategory() != null)
+                        .map(d -> d.getCategory().getId())
+                        .collect(Collectors.toList());
+                if (!catIds.isEmpty()) {
+                    bookRepository.findByCategoryIdIn(catIds).forEach(b -> bookIds.add(b.getId()));
+                }
+            }
+        }
+
+        List<Book> result = new ArrayList<>();
+        for (Integer id : bookIds) {
+            bookRepository.findById(id).ifPresent(result::add);
+        }
+        return result.stream().limit(5).collect(Collectors.toList());
+    }
+
     // ================================================================
     // TẠO MỚI
     // ================================================================

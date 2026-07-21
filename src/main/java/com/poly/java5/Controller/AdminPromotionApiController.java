@@ -92,6 +92,7 @@ public class AdminPromotionApiController {
 
 	    // ================= LIST =================
 	    @GetMapping
+	    @org.springframework.transaction.annotation.Transactional(readOnly = true)
 	    public List<PromotionDTO> getAll() {
 	        return promotionService.getAll().stream()
 	                .map(this::toDTO)
@@ -100,6 +101,7 @@ public class AdminPromotionApiController {
 
 	    // ================= DETAIL =================
 	    @GetMapping("/{id}")
+	    @org.springframework.transaction.annotation.Transactional(readOnly = true)
 	    public ResponseEntity<PromotionDTO> getById(@PathVariable Integer id) {
 	        return promotionService.findById(id)
 	                .map(p -> ResponseEntity.ok(toDTO(p)))
@@ -108,11 +110,20 @@ public class AdminPromotionApiController {
 
 	    // ================= FORM DATA =================
 	    @GetMapping("/form-data")
+	    @org.springframework.transaction.annotation.Transactional(readOnly = true)
 	    public ResponseEntity<?> getFormData() {
+	        var books = bookRepository.findByDeletedFalse().stream()
+	            .map(b -> Map.of("id", b.getId(), "title", b.getTitle()))
+	            .toList();
+	            
+	        var categories = categoryRepository.findAll().stream()
+	            .map(c -> Map.of("id", c.getId(), "name", c.getName()))
+	            .toList();
+
 	        return ResponseEntity.ok(
 	            Map.of(
-	                "books",      bookRepository.findByDeletedFalse(),
-	                "categories", categoryRepository.findAll()
+	                "books", books,
+	                "categories", categories
 	            )
 	        );
 	    }

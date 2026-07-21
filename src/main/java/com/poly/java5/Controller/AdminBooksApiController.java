@@ -7,6 +7,8 @@ import com.poly.java5.Entity.Publisher;
 import com.poly.java5.Entity.BookFormat;
 import com.poly.java5.Service.BookService;
 import com.poly.java5.Repository.BookFormatRepository;
+import com.poly.java5.ai.service.BookIndexingService;
+import java.util.concurrent.CompletableFuture;
 
 import jakarta.validation.Valid;
 
@@ -32,6 +34,9 @@ public class AdminBooksApiController {
 
 	@Autowired
 	private BookFormatRepository bookFormatRepository;
+
+	@Autowired
+	private BookIndexingService bookIndexingService;
 
 	@Autowired
 	private com.poly.java5.Repository.AuthorRepository authorRepository;
@@ -93,6 +98,14 @@ public class AdminBooksApiController {
 			audio.setPrice(dto.getAudioPrice());
 			bookFormatRepository.save(audio);
 		}
+
+		CompletableFuture.runAsync(() -> {
+			try {
+				bookIndexingService.indexBook(book.getId());
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		});
 
 		return ResponseEntity.ok(convertToDTO(book));
 	}
@@ -174,6 +187,14 @@ public class AdminBooksApiController {
 			bookFormatRepository.save(audio);
 		}
 
+		CompletableFuture.runAsync(() -> {
+			try {
+				bookIndexingService.indexBook(existing.getId());
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		});
+
 		return ResponseEntity.ok(convertToDTO(existing));
 	}
 
@@ -187,6 +208,15 @@ public class AdminBooksApiController {
 		}
 		book.setActive(false); // Ẩn: active = false
 		bookService.save(book);
+
+		CompletableFuture.runAsync(() -> {
+			try {
+				bookIndexingService.indexBook(id);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		});
+
 		return ResponseEntity.ok("Đã ẩn sách thành công");
 	}
 
@@ -199,6 +229,15 @@ public class AdminBooksApiController {
 		}
 		book.setActive(true); // Hiện: active = true
 		bookService.save(book);
+
+		CompletableFuture.runAsync(() -> {
+			try {
+				bookIndexingService.indexBook(id);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		});
+
 		return ResponseEntity.ok("Đã bật sách thành công");
 	}
 
@@ -217,6 +256,14 @@ public class AdminBooksApiController {
 		audio.setPrice(audioPrice);
 		bookFormatRepository.save(audio);
 		
+		CompletableFuture.runAsync(() -> {
+			try {
+				bookIndexingService.indexBook(existing.getId());
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		});
+
 		return ResponseEntity.ok(convertToDTO(existing));
 	}
 

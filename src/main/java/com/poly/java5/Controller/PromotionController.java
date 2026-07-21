@@ -44,6 +44,7 @@ public class PromotionController {
 
     // Lấy danh sách khuyến mãi đang active
     @GetMapping("/active")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<PromotionDTO>> getActivePromotions() {
         List<PromotionDTO> activePromos = promotionService.getAll().stream()
                 .filter(p -> Boolean.TRUE.equals(p.getStatus()) && "ACTIVE".equals(p.getComputedStatus()))

@@ -17,6 +17,7 @@ import java.util.UUID;
 import java.util.Optional;
 import com.poly.java5.Repository.BookRepository;
 import com.poly.java5.Entity.Book;
+import com.poly.java5.Service.PromotionService;
 
 @Service
 public class ChatbotService {
@@ -26,11 +27,13 @@ public class ChatbotService {
     private final RagService ragService;
     private final ChatIntentService chatIntentService;
     private final BookRepository bookRepository;
+    private final PromotionService promotionService;
 
-    public ChatbotService(RagService ragService, ChatIntentService chatIntentService, BookRepository bookRepository) {
+    public ChatbotService(RagService ragService, ChatIntentService chatIntentService, BookRepository bookRepository, PromotionService promotionService) {
         this.ragService = ragService;
         this.chatIntentService = chatIntentService;
         this.bookRepository = bookRepository;
+        this.promotionService = promotionService;
     }
 
     public ChatResponse handleChat(ChatRequest request, Integer userId) {
@@ -79,6 +82,25 @@ public class ChatbotService {
                     }
                 }
             }
+
+            // Gợi ý sách khuyến mãi nếu hỏi về khuyến mãi / giá
+            if (intent == ChatIntentService.Intent.PRICE_QUERY || request.getMessage().toLowerCase().contains("khuyến mãi")) {
+                List<Book> promotedBooks = promotionService.getBooksForActivePromotions();
+                // Duyệt ngược để khi add(0, ...) giữ đúng thứ tự
+                for (int i = promotedBooks.size() - 1; i >= 0; i--) {
+                    Book book = promotedBooks.get(i);
+                    sources.removeIf(s -> s.getBookId().equals(book.getId()));
+                    sources.add(0, ChatSourceDto.builder()
+                            .bookId(book.getId())
+                            .title(book.getTitle())
+                            .reason("Sách đang được khuyến mãi")
+                            .imageUrl(book.getImageUrl())
+                            .price(book.getPrice())
+                            .stockQuantity(book.getQuantity())
+                            .build());
+                }
+            }
+
             String answerText = result.content();
             
             // Trích xuất ID sách từ câu trả lời của AI và đưa sách đó lên đầu danh sách sources
