@@ -13,6 +13,7 @@ import com.poly.java5.Entity.Publisher;
 import com.poly.java5.Repository.AuthorRepository;
 import com.poly.java5.Repository.BookRepository;
 import com.poly.java5.Repository.CategoryRepository;
+import com.poly.java5.Repository.PublisherRepository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -35,6 +36,23 @@ public class BookService {
     private final BookRepository bookRepository;
     private final AuthorRepository authorRepository;
     private final CategoryRepository categoryRepository;
+    private final PublisherRepository publisherRepository;
+
+    // ========== MỤC TIÊU 2: HÀM HỖ TRỢ LẤY NHÀ XUẤT BẢN DUY NHẤT ==========
+    
+    /**
+     * Lấy Nhà xuất bản duy nhất trong hệ thống.
+     * Nếu cơ sở dữ liệu chưa có, tự động khởi tạo NXB mặc định duy nhất.
+     */
+    public Publisher getDefaultPublisher() {
+        return publisherRepository.findAll().stream().findFirst()
+                .orElseGet(() -> {
+                    Publisher defaultPub = new Publisher();
+                    defaultPub.setName("Nhà Xuất Bản Mặc Định");
+                    log.info("Tự động khởi tạo Nhà xuất bản duy nhất cho hệ thống");
+                    return publisherRepository.save(defaultPub);
+                });
+    }
 
     // ========== CÁC PHƯƠNG THỨC LẤY DỮ LIỆU ==========
     
@@ -114,7 +132,25 @@ public class BookService {
         return query.getResultList();
     }
 
+    // MỤC TIÊU 2: Đảm bảo khi lưu Sách luôn được gán Tên Nhà xuất bản duy nhất
     public Book save(Book book) {
+        if (book.getPublisher() == null || book.getPublisher().trim().isEmpty()) {
+            Publisher defaultPub = getDefaultPublisher();
+            book.setPublisher(defaultPub.getName());
+        }
+        return bookRepository.save(book);
+    }
+
+    // MỤC TIÊU 2: Bổ sung phương thức tạo Sách có kèm NXB duy nhất
+    public Book createBook(Book book, Integer publisherId) {
+        Publisher publisher = null;
+        if (publisherId != null) {
+            publisher = publisherRepository.findById(publisherId).orElse(null);
+        }
+        if (publisher == null) {
+            publisher = getDefaultPublisher();
+        }
+        book.setPublisher(publisher.getName());
         return bookRepository.save(book);
     }
 
