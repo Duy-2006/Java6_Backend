@@ -53,6 +53,9 @@ public class Book implements Serializable {
     @Column(name = "created_date", updatable = false)
     private LocalDateTime createdDate;
     
+    @Column(name = "book_type", length = 20)
+    private String bookType;
+    
     @Transient
     private BigDecimal tempDiscountPercent;
 

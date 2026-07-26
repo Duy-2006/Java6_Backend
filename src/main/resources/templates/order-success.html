@@ -129,18 +129,18 @@ body { font-family: 'Manrope', sans-serif; }
   </a>
   
   <form
-        th:if="${order.paymentMethod == 'COD' && order.cancellable}"
-        th:action="@{/orders/cancel/{id}(id=${order.id})}"
-        method="post"
-        class="flex-1">
+    th:if="${order.paymentMethod == 'COD' && order.cancellable}"
+    th:action="@{/orders/cancel/{id}(id=${order.id})}"
+    method="post"
+    class="flex-1">
 
-        <button type="submit"
-                class="w-full bg-red-600 text-white rounded-xl py-3 font-bold hover:bg-red-700 transition"
-                onclick="return confirm('Bạn có chắc muốn hủy đơn hàng?')">
-            Hủy đơn hàng
-        </button>
+    <button type="submit"
+            class="w-full bg-red-600 text-white rounded-xl py-3 font-bold hover:bg-red-700 transition"
+            onclick="return confirm('Bạn có chắc muốn hủy đơn hàng?')">
+        Hủy đơn hàng
+    </button>
 
-    </form>
+</form>
     
 </div>
 

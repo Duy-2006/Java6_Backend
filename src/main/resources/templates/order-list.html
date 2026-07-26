@@ -4,7 +4,7 @@
 
 
 <body class="bg-gray-100 min-h-screen">
-<div th:replace="menu :: menu"></div>
+	<div th:replace="menu :: menu"></div>
 
 	<div class="max-w-6xl mx-auto px-4 py-10">
 
@@ -13,6 +13,21 @@
 			<div>
 				<h1 class="text-3xl font-extrabold text-gray-800">Đơn hàng của
 					tôi</h1>
+				<div class="flex gap-3 mb-6">
+
+					<a th:href="@{/my-orders(type='physical')}"
+						th:class="${currentType == 'physical'}
+       ? 'bg-black text-white px-6 py-2 rounded-xl font-semibold'
+       : 'bg-gray-200 text-gray-700 px-6 py-2 rounded-xl font-semibold hover:bg-gray-300'">
+
+						Sách vật lý </a> <a th:href="@{/my-orders(type='audio')}"
+						th:class="${currentType == 'audio'}
+       ? 'bg-black text-white px-6 py-2 rounded-xl font-semibold'
+       : 'bg-gray-200 text-gray-700 px-6 py-2 rounded-xl font-semibold hover:bg-gray-300'">
+
+						Sách nói </a>
+
+				</div>
 				<p class="text-gray-500 text-sm mt-1">Theo dõi tình trạng đơn
 					hàng của bạn</p>
 			</div>
@@ -23,6 +38,9 @@
 		</div>
 
 		<!-- FILTER -->
+		<div th:if="${success}"
+			class="mb-6 rounded-xl bg-green-100 border border-green-300 text-green-700 px-5 py-3 font-semibold"
+			th:text="${success}"></div>
 		<form th:action="@{/my-orders}" method="get"
 			class="bg-white rounded-2xl shadow-sm border p-6 mb-8 flex flex-wrap gap-4 items-center">
 
@@ -56,7 +74,15 @@
 		</form>
 
 		<!-- ORDER LIST -->
-		<div class="space-y-6">
+		<div th:if="${currentType == 'audio'}"
+			class="bg-white rounded-2xl border p-10 text-center text-gray-500 mb-6">
+
+			<h3 class="text-xl font-bold mb-2">Sách nói</h3>
+
+			<p>Hiện chưa có đơn hàng sách nói.</p>
+
+		</div>
+		<div class="space-y-6" th:if="${currentType == 'physical'}">
 
 			<div th:each="order : ${orders}"
 				class="bg-white rounded-2xl border p-6 card-hover">
@@ -106,12 +132,14 @@
 					<div class="flex gap-4 items-center">
 
 						<!-- Nút hủy đơn -->
-						<form th:if="${order.status == 'PENDING'}"
+						<form th:if="${order.paymentMethod == 'COD' && order.cancellable}"
 							th:action="@{/orders/cancel/{id}(id=${order.id})}" method="post">
 
 							<button type="submit"
+								onclick="return confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')"
 								class="px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600">
 								Hủy đơn</button>
+
 						</form>
 
 						<!-- Chi tiết -->

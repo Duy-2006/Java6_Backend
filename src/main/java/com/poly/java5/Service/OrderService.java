@@ -72,11 +72,30 @@ public class OrderService {
 	public List<Order> findOrdersByUser(Integer userId, String status) {
 
 	    if (status == null || status.isBlank()) {
-	        return orderRepository.findByUserIdOrderByOrderDateDesc(userId);
+	        return orderRepository.findByUserIdPriority(userId);
 	    }
 
-	    return orderRepository
-	            .findByUserIdAndStatusOrderByOrderDateDesc(userId, status);
+	    return orderRepository.findByUserIdAndStatusPriority(
+	            userId,
+	            status
+	    );
+	}
+	
+	@Transactional(readOnly = true)
+	public List<Order> findOrdersByUser(
+	        Integer userId,
+	        String status,
+	        String type){
+
+	    if(type == null){
+	        type="PHYSICAL";
+	    }
+
+	    return orderRepository.findOrdersByType(
+	            userId,
+	            status,
+	            type
+	    );
 	}
 	
 	public List<Order> findAll() {
@@ -152,13 +171,38 @@ public class OrderService {
         if (totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Không có sản phẩm hợp lệ để tạo đơn hàng!");
         }
+        
+        User user = cart.getUser();
+
+        int discount = user.getDiscountPercent();
+
+        if (discount > 0) {
+
+            BigDecimal rankDiscount = totalAmount
+                    .multiply(BigDecimal.valueOf(discount))
+                    .divide(BigDecimal.valueOf(100));
+
+            totalAmount = totalAmount.subtract(rankDiscount);
+        }
 
         order.setTotalAmount(totalAmount);
         em.persist(order);
 
-        // Đánh dấu giỏ hàng đã dùng
+     // Đánh dấu giỏ hàng đã dùng
         cart.setStatus("COMPLETED");
+
+        // Cập nhật Lifetime Value
+        BigDecimal current = user.getLifetimeValue();
+        if (current == null) {
+            current = BigDecimal.ZERO;
+        }
+
+        user.setLifetimeValue(current.add(order.getTotalAmount()));
+        user.setCustomerRank(user.calculateRank());
+
+        em.merge(user);
         em.merge(cart);
+
 
         return order;
     }

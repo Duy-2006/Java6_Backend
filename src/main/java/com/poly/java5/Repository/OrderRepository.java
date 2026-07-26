@@ -13,13 +13,37 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Integer> {
 	  // ✅ Lọc theo userId
-    List<Order> findByUserIdOrderByOrderDateDesc(Integer userId);
+	@Query("""
+		    SELECT o
+		    FROM Order o
+		    WHERE o.user.id = :userId
+		    ORDER BY
+		        CASE
+		            WHEN o.status = 'PENDING' THEN 0
+		            ELSE 1
+		        END,
+		        CASE
+		            WHEN o.status = 'PENDING' THEN o.orderDate
+		        END ASC,
+		        o.orderDate DESC
+		""")
+		List<Order> findByUserIdPriority(
+		        @Param("userId") Integer userId
+		);
 
     // ✅ Lọc theo userId + status
-    List<Order> findByUserIdAndStatusOrderByOrderDateDesc(
-        Integer userId,
-        String status
-    );
+	@Query("""
+		    SELECT o
+		    FROM Order o
+		    WHERE o.user.id = :userId
+		      AND o.status = :status
+		    ORDER BY
+		        o.orderDate ASC
+		""")
+		List<Order> findByUserIdAndStatusPriority(
+		        @Param("userId") Integer userId,
+		        @Param("status") String status
+		);
     List<Order> findAllByOrderByOrderDateDesc();
 
     // ✅ Lấy đơn theo code + load chi tiết
@@ -73,6 +97,19 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     	long countCancelledOrders();
     	
     	
-
+    	@Query("""
+    			SELECT DISTINCT o
+    			FROM Order o
+    			JOIN FETCH o.orderDetails od
+    			JOIN FETCH od.book b
+    			WHERE o.user.id=:userId
+    			AND (:status IS NULL OR o.status=:status)
+    			AND b.bookType=:bookType
+    			ORDER BY o.orderDate DESC
+    			""")
+    			List<Order> findOrdersByType(
+    			        Integer userId,
+    			        String status,
+    			        String bookType);
 
 }
