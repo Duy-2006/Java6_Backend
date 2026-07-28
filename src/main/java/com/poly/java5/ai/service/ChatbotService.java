@@ -103,30 +103,74 @@ public class ChatbotService {
 
             String answerText = result.content();
             
-            // Trích xuất ID sách từ câu trả lời của AI và đưa sách đó lên đầu danh sách sources
+            // Local helper class to keep track of matched books and their first occurrence index
+            class MatchedBook {
+                final Integer bookId;
+                final int index;
+                MatchedBook(Integer bookId, int index) {
+                    this.bookId = bookId;
+                    this.index = index;
+                }
+            }
+            
+            List<MatchedBook> matchedList = new ArrayList<>();
+            java.util.Set<Integer> matchedIds = new java.util.HashSet<>();
+            
+            // 1. Quét tìm tất cả các mẫu (ID: <id>) trong câu trả lời
             java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?i)\\s*\\(ID:\\s*(\\d+)\\)");
             java.util.regex.Matcher matcher = pattern.matcher(answerText);
             while (matcher.find()) {
                 try {
                     Integer bookId = Integer.parseInt(matcher.group(1));
-                    
-                    // Tìm và xóa bookId khỏi list hiện tại nếu có để đưa lên đầu
-                    sources.removeIf(s -> s.getBookId().equals(bookId));
-                    
-                    bookRepository.findById(bookId).ifPresent(book -> {
-                        sources.add(0, ChatSourceDto.builder()
-                                .bookId(book.getId())
-                                .title(book.getTitle())
-                                .reason("Sách bạn đang quan tâm")
-                                .imageUrl(book.getImageUrl())
-                                .price(book.getPrice())
-                                .stockQuantity(book.getQuantity())
-                                .build());
-                    });
+                    if (!matchedIds.contains(bookId)) {
+                        matchedIds.add(bookId);
+                        matchedList.add(new MatchedBook(bookId, matcher.start()));
+                    }
                 } catch (Exception ex) {
                     log.warn("Lỗi khi parse book ID từ AI", ex);
                 }
             }
+            
+            // 2. Với các sách trong sources chưa được khớp bằng ID, thử khớp bằng tên sách
+            String lowerAnswer = answerText.toLowerCase();
+            for (ChatSourceDto src : sources) {
+                Integer bookId = src.getBookId();
+                if (!matchedIds.contains(bookId)) {
+                    String title = src.getTitle();
+                    if (title != null && !title.trim().isEmpty()) {
+                        String normalizedTitle = title.toLowerCase().trim();
+                        int titleIdx = lowerAnswer.indexOf(normalizedTitle);
+                        if (titleIdx != -1) {
+                            matchedIds.add(bookId);
+                            matchedList.add(new MatchedBook(bookId, titleIdx));
+                        }
+                    }
+                }
+            }
+            
+            // 3. Sắp xếp theo thứ tự xuất hiện (từ bé đến lớn)
+            matchedList.sort((b1, b2) -> Integer.compare(b1.index, b2.index));
+            
+            // 4. Duyệt ngược để chèn vào đầu sources giữ đúng thứ tự xuất hiện
+            for (int i = matchedList.size() - 1; i >= 0; i--) {
+                Integer bookId = matchedList.get(i).bookId;
+                
+                // Xóa khỏi vị trí cũ nếu có
+                sources.removeIf(s -> s.getBookId().equals(bookId));
+                
+                // Thêm vào vị trí đầu tiên
+                bookRepository.findById(bookId).ifPresent(book -> {
+                    sources.add(0, ChatSourceDto.builder()
+                            .bookId(book.getId())
+                            .title(book.getTitle())
+                            .reason("Sách bạn đang quan tâm")
+                            .imageUrl(book.getImageUrl())
+                            .price(book.getPrice())
+                            .stockQuantity(book.getQuantity())
+                            .build());
+                });
+            }
+            
             // Làm sạch text hiển thị cho user
             answerText = answerText.replaceAll("(?i)\\s*\\(ID:\\s*\\d+\\)", "");
 

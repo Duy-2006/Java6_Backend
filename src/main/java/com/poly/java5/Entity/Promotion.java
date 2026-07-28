@@ -81,6 +81,7 @@ public class Promotion {
 
 	    // chi tiết áp dụng cho sách / thể loại
 	    @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true)
+	    @com.fasterxml.jackson.annotation.JsonManagedReference
 	    private List<PromotionDetail> details = new ArrayList<>();
 	    
 

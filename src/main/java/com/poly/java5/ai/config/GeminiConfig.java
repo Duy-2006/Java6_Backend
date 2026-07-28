@@ -14,7 +14,7 @@ public class GeminiConfig {
     @Value("${google.api.key:}")
     private String apiKey;
 
-    @Value("${gemini.chat.model:gemini-1.5-flash}")
+    @Value("${gemini.chat.model:gemini-3.5-flash-lite}")
     private String chatModelName;
 
     @Value("${gemini.embedding.model:text-embedding-004}")

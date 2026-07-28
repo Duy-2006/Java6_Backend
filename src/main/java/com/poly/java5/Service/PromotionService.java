@@ -371,10 +371,11 @@ public class PromotionService {
         // Nguồn 3: KM áp dụng toàn bộ sách
         List<Promotion> allPromos = promotionRepository.findActiveAllPromotions();
 
-        // Gộp 3 nguồn lại, loại bỏ trùng lặp
+        // Gộp 3 nguồn lại, loại bỏ trùng lặp và lọc bỏ các khuyến mãi đã hết lượt sử dụng
         return Stream.of(bookPromos, categoryPromos, allPromos)
                 .flatMap(List::stream)
                 .distinct()
+                .filter(p -> p.getUsageLimit() == null || p.getUsedCount() == null || p.getUsedCount() < p.getUsageLimit())
                 .collect(Collectors.toList());
     }
 

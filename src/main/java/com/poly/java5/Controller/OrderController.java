@@ -37,6 +37,20 @@ public class OrderController {
         dto.setShippingFee(o.getShippingFee() != null ? o.getShippingFee() : java.math.BigDecimal.ZERO);
         dto.setOrderDate(o.getOrderDate());
 
+        if (o.getOrderDetails() != null) {
+            List<OrderDetailDTO> details = o.getOrderDetails().stream().map(d -> {
+                OrderDetailDTO od = new OrderDetailDTO();
+                od.setId(d.getId());
+                od.setBookId(d.getBook().getId());
+                od.setBookTitle(d.getBook().getTitle());
+                od.setQuantity(d.getQuantity());
+                od.setPrice(d.getPrice());
+                od.setBookImageUrl(d.getBook().getImageUrl());
+                return od;
+            }).toList();
+            dto.setOrderDetails(details);
+        }
+
         return dto;
     }
 
