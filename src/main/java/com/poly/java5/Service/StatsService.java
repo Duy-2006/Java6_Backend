@@ -23,12 +23,35 @@ public class StatsService {
     private final OrderDetailRepository orderDetailRepository;
     private final UserRepository userRepository;
 
-    // Cập nhật getSummary nhận range
-public StatsSummaryDTO getSummary(String range) {
-    LocalDateTime end = LocalDateTime.now();
-    LocalDateTime start = getStartDateByRange(range);
+    private LocalDateTime getResolvedStartDate(String range, String startDateStr) {
+        if (startDateStr != null && !startDateStr.isEmpty()) {
+            try {
+                return java.time.LocalDate.parse(startDateStr).atStartOfDay();
+            } catch (Exception e) {
+                // fallback
+            }
+        }
+        return getStartDateByRange(range);
+    }
+
+    private LocalDateTime getResolvedEndDate(String endDateStr) {
+        if (endDateStr != null && !endDateStr.isEmpty()) {
+            try {
+                return java.time.LocalDate.parse(endDateStr).atTime(LocalTime.MAX);
+            } catch (Exception e) {
+                // fallback
+            }
+        }
+        return LocalDateTime.now();
+    }
+
+    // Cập nhật getSummary nhận range, startDate, endDate
+public StatsSummaryDTO getSummary(String range, String startDateStr, String endDateStr) {
+    LocalDateTime start = getResolvedStartDate(range, startDateStr);
+    LocalDateTime end = getResolvedEndDate(endDateStr);
     long daysBetween = ChronoUnit.DAYS.between(start, end);
-    LocalDateTime previousStart = start.minusDays(daysBetween);
+    // Tính khoảng trước đó (cùng số ngày)
+    LocalDateTime previousStart = start.minusDays(daysBetween == 0 ? 1 : daysBetween);
     LocalDateTime previousEnd = start.minusNanos(1);
     
     BigDecimal currentRevenue = orderRepository.getRevenueBetween(start, end);
@@ -55,10 +78,12 @@ public StatsSummaryDTO getSummary(String range) {
     );
 }
 
-    // Cập nhật getMonthlyRevenue nhận range (lấy dữ liệu trong khoảng)
-public List<MonthlyRevenueDTO> getMonthlyRevenue(String range) {
-    LocalDateTime startDate = getStartDateByRange(range);
-    List<Object[]> results = orderRepository.getMonthlyRevenueStats(startDate);
+    // Cập nhật getMonthlyRevenue nhận range
+public List<MonthlyRevenueDTO> getMonthlyRevenue(String range, String startDateStr, String endDateStr) {
+    LocalDateTime start = getResolvedStartDate(range, startDateStr);
+    // Revenue stats repository might not support end date filtering easily via getMonthlyRevenueStats if it only takes startDate,
+    // but the query seems to only take startDate in the existing code.
+    List<Object[]> results = orderRepository.getMonthlyRevenueStats(start);
     List<MonthlyRevenueDTO> list = new ArrayList<>();
     for (Object[] row : results) {
         int year = ((Number) row[0]).intValue();
@@ -71,9 +96,9 @@ public List<MonthlyRevenueDTO> getMonthlyRevenue(String range) {
 
 
    // Cập nhật getRevenueByCategory nhận range
-public List<CategoryStatsDTO> getRevenueByCategory(String range) {
-    LocalDateTime start = getStartDateByRange(range);
-    LocalDateTime end = LocalDateTime.now();
+public List<CategoryStatsDTO> getRevenueByCategory(String range, String startDateStr, String endDateStr) {
+    LocalDateTime start = getResolvedStartDate(range, startDateStr);
+    LocalDateTime end = getResolvedEndDate(endDateStr);
     List<Object[]> results = orderRepository.getRevenueByCategoryBetween(start, end);
     BigDecimal total = results.stream().map(r -> (BigDecimal) r[1]).reduce(BigDecimal.ZERO, BigDecimal::add);
     List<CategoryStatsDTO> list = new ArrayList<>();
@@ -89,9 +114,9 @@ public List<CategoryStatsDTO> getRevenueByCategory(String range) {
 }
 
 // Cập nhật getTopSellingBooks nhận range
-public List<TopBookDTO> getTopSellingBooks(int limit, String range) {
-    LocalDateTime start = getStartDateByRange(range);
-    LocalDateTime end = LocalDateTime.now();
+public List<TopBookDTO> getTopSellingBooks(int limit, String range, String startDateStr, String endDateStr) {
+    LocalDateTime start = getResolvedStartDate(range, startDateStr);
+    LocalDateTime end = getResolvedEndDate(endDateStr);
     return orderDetailRepository.findBestSellerBooksBetween(start, end).stream()
         .limit(limit)
         .map(row -> new TopBookDTO(((Number) row[0]).intValue(), (String) row[1], ((Number) row[2]).intValue()))
@@ -100,9 +125,9 @@ public List<TopBookDTO> getTopSellingBooks(int limit, String range) {
 
 
     // Cập nhật getRecentTransactions nhận range
-public List<RecentTransactionDTO> getRecentTransactions(int limit, String range) {
-    LocalDateTime start = getStartDateByRange(range);
-    LocalDateTime end = LocalDateTime.now();
+public List<RecentTransactionDTO> getRecentTransactions(int limit, String range, String startDateStr, String endDateStr) {
+    LocalDateTime start = getResolvedStartDate(range, startDateStr);
+    LocalDateTime end = getResolvedEndDate(endDateStr);
     return orderRepository.findOrdersBetweenOrderByOrderDateDesc(start, end).stream()
         .limit(limit)
         .map(order -> new RecentTransactionDTO(
@@ -132,12 +157,15 @@ public List<RecentTransactionDTO> getRecentTransactions(int limit, String range)
     }
     private LocalDateTime getStartDateByRange(String range) {
         LocalDateTime now = LocalDateTime.now();
+        if (range == null) return LocalDateTime.of(2000, 1, 1, 0, 0);
         switch (range) {
+            case "day": return now.with(LocalTime.MIN);
             case "week": return now.minusWeeks(1).with(LocalTime.MIN);
             case "month": return now.minusMonths(1).with(LocalTime.MIN);
             case "quarter": return now.minusMonths(3).with(LocalTime.MIN);
             case "year": return now.minusYears(1).with(LocalTime.MIN);
-            default: return now.minusYears(1).with(LocalTime.MIN);
+            case "all": return LocalDateTime.of(2000, 1, 1, 0, 0);
+            default: return LocalDateTime.of(2000, 1, 1, 0, 0);
         }
     }
 }
