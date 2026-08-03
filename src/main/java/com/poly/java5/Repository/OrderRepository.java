@@ -15,6 +15,9 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     // ✅ Lọc theo userId
     List<Order> findByUserIdOrderByOrderDateDesc(Integer userId);
 
+    // ✅ Lọc theo voucherId
+    List<Order> findByVoucherIdOrderByOrderDateDesc(Integer voucherId);
+
     // ✅ Lọc theo userId + status
     List<Order> findByUserIdAndStatusOrderByOrderDateDesc(
         Integer userId,
@@ -22,6 +25,34 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     );
     
     List<Order> findAllByOrderByOrderDateDesc();
+
+    // Lọc theo userId + type (Sách vật lý / Sách nói)
+    @Query("""
+            SELECT DISTINCT o
+            FROM Order o
+            LEFT JOIN FETCH o.orderDetails od
+            LEFT JOIN FETCH od.book b
+            WHERE o.user.id = :userId
+            AND (:status IS NULL OR o.status = :status)
+            AND (:bookType IS NULL OR LOWER(COALESCE(o.orderType, 'physical')) = LOWER(:bookType))
+            ORDER BY o.orderDate DESC
+            """)
+    List<Order> findOrdersByType(
+            @Param("userId") Integer userId,
+            @Param("status") String status,
+            @Param("bookType") String bookType);
+
+    // Lọc cho Admin theo type và sắp xếp ưu tiên (PENDING lên đầu, cũ nhất trước)
+    @Query("""
+            SELECT DISTINCT o
+            FROM Order o
+            LEFT JOIN FETCH o.orderDetails od
+            LEFT JOIN FETCH od.book b
+            WHERE (:bookType IS NULL OR LOWER(COALESCE(o.orderType, 'physical')) = LOWER(:bookType))
+            ORDER BY o.orderDate DESC
+            """)
+    List<Order> findAdminOrdersByTypeWithPriority(@Param("bookType") String bookType);
+
 
     // ✅ Lấy đơn theo ID và userId
     @Query("SELECT DISTINCT o FROM Order o " +
@@ -114,4 +145,11 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
            "FROM Order o JOIN o.orderDetails od " +
            "WHERE o.user.id = :userId AND o.status = 'COMPLETED' AND od.book.id = :bookId")
     boolean hasPurchasedBook(@Param("userId") Integer userId, @Param("bookId") Integer bookId);
+
+    @Query("SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END " +
+           "FROM Order o JOIN o.orderDetails od " +
+           "WHERE o.user.id = :userId AND o.status != 'CANCELLED' AND od.book.id = :bookId " +
+           "AND o.orderDate >= :startDate AND o.orderDate <= :endDate")
+    boolean hasPurchasedBookDuringPromotion(@Param("userId") Integer userId, @Param("bookId") Integer bookId, 
+                                            @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }

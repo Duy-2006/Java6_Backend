@@ -3,9 +3,6 @@ package com.poly.java5.Service;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
@@ -27,7 +24,8 @@ public class CloudinaryAudioService {
      * Tải file MP3 từ URL của FPT.AI lên Cloudinary.
      *
      * @param fptAudioUrl URL tạm thời từ FPT.AI (dạng https://...mp3)
-     * @param publicId    Tên định danh file trên Cloudinary (VD: "audiobooks/chapter_5_1716900000000")
+     * @param publicId    Tên định danh file trên Cloudinary (VD:
+     *                    "audiobooks/chapter_5_1716900000000")
      * @return URL vĩnh viễn Cloudinary (https://res.cloudinary.com/...)
      * @throws Exception nếu download hoặc upload thất bại
      */
@@ -57,17 +55,16 @@ public class CloudinaryAudioService {
         System.out.printf("☁️ [Cloudinary] Đã tải về %.1f KB, đang upload lên Cloudinary...%n",
                 audioBytes.length / 1024.0);
 
-        // 3. Upload lên Cloudinary với resource_type=video (Cloudinary xử lý audio qua video)
+        // 3. Upload lên Cloudinary với resource_type=video (Cloudinary xử lý audio qua
+        // video)
         Map<?, ?> result = cloudinary.uploader().upload(
                 audioBytes,
                 ObjectUtils.asMap(
-                        "public_id",   publicId,
-                        "resource_type", "video",   // Cloudinary dùng "video" cho cả audio
-                        "overwrite",   true,
-                        "folder",      "",           // public_id đã bao gồm folder
-                        "format",      "mp3"
-                )
-        );
+                        "public_id", publicId,
+                        "resource_type", "video", // Cloudinary dùng "video" cho cả audio
+                        "overwrite", true,
+                        "folder", "", // public_id đã bao gồm folder
+                        "format", "mp3"));
 
         String secureUrl = (String) result.get("secure_url");
         if (secureUrl == null || secureUrl.isBlank()) {

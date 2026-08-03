@@ -32,10 +32,13 @@ public class OrderController {
         dto.setOrderCode(o.getOrderCode());
         dto.setStatus(o.getStatus());
         dto.setTotalAmount(o.getTotalAmount());
+        dto.setCustomerAddress(o.getCustomerAddress());
 
         dto.setDiscountAmount(o.getDiscountAmount() != null ? o.getDiscountAmount() : java.math.BigDecimal.ZERO);
         dto.setShippingFee(o.getShippingFee() != null ? o.getShippingFee() : java.math.BigDecimal.ZERO);
+        dto.setMemberDiscount(o.getMemberDiscount() != null ? o.getMemberDiscount() : java.math.BigDecimal.ZERO);
         dto.setOrderDate(o.getOrderDate());
+        dto.setOrderType(o.getOrderType());
 
         if (o.getOrderDetails() != null) {
             List<OrderDetailDTO> details = o.getOrderDetails().stream().map(d -> {
@@ -46,6 +49,7 @@ public class OrderController {
                 od.setQuantity(d.getQuantity());
                 od.setPrice(d.getPrice());
                 od.setBookImageUrl(d.getBook().getImageUrl());
+                od.setBookType(d.getBook().getBookType());
                 return od;
             }).toList();
             dto.setOrderDetails(details);
@@ -56,9 +60,11 @@ public class OrderController {
 
     @GetMapping
     public List<OrderDTO> getOrders(@RequestParam Integer userId,
-                                   @RequestParam(required = false) String status) {
-        return orderService.findOrdersByUser(userId, status)
-                .stream().map(this::toDTO).toList();  
+                                   @RequestParam(required = false) String status,
+                                   @RequestParam(required = false, defaultValue = "physical") String bookType) {
+        return orderService.findOrdersByUser(userId, status, bookType)
+                .stream()
+                .map(this::toDTO).toList();  
     }
 
     @GetMapping("/{id}")
@@ -82,6 +88,7 @@ public class OrderController {
 
             dto.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : java.math.BigDecimal.ZERO);
             dto.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : java.math.BigDecimal.ZERO);
+            dto.setMemberDiscount(order.getMemberDiscount() != null ? order.getMemberDiscount() : java.math.BigDecimal.ZERO);
 
             List<OrderDetailDTO> details = order.getOrderDetails().stream().map(d -> {
                 OrderDetailDTO od = new OrderDetailDTO();
@@ -91,6 +98,7 @@ public class OrderController {
                 od.setQuantity(d.getQuantity());
                 od.setPrice(d.getPrice());
                 od.setBookImageUrl(d.getBook().getImageUrl());
+                od.setBookType(d.getBook().getBookType());
                 return od;
             }).toList();
 
@@ -122,9 +130,11 @@ public class OrderController {
             dto.setPaymentStatus(order.getPaymentStatus());
             dto.setOrderDate(order.getOrderDate());
             dto.setCancelReason(order.getCancelReason());
+            dto.setOrderType(order.getOrderType());
             
             dto.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : java.math.BigDecimal.ZERO);
             dto.setShippingFee(order.getShippingFee() != null ? order.getShippingFee() : java.math.BigDecimal.ZERO);
+            dto.setMemberDiscount(order.getMemberDiscount() != null ? order.getMemberDiscount() : java.math.BigDecimal.ZERO);
 
             List<OrderDetailDTO> details = order.getOrderDetails().stream().map(d -> {
                 OrderDetailDTO od = new OrderDetailDTO();
@@ -134,6 +144,7 @@ public class OrderController {
                 od.setQuantity(d.getQuantity());
                 od.setPrice(d.getPrice());
                 od.setBookImageUrl(d.getBook().getImageUrl());
+                od.setBookType(d.getBook().getBookType());
                 return od;
             }).toList();
 
@@ -167,5 +178,12 @@ public class OrderController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+    
+    @GetMapping("/debug")
+    public ResponseEntity<?> debugOrders() {
+        return ResponseEntity.ok(orderService.findAdminOrdersWithPriority(null).stream()
+                .map(o -> java.util.Map.of("id", o.getId(), "orderCode", o.getOrderCode(), "orderType", o.getOrderType() != null ? o.getOrderType() : "NULL"))
+                .collect(java.util.stream.Collectors.toList()));
     }
 }

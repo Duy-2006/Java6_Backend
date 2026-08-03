@@ -2,14 +2,12 @@ package com.poly.java5.Service;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.TypedQuery;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.annotation.Propagation;
 
-import com.poly.java5.Entity.ActivityLog;
 import com.poly.java5.Entity.Book;
 import com.poly.java5.Entity.Cart;
 import com.poly.java5.Entity.CartDetail;
@@ -28,7 +26,7 @@ public class CartService {
 	private EntityManager em;
 
 	// Lấy giỏ hàng đang của user.
-	//Nếu chưa có → tạo mới
+	// Nếu chưa có → tạo mới
 	// lưu sản phẩm vào db
 
 	public Cart getOrCreateCart(Integer userId) {
@@ -45,7 +43,7 @@ public class CartService {
 
 		Cart cart = Cart.builder().user(user).status("ACTIVE").createdDate(LocalDateTime.now())
 				.updatedDate(LocalDateTime.now()).build();
-		// chỗ này lưu db 
+		// chỗ này lưu db
 		em.persist(cart);
 		return cart;
 	}
@@ -62,14 +60,13 @@ public class CartService {
 			throw new RuntimeException("Sách không tồn tại");
 
 		Cart cart = getOrCreateCart(userId);
-		// kiêm tra sách có trong giỏ hàng chưa 
+		// kiêm tra sách có trong giỏ hàng chưa
 		List<CartDetail> list = em
 				.createQuery("SELECT cd FROM CartDetail cd WHERE cd.cart.id = :cid AND cd.book.id = :bid",
 						CartDetail.class)
 				.setParameter("cid", cart.getId()).setParameter("bid", bookId).getResultList();
 
 		CartDetail cd;
-		
 
 		if (!list.isEmpty()) {
 			cd = list.get(0);
@@ -91,7 +88,7 @@ public class CartService {
 		}
 		// cập nhật thời gian tạo cart
 		cart.setUpdatedDate(LocalDateTime.now());
-		
+
 		return getCartSummary(userId);
 	}
 
@@ -112,7 +109,7 @@ public class CartService {
 
 		Book book = cd.getBook();
 
-		// ✅ chỉ kiểm tra tồn kkho 
+		// ✅ chỉ kiểm tra tồn kkho
 		if (book.getQuantity() < newQty)
 			throw new RuntimeException("Chỉ còn " + book.getQuantity() + " sản phẩm");
 
@@ -122,31 +119,31 @@ public class CartService {
 		return getCartSummary(userId);
 	}
 
-	// Xóa sản phẩm khỏi giỏ hàng	
-//	1. Tìm CartDetail theo id
-//	2. Kiểm tra quyền user
-//	3. Lưu reference Cart
-//	4. Xóa CartDetail
-//	5. Cập nhật updatedDate của Cart
-//	6. Tính lại summary
-//	7. Trả kết quả
+	// Xóa sản phẩm khỏi giỏ hàng
+	// 1. Tìm CartDetail theo id
+	// 2. Kiểm tra quyền user
+	// 3. Lưu reference Cart
+	// 4. Xóa CartDetail
+	// 5. Cập nhật updatedDate của Cart
+	// 6. Tính lại summary
+	// 7. Trả kết quả
 	public Map<String, Object> removeFromCart(Integer userId, Integer cartDetailId) {
 
-    CartDetail cd = em.find(CartDetail.class, cartDetailId);
-    if (cd == null)
-        throw new RuntimeException("Không tìm thấy sản phẩm");
+		CartDetail cd = em.find(CartDetail.class, cartDetailId);
+		if (cd == null)
+			throw new RuntimeException("Không tìm thấy sản phẩm");
 
-    if (!cd.getCart().getUser().getId().equals(userId))
-        throw new RuntimeException("Không có quyền");
+		if (!cd.getCart().getUser().getId().equals(userId))
+			throw new RuntimeException("Không có quyền");
 
-    Cart cart = cd.getCart();   // LƯU TRƯỚC
+		Cart cart = cd.getCart(); // LƯU TRƯỚC
 
-    em.remove(cd);
+		em.remove(cd);
 
-    cart.setUpdatedDate(LocalDateTime.now()); // dùng cart đã lưu
+		cart.setUpdatedDate(LocalDateTime.now()); // dùng cart đã lưu
 
-    return getCartSummary(userId);
-}
+		return getCartSummary(userId);
+	}
 
 	// Chọn / bỏ chọn sản phẩm để thanh toán.
 
@@ -256,7 +253,7 @@ public class CartService {
 		for (CartDetail cd : details) {
 			Map<String, Object> m = new HashMap<>();
 			m.put("cartDetailId", cd.getId());
-			m.put("bookId", cd.getBook().getId());   
+			m.put("bookId", cd.getBook().getId());
 			m.put("title", cd.getBook().getTitle());
 			m.put("imageUrl", cd.getBook().getImageUrl());
 			m.put("price", cd.getPrice());
@@ -264,12 +261,12 @@ public class CartService {
 			m.put("itemTotal", cd.calculateTotal());
 
 			BigDecimal audioPrice = em.createQuery(
-				"SELECT bf.price FROM BookFormat bf WHERE bf.book.id = :bid AND bf.formatType = 'AUDIO'",
-				BigDecimal.class)
-				.setParameter("bid", cd.getBook().getId())
-				.getResultStream()
-				.findFirst()
-				.orElse(BigDecimal.ZERO);
+					"SELECT bf.price FROM BookFormat bf WHERE bf.book.id = :bid AND bf.formatType = 'AUDIO'",
+					BigDecimal.class)
+					.setParameter("bid", cd.getBook().getId())
+					.getResultStream()
+					.findFirst()
+					.orElse(BigDecimal.ZERO);
 
 			Map<String, Object> bookMap = new HashMap<>();
 			bookMap.put("id", cd.getBook().getId());
@@ -277,13 +274,13 @@ public class CartService {
 			bookMap.put("imageUrl", cd.getBook().getImageUrl());
 			bookMap.put("price", cd.getBook().getPrice());
 			bookMap.put("audioPrice", audioPrice);
-			
+
 			Map<String, Object> authorMap = new HashMap<>();
 			if (cd.getBook().getAuthor() != null) {
 				authorMap.put("name", cd.getBook().getAuthor().getName());
 			}
 			bookMap.put("author", authorMap);
-			
+
 			m.put("book", bookMap);
 			items.add(m);
 		}
@@ -298,7 +295,9 @@ public class CartService {
 		Cart cart = getOrCreateCart(userId);
 
 		List<CartDetail> details = em
-				.createQuery("SELECT cd FROM CartDetail cd JOIN FETCH cd.book WHERE cd.cart.id = :cid AND cd.id IN :ids", CartDetail.class)
+				.createQuery(
+						"SELECT cd FROM CartDetail cd JOIN FETCH cd.book WHERE cd.cart.id = :cid AND cd.id IN :ids",
+						CartDetail.class)
 				.setParameter("cid", cart.getId())
 				.setParameter("ids", cartDetailIds)
 				.getResultList();
@@ -308,20 +307,20 @@ public class CartService {
 		for (CartDetail cd : details) {
 			Map<String, Object> m = new HashMap<>();
 			m.put("cartDetailId", cd.getId());
-			m.put("bookId", cd.getBook().getId());   
+			m.put("bookId", cd.getBook().getId());
 			m.put("title", cd.getBook().getTitle());
 			m.put("imageUrl", cd.getBook().getImageUrl());
 			m.put("price", cd.getPrice());
 			m.put("quantity", cd.getQuantity());
 			m.put("itemTotal", cd.calculateTotal());
-			
+
 			BigDecimal audioPrice = em.createQuery(
-				"SELECT bf.price FROM BookFormat bf WHERE bf.book.id = :bid AND bf.formatType = 'AUDIO'",
-				BigDecimal.class)
-				.setParameter("bid", cd.getBook().getId())
-				.getResultStream()
-				.findFirst()
-				.orElse(BigDecimal.ZERO);
+					"SELECT bf.price FROM BookFormat bf WHERE bf.book.id = :bid AND bf.formatType = 'AUDIO'",
+					BigDecimal.class)
+					.setParameter("bid", cd.getBook().getId())
+					.getResultStream()
+					.findFirst()
+					.orElse(BigDecimal.ZERO);
 
 			Map<String, Object> bookMap = new HashMap<>();
 			bookMap.put("id", cd.getBook().getId());
@@ -329,13 +328,13 @@ public class CartService {
 			bookMap.put("imageUrl", cd.getBook().getImageUrl());
 			bookMap.put("price", cd.getBook().getPrice());
 			bookMap.put("audioPrice", audioPrice);
-			
+
 			Map<String, Object> authorMap = new HashMap<>();
 			if (cd.getBook().getAuthor() != null) {
 				authorMap.put("name", cd.getBook().getAuthor().getName());
 			}
 			bookMap.put("author", authorMap);
-			
+
 			m.put("book", bookMap);
 			items.add(m);
 		}

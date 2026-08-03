@@ -101,6 +101,8 @@ public class FlashSaleController {
 			BigDecimal bestDiscount = BigDecimal.ZERO;
 			BigDecimal finalPrice = book.getPrice();
 			Integer usageLimit = null;
+			Integer usedCount = null;
+			Integer promotionId = null;
 
 			LocalDate promoEndDate = null;
 
@@ -124,6 +126,8 @@ public class FlashSaleController {
 					bestDiscount = promo.getDiscountValue();
 					finalPrice = promo.applyDiscount(book.getPrice());
 					usageLimit = promo.getUsageLimit();
+					usedCount = promo.getUsedCount() != null ? promo.getUsedCount() : 0;
+					promotionId = promo.getId();
 					promoEndDate = promo.getEndDate();
 				}
 			}
@@ -134,6 +138,8 @@ public class FlashSaleController {
 			result.add(FlashSaleBookDTO.builder().id(book.getId()).title(book.getTitle()).price(book.getPrice())
 					.imageUrl(book.getImageUrl()).discountValue(bestDiscount).discountPrice(finalPrice)
 					.usageLimit(usageLimit)
+					.usedCount(usedCount)
+					.promotionId(promotionId)
 					.quantity(book.getQuantity())
 					.audioPrice(audioPrice)
 					.soldCount(soldCount)

@@ -16,8 +16,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
-import static dev.langchain4j.store.embedding.filter.MetadataFilterBuilder.metadataKey;
-
 
 @Service
 @Transactional
@@ -127,15 +125,9 @@ public class BookIndexingService {
     }
 
     public void removeBookFromIndex(Integer bookId) {
-        log.info("Bắt đầu tiến hành xóa Vector Index của sách ID: {}", bookId);
-        try {
-            // Tìm và xóa tất cả các Vector có metadata 'bookId' bằng với bookId được truyền vào
-            embeddingStore.removeAll(metadataKey("bookId").isEqualTo(bookId));
-            log.info("Đã xóa thành công toàn bộ Vector của sách ID: {}", bookId);
-        } catch (UnsupportedOperationException e) {
-            log.error("Vector Store hiện tại chưa hỗ trợ xóa bằng Filter. Lỗi: {}", e.getMessage());
-        } catch (Exception e) {
-            log.error("Lỗi không xác định khi xóa index sách ID {}: {}", bookId, e.getMessage());
-        }
+        // Langchain4j EmbeddingStore doesn't natively support easy deletion by metadata across all stores yet.
+        // For production Qdrant, we'd use native QdrantClient to delete by payload filter.
+        // For now, this is a placeholder or we can implement a custom delete if using Qdrant client directly.
+        log.warn("removeBookFromIndex not fully supported by generic EmbeddingStore abstraction. Id: {}", bookId);
     }
 }

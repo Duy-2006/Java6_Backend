@@ -71,7 +71,12 @@ public class CheckoutController {
                 ? BigDecimal.ZERO 
                 : new BigDecimal("30000");
             
-            BigDecimal discount = BigDecimal.ZERO;
+            // Tính giảm giá theo hạng thành viên
+            User user = userService.findById(userId);
+            int rankDiscountPercent = user != null ? user.getDiscountPercent() : 0;
+            BigDecimal rankDiscount = totalAmount.multiply(BigDecimal.valueOf(rankDiscountPercent)).divide(BigDecimal.valueOf(100));
+
+            BigDecimal discount = rankDiscount;
             BigDecimal finalAmount = totalAmount.add(shippingFee).subtract(discount);
 
             Map<String, Object> response = Map.of(
@@ -273,10 +278,16 @@ public class CheckoutController {
             BigDecimal discountAmount = BigDecimal.ZERO;
             Integer appliedVoucherId = null;
 
+            // Tính giảm giá theo hạng thành viên
+            User userObj = userService.findById(userId);
+            int rankDiscountPercent = userObj != null ? userObj.getDiscountPercent() : 0;
+            BigDecimal rankDiscount = orderTotal.multiply(BigDecimal.valueOf(rankDiscountPercent)).divide(BigDecimal.valueOf(100));
+            discountAmount = discountAmount.add(rankDiscount);
+
             // Xử lý voucher nếu có
             if (voucherCode != null && !voucherCode.isBlank()) {
                 Map<String, Object> voucherResult = voucherService.applyVoucher(voucherCode, orderTotal.doubleValue(), userId);
-                discountAmount = BigDecimal.valueOf((Double) voucherResult.get("discount"));
+                discountAmount = discountAmount.add(BigDecimal.valueOf((Double) voucherResult.get("discount")));
                 appliedVoucherId = (Integer) voucherResult.get("voucherId");
             }
 
@@ -289,12 +300,14 @@ public class CheckoutController {
                 items,
                 discountAmount,
                 shippingFee,
-                cartDetailIds
+                cartDetailIds,
+                rankDiscount
             );
 
             // Tăng số lượt sử dụng voucher nếu có
             if (appliedVoucherId != null) {
                 voucherService.markVoucherAsUsedForUser(appliedVoucherId, userId);
+                checkoutService.updateOrderVoucher(order.getId(), appliedVoucherId);
             }
 
             return ResponseEntity.ok(Map.of(
@@ -330,6 +343,19 @@ public class CheckoutController {
         }
 
         try {
+            // Tính tổng tiền sản phẩm
+            BigDecimal orderTotal = BigDecimal.ZERO;
+            for (Map<String, Object> item : items) {
+                BigDecimal price = new BigDecimal(item.get("price").toString());
+                Integer qty = Integer.parseInt(item.get("quantity").toString());
+                orderTotal = orderTotal.add(price.multiply(new BigDecimal(qty)));
+            }
+
+            // Tính giảm giá theo hạng thành viên
+            User userObj = userService.findById(userId);
+            int rankDiscountPercent = userObj != null ? userObj.getDiscountPercent() : 0;
+            BigDecimal rankDiscount = orderTotal.multiply(BigDecimal.valueOf(rankDiscountPercent)).divide(BigDecimal.valueOf(100));
+
             Order order = checkoutService.checkoutDirectly(
                 userId,
                 customerName != null ? customerName : "Khách Hàng Sách Nói",
@@ -337,7 +363,7 @@ public class CheckoutController {
                 customerAddress != null ? customerAddress : "Digital Delivery, VN",
                 paymentMethod != null ? paymentMethod : "VNPAY",
                 items,
-                BigDecimal.ZERO, // No discount 
+                rankDiscount, // Apply customer rank discount
                 BigDecimal.ZERO  // No shipping fee for audiobook
             );
 
@@ -381,6 +407,7 @@ public class CheckoutController {
             orderInfo.put("totalAmount", order.getTotalAmount());
             orderInfo.put("shippingFee", order.getShippingFee() != null ? order.getShippingFee() : BigDecimal.ZERO);
             orderInfo.put("discountAmount", order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO);
+            orderInfo.put("memberDiscount", order.getMemberDiscount() != null ? order.getMemberDiscount() : BigDecimal.ZERO);
             orderInfo.put("status", order.getStatus());
             orderInfo.put("paymentStatus", order.getPaymentStatus());
             orderInfo.put("customerName", order.getCustomerName());

@@ -71,6 +71,12 @@ public class AuthFilter extends OncePerRequestFilter {
 	            filterChain.doFilter(request, response);
 	            return;
 	        }
+	        //  Bỏ qua debug
+	        if (path.startsWith("/api/chatbot/debug")) {
+	            System.out.println("Skip debug endpoint: " + path);
+	            filterChain.doFilter(request, response);
+	            return;
+	        }
 	     //  Bỏ qua forgot-password và verify-otp endpoints
 	        if (path.startsWith("/api/auth/forgot-password") || 
 	        	    path.startsWith("/api/auth/verify-otp")) {
@@ -124,10 +130,14 @@ public class AuthFilter extends OncePerRequestFilter {
 	                    System.out.println("Username from token: " + username);
 	                    
 	                    if (username != null) {
+	                        Integer userId = (Integer) claims.get("userId");
+	                        if (userId != null) {
+	                            request.setAttribute("userId", userId);
+	                        }
 	                        UsernamePasswordAuthenticationToken authentication = 
 	                            new UsernamePasswordAuthenticationToken(username, null, new java.util.ArrayList<>());
 	                        SecurityContextHolder.getContext().setAuthentication(authentication);
-	                        System.out.println(" Authentication set for: " + username);
+	                        System.out.println(" Authentication set for: " + username + " (ID: " + userId + ")");
 	                    }
 	                } catch (Exception e) {
 	                    System.out.println("Error: " + e.getMessage());

@@ -19,7 +19,7 @@ public class AdminOrderApiController {
 
 	 @Autowired private OrderService orderService;
 
-	 private OrderDTO convertToDTO(Order order) {
+	 private OrderDTO convertToDTO(Order order, String bookType) {
     OrderDTO dto = new OrderDTO();
     dto.setId(order.getId());
     dto.setOrderCode(order.getOrderCode());
@@ -36,6 +36,7 @@ public class AdminOrderApiController {
     dto.setPaymentMethod(order.getPaymentMethod());
     dto.setPaymentStatus(order.getPaymentStatus());
     dto.setCancelReason(order.getCancelReason());
+    dto.setOrderType(order.getOrderType());
     
     boolean isPaidOnlineOrder = "CANCELLED".equals(order.getStatus()) && "PAID".equalsIgnoreCase(order.getPaymentStatus()) 
         && ("VNPAY".equalsIgnoreCase(order.getPaymentMethod()) || "PAYOS".equalsIgnoreCase(order.getPaymentMethod()));
@@ -61,10 +62,10 @@ public class AdminOrderApiController {
 }
 
 	    @GetMapping
-	    public ResponseEntity<?> getAllOrders() {
-	        List<Order> orders = orderService.findAll();
+	    public ResponseEntity<?> getAllOrders(@RequestParam(required = false, defaultValue = "physical") String bookType) {
+	        List<Order> orders = orderService.findAdminOrdersWithPriority(bookType);
 	        List<OrderDTO> dtos = orders.stream()
-	                .map(this::convertToDTO)
+	                .map(order -> convertToDTO(order, bookType))
 	                .collect(Collectors.toList());
 	        return ResponseEntity.ok(dtos);
 	    }
@@ -73,7 +74,7 @@ public class AdminOrderApiController {
 	    public ResponseEntity<?> getOrder(@PathVariable Integer id) {
 	        Order order = orderService.findById(id);
 	        if (order == null) return ResponseEntity.notFound().build();
-	        return ResponseEntity.ok(convertToDTO(order));
+	        return ResponseEntity.ok(convertToDTO(order, null));
 	    }
 
 	    @PutMapping("/{id}/status")

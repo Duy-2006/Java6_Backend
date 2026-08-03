@@ -11,4 +11,8 @@ public class UserprofileDTO {
 	private String email;
 	private String phone;
 	private String avatar;
+	private String customerRank;
+	private Double lifetimeValue;
+	private Double discountPercent;
+	private java.util.List<java.util.Map<String, Object>> recentBooks;
 }

@@ -57,6 +57,12 @@ public class User implements Serializable {
     @Column(name = "reset_otp_expiry")
     private LocalDateTime resetOtpExpiry;  // Thời gian hết hạn OTP
 
+    @Column(name = "lifetime_value", precision = 12, scale = 2)
+    private java.math.BigDecimal lifetimeValue = java.math.BigDecimal.ZERO;
+
+    @Column(name = "customer_rank", length = 20)
+    private String customerRank = "BRONZE";
+
 
     // ===== RELATIONSHIP (QUAN HỆ) =====
     // mappedBy = "user" phải khớp với tên biến 'user' trong class Order
@@ -81,23 +87,32 @@ public class User implements Serializable {
         return role == UserRole.USER;
     }
 
-    // ===== BUSINESS LOGIC (THỐNG KÊ CHI TIÊU) =====
-    public Double getTotalSpending() {
-        if (orders == null || orders.isEmpty()) return 0.0;
-        
-        // Tính tổng tiền các đơn hàng đã hoàn thành
-        return orders.stream()
-                .filter(o -> o.getStatus() != null && "COMPLETED".equalsIgnoreCase(o.getStatus()))
-                .filter(o -> o.getTotalAmount() != null) // Tránh lỗi null pointer
-                .mapToDouble(o -> o.getTotalAmount().doubleValue())
-                .sum();
+    // ===== BUSINESS LOGIC (THỐNG KÊ CHI TIÊU VÀ HẠNG) =====
+    public String calculateRank() {
+        if (lifetimeValue == null) {
+            return "BRONZE";
+        }
+        if (lifetimeValue.compareTo(new java.math.BigDecimal("10000000")) >= 0)
+            return "PLATINUM";
+        if (lifetimeValue.compareTo(new java.math.BigDecimal("5000000")) >= 0)
+            return "GOLD";
+        if (lifetimeValue.compareTo(new java.math.BigDecimal("2000000")) >= 0)
+            return "SILVER";
+        return "BRONZE";
     }
 
-    public String getCustomerType() {
-        double spent = getTotalSpending();
-        if (spent >= 5_000_000) return "VIP (Thân thiết)";
-        if (spent > 0) return "Tiềm năng";
-        return "Khách mới";
+    public int getDiscountPercent() {
+        if (customerRank == null) return 0;
+        switch (customerRank.toUpperCase()) {
+            case "PLATINUM":
+                return 15;
+            case "GOLD":
+                return 10;
+            case "SILVER":
+                return 5;
+            default:
+                return 0;
+        }
     }
 
 	

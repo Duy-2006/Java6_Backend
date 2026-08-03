@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.poly.java5.Entity.Book;
-import com.poly.java5.Entity.Category;
+
 import com.poly.java5.Entity.Promotion;
 import com.poly.java5.Entity.PromotionDetail;
 import com.poly.java5.Repository.BookRepository;
@@ -59,7 +59,8 @@ public class PromotionService {
     @Transactional(readOnly = true)
     public BigDecimal getFinalPrice(Integer bookId) {
         Book book = bookRepository.findById(bookId).orElse(null);
-        if (book == null) return BigDecimal.ZERO; // sách không tồn tại
+        if (book == null)
+            return BigDecimal.ZERO; // sách không tồn tại
 
         BigDecimal originalPrice = book.getPrice();
         if (originalPrice == null || originalPrice.compareTo(BigDecimal.ZERO) <= 0)
@@ -67,13 +68,15 @@ public class PromotionService {
 
         // Lấy tất cả khuyến mãi đang active cho sách này
         List<Promotion> activePromotions = getActivePromotionsForBook(book);
-        if (activePromotions.isEmpty()) return originalPrice; // không có KM → giá gốc
+        if (activePromotions.isEmpty())
+            return originalPrice; // không có KM → giá gốc
 
         // Duyệt từng KM, giữ lại giá thấp nhất
         BigDecimal finalPrice = originalPrice;
         for (Promotion promo : activePromotions) {
             BigDecimal discounted = calculateDiscountedPrice(originalPrice, promo);
-            if (discounted.compareTo(finalPrice) < 0) finalPrice = discounted;
+            if (discounted.compareTo(finalPrice) < 0)
+                finalPrice = discounted;
         }
         return finalPrice;
     }
@@ -86,10 +89,12 @@ public class PromotionService {
     @Transactional(readOnly = true)
     public BigDecimal getMaxDiscountPercentage(Integer bookId) {
         Book book = bookRepository.findById(bookId).orElse(null);
-        if (book == null) return null;
+        if (book == null)
+            return null;
 
         List<Promotion> activePromos = getActivePromotionsForBook(book);
-        if (activePromos.isEmpty()) return null;
+        if (activePromos.isEmpty())
+            return null;
 
         // Lấy discountValue lớn nhất trong danh sách KM active
         return activePromos.stream()
@@ -115,7 +120,8 @@ public class PromotionService {
                 return bookRepository.findAll().stream().limit(5).collect(Collectors.toList());
             } else if ("BOOK".equalsIgnoreCase(promo.getApplyType())) {
                 promo.getDetails().forEach(d -> {
-                    if (d.getBook() != null) bookIds.add(d.getBook().getId());
+                    if (d.getBook() != null)
+                        bookIds.add(d.getBook().getId());
                 });
             } else if ("CATEGORY".equalsIgnoreCase(promo.getApplyType())) {
                 List<Integer> catIds = promo.getDetails().stream()
@@ -136,8 +142,22 @@ public class PromotionService {
     }
 
     // ================================================================
-    // CẬP NHẬT TỒN KHO KHUYẾN MÃI
+    // CẬP NHẬT TỒN KHO KHUYẾN MÃI VÀ KIỂM TRA
     // ================================================================
+
+    public Promotion getBestActivePromotionForBook(Book book) {
+        List<Promotion> activePromos = getActivePromotionsForBook(book);
+        Promotion bestPromo = null;
+        BigDecimal bestDiscount = BigDecimal.ZERO;
+
+        for (Promotion promo : activePromos) {
+            if (promo.getDiscountValue() != null && promo.getDiscountValue().compareTo(bestDiscount) > 0) {
+                bestDiscount = promo.getDiscountValue();
+                bestPromo = promo;
+            }
+        }
+        return bestPromo;
+    }
 
     /**
      * Tăng số lượng đã dùng của khuyến mãi tốt nhất đang áp dụng cho sách.
@@ -146,10 +166,12 @@ public class PromotionService {
     @Transactional
     public void incrementPromotionUsage(Integer bookId, Integer quantity) {
         Book book = bookRepository.findById(bookId).orElse(null);
-        if (book == null) return;
+        if (book == null)
+            return;
 
         List<Promotion> activePromos = getActivePromotionsForBook(book);
-        if (activePromos.isEmpty()) return;
+        if (activePromos.isEmpty())
+            return;
 
         // Tìm khuyến mãi có giảm giá tốt nhất đang được áp dụng
         Promotion bestPromo = null;
@@ -167,7 +189,8 @@ public class PromotionService {
             int newUsed = currentUsed + quantity;
 
             if (bestPromo.getUsageLimit() != null && newUsed > bestPromo.getUsageLimit()) {
-                throw new RuntimeException("Chương trình khuyến mãi '" + bestPromo.getName() + "' đã hết lượt áp dụng.");
+                throw new RuntimeException(
+                        "Chương trình khuyến mãi '" + bestPromo.getName() + "' đã hết lượt áp dụng.");
             }
 
             bestPromo.setUsedCount(newUsed);
@@ -186,12 +209,13 @@ public class PromotionService {
      */
     @Transactional
     public Promotion createPromotion(Promotion promotion,
-                                     List<Integer> bookIds,
-                                     List<Integer> categoryIds) {
-        if (promotion.getDiscountValue() != null && promotion.getDiscountValue().compareTo(BigDecimal.valueOf(50)) > 0) {
+            List<Integer> bookIds,
+            List<Integer> categoryIds) {
+        if (promotion.getDiscountValue() != null
+                && promotion.getDiscountValue().compareTo(BigDecimal.valueOf(50)) > 0) {
             throw new IllegalArgumentException("Mức giảm giá tối đa không được vượt quá 50%");
         }
-        
+
         // null = đang tạo mới, không có KM nào cần bỏ qua khi kiểm tra
         validateNoOverlappingPromotions(promotion, bookIds, categoryIds, null);
 
@@ -212,10 +236,11 @@ public class PromotionService {
      */
     @Transactional
     public Promotion updatePromotion(Promotion promotion,
-                                     List<Integer> bookIds,
-                                     List<Integer> categoryIds) {
+            List<Integer> bookIds,
+            List<Integer> categoryIds) {
 
-        if (promotion.getDiscountValue() != null && promotion.getDiscountValue().compareTo(BigDecimal.valueOf(50)) > 0) {
+        if (promotion.getDiscountValue() != null
+                && promotion.getDiscountValue().compareTo(BigDecimal.valueOf(50)) > 0) {
             throw new IllegalArgumentException("Mức giảm giá tối đa không được vượt quá 50%");
         }
 
@@ -284,51 +309,62 @@ public class PromotionService {
      *
      * @param bookIds            danh sách ID sách cần kiểm tra
      * @param excludePromotionId ID của KM đang sửa (truyền null nếu đang tạo mới)
-     *                           → bỏ qua KM này khi kiểm tra để không tự chặn chính mình
+     *                           → bỏ qua KM này khi kiểm tra để không tự chặn chính
+     *                           mình
      *
-     * Ví dụ: KM #5 đang có sách A → khi sửa KM #5, sách A vẫn hợp lệ
-     *        nhưng nếu sách A đang thuộc KM #3 → báo lỗi
+     *                           Ví dụ: KM #5 đang có sách A → khi sửa KM #5, sách A
+     *                           vẫn hợp lệ
+     *                           nhưng nếu sách A đang thuộc KM #3 → báo lỗi
      */
-    private void validateNoOverlappingPromotions(Promotion newPromo, List<Integer> bookIds, List<Integer> categoryIds, Integer excludePromotionId) {
+    private void validateNoOverlappingPromotions(Promotion newPromo, List<Integer> bookIds, List<Integer> categoryIds,
+            Integer excludePromotionId) {
         boolean newAffectsAll = "ALL".equalsIgnoreCase(newPromo.getApplyType());
         Set<Integer> newAffectedBookIds = new HashSet<>();
-        
+
         if (!newAffectsAll) {
             if ("BOOK".equalsIgnoreCase(newPromo.getApplyType()) && bookIds != null) {
                 newAffectedBookIds.addAll(bookIds);
-            } else if ("CATEGORY".equalsIgnoreCase(newPromo.getApplyType()) && categoryIds != null && !categoryIds.isEmpty()) {
+            } else if ("CATEGORY".equalsIgnoreCase(newPromo.getApplyType()) && categoryIds != null
+                    && !categoryIds.isEmpty()) {
                 List<Book> catBooks = bookRepository.findByCategoryIdIn(categoryIds);
                 catBooks.forEach(b -> newAffectedBookIds.add(b.getId()));
             }
-            if (newAffectedBookIds.isEmpty()) return;
+            if (newAffectedBookIds.isEmpty())
+                return;
         }
 
         List<Promotion> allPromos = promotionRepository.findAll();
 
         for (Promotion existingPromo : allPromos) {
-            if (excludePromotionId != null && existingPromo.getId().equals(excludePromotionId)) continue;
-            if (Boolean.FALSE.equals(existingPromo.getStatus())) continue;
-            
-            if (!isDateOverlapping(newPromo.getStartDate(), newPromo.getEndDate(), existingPromo.getStartDate(), existingPromo.getEndDate())) {
+            if (excludePromotionId != null && existingPromo.getId().equals(excludePromotionId))
+                continue;
+            if (Boolean.FALSE.equals(existingPromo.getStatus()))
+                continue;
+
+            if (!isDateOverlapping(newPromo.getStartDate(), newPromo.getEndDate(), existingPromo.getStartDate(),
+                    existingPromo.getEndDate())) {
                 continue;
             }
 
             boolean existingAffectsAll = "ALL".equalsIgnoreCase(existingPromo.getApplyType());
-            
+
             if (newAffectsAll || existingAffectsAll) {
-                throw new IllegalStateException("Không thể áp dụng khuyến mãi vì trùng lặp thời gian với khuyến mãi Toàn Sàn: \"" + existingPromo.getName() + "\"");
+                throw new IllegalStateException(
+                        "Không thể áp dụng khuyến mãi vì trùng lặp thời gian với khuyến mãi Toàn Sàn: \""
+                                + existingPromo.getName() + "\"");
             }
 
             Set<Integer> existingAffectedBookIds = new HashSet<>();
             if ("BOOK".equalsIgnoreCase(existingPromo.getApplyType())) {
                 existingPromo.getDetails().forEach(d -> {
-                    if (d.getBook() != null) existingAffectedBookIds.add(d.getBook().getId());
+                    if (d.getBook() != null)
+                        existingAffectedBookIds.add(d.getBook().getId());
                 });
             } else if ("CATEGORY".equalsIgnoreCase(existingPromo.getApplyType())) {
                 List<Integer> existingCatIds = existingPromo.getDetails().stream()
-                    .filter(d -> d.getCategory() != null)
-                    .map(d -> d.getCategory().getId())
-                    .collect(Collectors.toList());
+                        .filter(d -> d.getCategory() != null)
+                        .map(d -> d.getCategory().getId())
+                        .collect(Collectors.toList());
                 if (!existingCatIds.isEmpty()) {
                     List<Book> catBooks = bookRepository.findByCategoryIdIn(existingCatIds);
                     catBooks.forEach(b -> existingAffectedBookIds.add(b.getId()));
@@ -338,25 +374,29 @@ public class PromotionService {
             for (Integer bookId : newAffectedBookIds) {
                 if (existingAffectedBookIds.contains(bookId)) {
                     String bookTitle = bookRepository.findById(bookId).map(Book::getTitle).orElse("ID " + bookId);
-                    throw new IllegalStateException("Sách \"" + bookTitle + "\" đã thuộc chương trình khuyến mãi \"" + existingPromo.getName() + "\" trong cùng thời gian.");
+                    throw new IllegalStateException("Sách \"" + bookTitle + "\" đã thuộc chương trình khuyến mãi \""
+                            + existingPromo.getName() + "\" trong cùng thời gian.");
                 }
             }
         }
     }
 
     private boolean isDateOverlapping(LocalDate start1, LocalDate end1, LocalDate start2, LocalDate end2) {
-        if (start1 == null || end1 == null || start2 == null || end2 == null) return true; 
-        if (end1.isBefore(start2)) return false;
-        if (start1.isAfter(end2)) return false;
+        if (start1 == null || end1 == null || start2 == null || end2 == null)
+            return true;
+        if (end1.isBefore(start2))
+            return false;
+        if (start1.isAfter(end2))
+            return false;
         return true;
     }
 
     /**
      * Lấy tất cả khuyến mãi đang active áp dụng cho một cuốn sách.
      * Gồm 3 nguồn:
-     *   1. KM áp dụng trực tiếp cho sách này
-     *   2. KM áp dụng cho category của sách
-     *   3. KM áp dụng cho tất cả sách (applyType = ALL)
+     * 1. KM áp dụng trực tiếp cho sách này
+     * 2. KM áp dụng cho category của sách
+     * 3. KM áp dụng cho tất cả sách (applyType = ALL)
      */
     private List<Promotion> getActivePromotionsForBook(Book book) {
         // Nguồn 1: KM trực tiếp cho sách
@@ -371,11 +411,10 @@ public class PromotionService {
         // Nguồn 3: KM áp dụng toàn bộ sách
         List<Promotion> allPromos = promotionRepository.findActiveAllPromotions();
 
-        // Gộp 3 nguồn lại, loại bỏ trùng lặp và lọc bỏ các khuyến mãi đã hết lượt sử dụng
+        // Gộp 3 nguồn lại, loại bỏ trùng lặp
         return Stream.of(bookPromos, categoryPromos, allPromos)
                 .flatMap(List::stream)
                 .distinct()
-                .filter(p -> p.getUsageLimit() == null || p.getUsedCount() == null || p.getUsedCount() < p.getUsageLimit())
                 .collect(Collectors.toList());
     }
 
@@ -385,7 +424,8 @@ public class PromotionService {
      * Làm tròn đến 2 chữ số thập phân.
      */
     private BigDecimal calculateDiscountedPrice(BigDecimal price, Promotion promo) {
-        if (promo == null || promo.getDiscountValue() == null) return price;
+        if (promo == null || promo.getDiscountValue() == null)
+            return price;
 
         BigDecimal discount = price.multiply(promo.getDiscountValue())
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
@@ -395,32 +435,30 @@ public class PromotionService {
     /**
      * Lưu danh sách sách và category vào bảng PromotionDetail.
      * Mỗi sách / category tạo thành một dòng PromotionDetail riêng.
-     * Dùng khi TẠO MỚI khuyến mãi (update dùng cách khác qua existing.getDetails()).
+     * Dùng khi TẠO MỚI khuyến mãi (update dùng cách khác qua
+     * existing.getDetails()).
      */
     private void savePromotionRelations(Promotion promotion,
-                                        List<Integer> bookIds,
-                                        List<Integer> categoryIds) {
+            List<Integer> bookIds,
+            List<Integer> categoryIds) {
         List<PromotionDetail> details = new ArrayList<>();
 
         // Tạo detail cho từng sách
-        Optional.ofNullable(bookIds).orElse(List.of()).forEach(id ->
-                bookRepository.findById(id).ifPresent(book -> {
-                    PromotionDetail detail = new PromotionDetail();
-                    detail.setPromotion(promotion);
-                    detail.setBook(book);
-                    details.add(detail);
-                })
-        );
+        Optional.ofNullable(bookIds).orElse(List.of()).forEach(id -> bookRepository.findById(id).ifPresent(book -> {
+            PromotionDetail detail = new PromotionDetail();
+            detail.setPromotion(promotion);
+            detail.setBook(book);
+            details.add(detail);
+        }));
 
         // Tạo detail cho từng category
-        Optional.ofNullable(categoryIds).orElse(List.of()).forEach(id ->
-                categoryRepository.findById(id).ifPresent(cat -> {
+        Optional.ofNullable(categoryIds).orElse(List.of())
+                .forEach(id -> categoryRepository.findById(id).ifPresent(cat -> {
                     PromotionDetail detail = new PromotionDetail();
                     detail.setPromotion(promotion);
                     detail.setCategory(cat);
                     details.add(detail);
-                })
-        );
+                }));
 
         // Lưu tất cả một lần (batch insert)
         if (!details.isEmpty()) {

@@ -7,6 +7,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import jakarta.servlet.http.HttpServletResponse;
 import com.poly.java5.DTO.CreatePaymentRequestDTO;
 import com.poly.java5.DTO.PaymentResponseDTO;
 import com.poly.java5.Entity.PaymentOrder;
@@ -46,12 +49,18 @@ public class PayOsController {
                 
             int amount = Integer.parseInt(orderData.get("amount").toString());
             String description = (String) orderData.get("description");
+            // Determine base URL of this backend server
+            String baseUrl = "http://localhost:8080";
+            try {
+                baseUrl = org.springframework.web.servlet.support.ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+            } catch (Exception ex) {}
+
             String returnUrl = orderData.containsKey("returnUrl") 
                 ? (String) orderData.get("returnUrl") 
-                : (frontendUrl + "/user/orders/" + orderCode + "/success");
+                : (baseUrl + "/api/pay-os/return");
             String cancelUrl = orderData.containsKey("cancelUrl") 
                 ? (String) orderData.get("cancelUrl") 
-                : (frontendUrl + "/user/checkout");
+                : (baseUrl + "/api/pay-os/return");
 
             CreatePaymentRequestDTO req = CreatePaymentRequestDTO.builder()
                 .orderCode(orderCode)
@@ -99,5 +108,54 @@ public class PayOsController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
+    }
+
+    // ③ Xử lý khi user quay lại từ trang PayOS
+    @GetMapping("/return")
+    public void payosReturn(@RequestParam Map<String, String> params, HttpServletResponse response) throws java.io.IOException {
+        String code = params.get("code");
+        String orderCodeStr = params.get("orderCode");
+        String status = params.get("status");
+
+        if (orderCodeStr == null) {
+            response.sendRedirect(frontendUrl + "/user/checkout");
+            return;
+        }
+
+        Long orderCode = Long.parseLong(orderCodeStr);
+        String redirectUrl = frontendUrl + "/user/checkout";
+
+        if ("00".equals(code) || "PAID".equals(status)) {
+            paymentOrderRepository.updateStatusByOrderCode(orderCode, PaymentOrder.PaymentStatus.PAID);
+            
+            try {
+                checkoutService.updatePaymentStatus(orderCode.intValue(), "PAID", "PAYOS-" + orderCode);
+                
+                // Get the order to determine where to redirect
+                com.poly.java5.Entity.Order order = checkoutService.getOrderById(orderCode.intValue());
+                if (order != null && "audio".equalsIgnoreCase(order.getOrderType())) {
+                    if (order.getOrderDetails() != null && !order.getOrderDetails().isEmpty()) {
+                        Integer bookId = order.getOrderDetails().iterator().next().getBook().getId();
+                        redirectUrl = String.format("%s/user/books/%s/audiobook?payment=success", frontendUrl, bookId);
+                    } else {
+                        redirectUrl = String.format("%s/user/orders/%s/success", frontendUrl, orderCode);
+                    }
+                } else {
+                    redirectUrl = String.format("%s/user/orders/%s/success", frontendUrl, orderCode);
+                }
+            } catch (Exception ex) {
+                System.err.println("Không thể cập nhật Order ID " + orderCode + ": " + ex.getMessage());
+                redirectUrl = String.format("%s/user/orders/%s/success", frontendUrl, orderCode);
+            }
+        } else {
+            // failed or cancelled
+            try {
+                checkoutService.updatePaymentStatus(orderCode.intValue(), "FAILED", "PAYOS-" + orderCode);
+            } catch (Exception ex) {
+            }
+            redirectUrl = frontendUrl + "/user/checkout";
+        }
+        
+        response.sendRedirect(redirectUrl);
     }
 }

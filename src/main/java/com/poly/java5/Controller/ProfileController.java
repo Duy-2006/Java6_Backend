@@ -11,6 +11,15 @@ import com.poly.java5.Service.UserService;
 import com.poly.java5.Utils.AuthUtil;
 
 import lombok.RequiredArgsConstructor;
+import com.poly.java5.Repository.OrderRepository;
+import com.poly.java5.Entity.Order;
+import com.poly.java5.Entity.OrderDetail;
+
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,6 +34,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProfileController {
 	 @Autowired private UserService userService;
+	 @Autowired private OrderRepository orderRepository;
 
 	 private static final String UPLOAD_DIR = "src/main/resources/static/uploads/avatars/";
 
@@ -41,6 +51,44 @@ public class ProfileController {
 	            dto.setEmail(user.getEmail());
 	            dto.setPhone(user.getPhone());
 	            dto.setAvatar(user.getAvatar() != null ? user.getAvatar() : "");
+	            dto.setCustomerRank(user.getCustomerRank());
+	            
+	            // Calculate lifetimeValue dynamically
+	            List<Order> orders = orderRepository.findByUserIdOrderByOrderDateDesc(user.getId());
+	            double calculatedLifetime = 0.0;
+	            List<Map<String, Object>> recentBooks = new ArrayList<>();
+	            
+	            for (Order o : orders) {
+	                if ("COMPLETED".equals(o.getStatus())) {
+	                    calculatedLifetime += (o.getTotalAmount() != null ? o.getTotalAmount().doubleValue() : 0.0) 
+                                            + (o.getShippingFee() != null ? o.getShippingFee().doubleValue() : 0.0);
+	                }
+	                
+	                // Extract books from orders for recent books
+	                if (recentBooks.size() < 4 && o.getOrderDetails() != null) {
+	                    for (OrderDetail od : o.getOrderDetails()) {
+	                        if (recentBooks.size() >= 4) break;
+	                        
+	                        // Avoid duplicates
+	                        boolean exists = recentBooks.stream().anyMatch(b -> b.get("id").equals(od.getBook().getId()));
+	                        if (!exists) {
+	                            Map<String, Object> bookMap = new HashMap<>();
+	                            bookMap.put("id", od.getBook().getId());
+	                            bookMap.put("title", od.getBook().getTitle());
+	                            bookMap.put("imageUrl", od.getBook().getImageUrl());
+	                            
+	                            long daysAgo = ChronoUnit.DAYS.between(o.getOrderDate(), LocalDateTime.now());
+	                            bookMap.put("purchasedDaysAgo", daysAgo);
+	                            
+	                            recentBooks.add(bookMap);
+	                        }
+	                    }
+	                }
+	            }
+	            
+	            dto.setLifetimeValue(calculatedLifetime);
+	            dto.setDiscountPercent((double) user.getDiscountPercent());
+	            dto.setRecentBooks(recentBooks);
 
 	            return ResponseEntity.ok(dto);
 	        } catch (Exception e) {

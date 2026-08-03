@@ -22,7 +22,6 @@ public class PromotionDetail {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "promotion_id")
-    @com.fasterxml.jackson.annotation.JsonBackReference
     private Promotion promotion;
 
     @ManyToOne

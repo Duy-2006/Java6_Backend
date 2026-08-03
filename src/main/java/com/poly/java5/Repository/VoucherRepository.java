@@ -26,7 +26,7 @@ public interface VoucherRepository extends JpaRepository<Voucher, Integer> {
         WHERE v.active = true
           AND v.startDate <= :today
           AND v.endDate   >= :today
-          AND v.usedCount  < v.usageLimit
+          AND (v.usageLimit <= 0 OR v.usedCount < v.usageLimit)
         """)
     List<Voucher> findActiveVouchers(@Param("today") LocalDate today);
 
@@ -37,7 +37,7 @@ public interface VoucherRepository extends JpaRepository<Voucher, Integer> {
           AND v.active    = true
           AND v.startDate <= :today
           AND v.endDate   >= :today
-          AND v.usedCount  < v.usageLimit
+          AND (v.usageLimit <= 0 OR v.usedCount < v.usageLimit)
           AND v.minOrderValue <= :orderAmount
         """)
     Optional<Voucher> findValidVoucher(

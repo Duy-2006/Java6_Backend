@@ -36,6 +36,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final BookFormatRepository bookFormatRepository;
     private final UserLibraryRepository userLibraryRepo;
+    private final UserService userService;
 
     @PersistenceContext
     private EntityManager em;
@@ -78,11 +79,8 @@ public class OrderService {
     //  DANH SÁCH ĐƠN HÀNG CỦA USER
     // ─────────────────────────────────────────────
     @Transactional(readOnly = true)
-    public List<Order> findOrdersByUser(Integer userId, String status) {
-        if (status == null || status.isBlank()) {
-            return orderRepository.findByUserIdOrderByOrderDateDesc(userId);
-        }
-        return orderRepository.findByUserIdAndStatusOrderByOrderDateDesc(userId, status);
+    public List<Order> findOrdersByUser(Integer userId, String status, String bookType) {
+        return orderRepository.findOrdersByType(userId, status, bookType);
     }
 
     // ─────────────────────────────────────────────
@@ -101,16 +99,26 @@ public class OrderService {
     }
 
     // ─────────────────────────────────────────────
-    //  TẤT CẢ ĐƠN HÀNG (dành cho admin)
+    //  TẤT CẢ ĐƠN HÀNG (dành cho admin) - CÓ SẮP XẾP PENDING TRƯỚC VÀ LỌC THEO TYPE
     // ─────────────────────────────────────────────
     @Transactional(readOnly = true)
-    public List<Order> findAll() {
-        return em.createQuery(
-                "SELECT DISTINCT o FROM Order o " +
-                "LEFT JOIN FETCH o.orderDetails od " +
-                "LEFT JOIN FETCH od.book " +
-                "ORDER BY o.orderDate DESC", Order.class)
-                .getResultList();
+    public List<Order> findAdminOrdersWithPriority(String bookType) {
+        List<Order> orders = orderRepository.findAdminOrdersByTypeWithPriority(bookType);
+        // Sort in Java: PENDING first, then by orderDate (oldest first for PENDING, newest first for others)
+        orders.sort((o1, o2) -> {
+            boolean isPending1 = "PENDING".equals(o1.getStatus());
+            boolean isPending2 = "PENDING".equals(o2.getStatus());
+            
+            if (isPending1 && !isPending2) return -1;
+            if (!isPending1 && isPending2) return 1;
+            
+            if (isPending1 && isPending2) {
+                return o1.getOrderDate().compareTo(o2.getOrderDate());
+            }
+            
+            return o2.getOrderDate().compareTo(o1.getOrderDate());
+        });
+        return orders;
     }
 
     // ─────────────────────────────────────────────
@@ -208,6 +216,9 @@ public class OrderService {
         order.setCompletedAt(LocalDateTime.now());
         order.setPaymentStatus("PAID");
         orderRepository.save(order);
+        
+        // Tính lại hạng thành viên
+        userService.recalculateCustomerRank(order.getUser().getId());
 
         try {
             unlockAudiobooksForOrder(order);
@@ -227,6 +238,9 @@ public class OrderService {
         order.setCompletedAt(LocalDateTime.now());
         order.setPaymentStatus("PAID");
         orderRepository.save(order);
+        
+        // Tính lại hạng thành viên
+        userService.recalculateCustomerRank(order.getUser().getId());
 
         try {
             unlockAudiobooksForOrder(order);
@@ -312,7 +326,8 @@ public class OrderService {
                 book != null ? book.getTitle() : null,
                 detail.getQuantity(),
                 detail.getPrice(),
-                book != null ? book.getImageUrl() : null
+                book != null ? book.getImageUrl() : null,
+                detail.getOrder() != null ? detail.getOrder().getOrderType() : "physical"
         );
     }
 }

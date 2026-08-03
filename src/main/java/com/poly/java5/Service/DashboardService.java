@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.poly.java5.Repository.OrderDetailRepository;
@@ -40,11 +39,10 @@ public class DashboardService {
         data.put("cancelledOrders", orderRepository.countCancelledOrders());
 
         // top sách bán chạy
-        List<Object[]> rawTopBooks =
-                orderDetailRepository.findBestSellerBooks();
+        List<Object[]> rawTopBooks = orderDetailRepository.findBestSellerBooks();
 
-        List<Map<String,Object>> topBooks = rawTopBooks.stream().map(o -> {
-            Map<String,Object> book = new HashMap<>();
+        List<Map<String, Object>> topBooks = rawTopBooks.stream().map(o -> {
+            Map<String, Object> book = new HashMap<>();
             book.put("bookId", o[0]);
             book.put("title", o[1]);
             book.put("sold", o[2]);

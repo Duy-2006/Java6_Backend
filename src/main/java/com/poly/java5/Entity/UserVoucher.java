@@ -23,9 +23,10 @@ public class UserVoucher {
 	    @JoinColumn(name = "voucher_id", nullable = false)
 	    private Voucher voucher;
 
-	    @Column(nullable = false)
+	    @Column(name = "is_used", nullable = false)
 	    private Boolean isUsed = false;
 
+	    @Column(name = "used_date")
 	    private LocalDateTime usedDate;
 
 	    @PrePersist

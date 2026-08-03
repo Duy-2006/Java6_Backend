@@ -6,7 +6,7 @@ import java.util.Map;
 
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;          // ✅ đúng, bỏ import tomcat
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -35,7 +35,7 @@ public class PayOSService {
         Map<String, Object> data = callPayOSApi(req); // ✅ đã có method bên dưới
 
         String checkoutUrl = (String) data.get("checkoutUrl");
-        String qrCode      = (String) data.get("qrCode");
+        String qrCode = (String) data.get("qrCode");
 
         // Lưu vào DB
         PaymentOrder order = PaymentOrder.builder()
@@ -56,23 +56,23 @@ public class PayOSService {
 
         // Dữ liệu để tính signature (sắp xếp theo alphabet)
         Map<String, Object> signData = new LinkedHashMap<>();
-        signData.put("amount",      req.getAmount());
-        signData.put("cancelUrl",   req.getCancelUrl());
+        signData.put("amount", req.getAmount());
+        signData.put("cancelUrl", req.getCancelUrl());
         signData.put("description", req.getDescription());
-        signData.put("orderCode",   req.getOrderCode());
-        signData.put("returnUrl",   req.getReturnUrl());
+        signData.put("orderCode", req.getOrderCode());
+        signData.put("returnUrl", req.getReturnUrl());
 
         String signature = signatureUtil.computeSignature(signData, config.getChecksumKey());
 
         // Request body gửi lên PayOS
         Map<String, Object> body = new HashMap<>(signData);
-        body.put("items",     req.getItems());
+        body.put("items", req.getItems());
         body.put("signature", signature);
 
         // Headers
         HttpHeaders headers = new HttpHeaders();
         headers.set("x-client-id", config.getClientId());
-        headers.set("x-api-key",   config.getApiKey());
+        headers.set("x-api-key", config.getApiKey());
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
@@ -81,14 +81,13 @@ public class PayOSService {
         ResponseEntity<Map> response = restTemplate.postForEntity(
                 config.getBaseUrl() + "/v2/payment-requests",
                 entity,
-                Map.class
-        );
+                Map.class);
 
         // PayOS trả về: { code, desc, data: { checkoutUrl, qrCode, ... } }
         Map<String, Object> responseBody = response.getBody();
         if (responseBody == null || !"00".equals(responseBody.get("code"))) {
-            throw new RuntimeException("PayOS lỗi: " + 
-                (responseBody != null ? responseBody.get("desc") : "Không có phản hồi"));
+            throw new RuntimeException("PayOS lỗi: " +
+                    (responseBody != null ? responseBody.get("desc") : "Không có phản hồi"));
         }
 
         return (Map<String, Object>) responseBody.get("data");

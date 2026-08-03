@@ -187,4 +187,43 @@ public class CategoryApiController {
 			return ResponseEntity.badRequest().body("Không thể xóa thể loại đang có sách!");
 		}
 	}
+    
+    @Autowired
+    private com.poly.java5.Service.OrderService debugOrderService;
+    
+    @GetMapping("/debug/orders")
+    public ResponseEntity<?> debugOrders() {
+        try {
+            return ResponseEntity.ok(debugOrderService.findAdminOrdersWithPriority(null).stream()
+                    .map(o -> java.util.Map.of("id", o.getId(), "orderCode", o.getOrderCode(), "orderType", o.getOrderType() != null ? o.getOrderType() : "NULL"))
+                    .collect(Collectors.toList()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(e.getMessage() != null ? e.getMessage() : e.toString());
+        }
+    }
+
+    @GetMapping("/debug/user-orders")
+    public ResponseEntity<?> debugUserOrders(@RequestParam Integer userId, @RequestParam String bookType, @RequestParam(required = false) String status) {
+        try {
+            return ResponseEntity.ok(debugOrderService.findOrdersByUser(userId, status, bookType).stream()
+                    .map(o -> java.util.Map.of("id", o.getId(), "orderCode", o.getOrderCode(), "orderType", o.getOrderType() != null ? o.getOrderType() : "NULL"))
+                    .collect(Collectors.toList()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/debug/real-orders")
+    public ResponseEntity<?> debugRealOrders(@RequestParam Integer userId, @RequestParam(required = false) String bookType, @RequestParam(required = false) String status) {
+        try {
+            return ResponseEntity.ok(debugOrderService.findOrdersByUser(userId, status, bookType).stream()
+                    .map(o -> java.util.Map.of("id", o.getId(), "orderCode", o.getOrderCode(), "orderType", o.getOrderType() != null ? o.getOrderType() : "NULL"))
+                    .collect(Collectors.toList()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(e.getMessage());
+        }
+    }
+
 }

@@ -95,10 +95,16 @@ public class AdminPromotionApiController {
 	    // ================= LIST =================
 	    @GetMapping
 	    @org.springframework.transaction.annotation.Transactional(readOnly = true)
-	    public List<PromotionDTO> getAll() {
-	        return promotionService.getAll().stream()
-	                .map(this::toDTO)
-	                .toList();
+	    public ResponseEntity<?> getAll() {
+	        try {
+	            List<PromotionDTO> list = promotionService.getAll().stream()
+	                    .map(this::toDTO)
+	                    .toList();
+	            return ResponseEntity.ok(list);
+	        } catch (Exception e) {
+	            e.printStackTrace();
+	            return ResponseEntity.status(500).body(java.util.Map.of("error", e.toString(), "cause", e.getCause() != null ? e.getCause().toString() : "null"));
+	        }
 	    }
 
 	    // ================= DETAIL =================

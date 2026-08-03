@@ -7,13 +7,12 @@ import com.poly.java5.Utils.Utils;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.Query;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +27,9 @@ public class UserService implements UserDetailsService {
 	private EntityManager manager;
 	@Autowired
 	private UserRepository userRepository; // ← thêm dòng này, bỏ dòng kia
-	
-	 @Autowired
-	    private EmailService emailService; // Thêm EmailService
+
+	@Autowired
+	private EmailService emailService; // Thêm EmailService
 
 	@Transactional
 	public Map<String, String> register(User user) {
@@ -174,24 +173,41 @@ public class UserService implements UserDetailsService {
 		return userRepository.findByRole(role);
 	}
 
-	 // Toggle active bằng query trực tiếp (tối ưu hơn) - ĐÃ SỬA ĐỂ GỬI EMAIL
+	// Toggle active bằng query trực tiếp (tối ưu hơn) - ĐÃ SỬA ĐỂ GỬI EMAIL
 	@Transactional
-    public void toggleActive(String username) {
-        User user = findByUsername(username);
-        if (user == null) {
-            throw new RuntimeException("Không tìm thấy user: " + username);
-        }
-        boolean newStatus = !Boolean.TRUE.equals(user.getActive());
-        user.setActive(newStatus);
-        userRepository.save(user);
+	public void toggleActive(String username) {
+		User user = findByUsername(username);
+		if (user == null) {
+			throw new RuntimeException("Không tìm thấy user: " + username);
+		}
+		boolean newStatus = !Boolean.TRUE.equals(user.getActive());
+		user.setActive(newStatus);
+		userRepository.save(user);
 
-        // Gửi email thông báo (tránh lỗi SMTP làm rollback transaction)
-        if (user.getEmail() != null && !user.getEmail().isEmpty()) {
-            try {
-                emailService.sendSimpleEmail(user.getEmail(), user.getUsername(), newStatus);
-            } catch (Exception e) {
-                System.err.println("Loi gui email thong bao trang thai tai khoan: " + e.getMessage());
-            }
-        }
-    }
+		// Gửi email thông báo (tránh lỗi SMTP làm rollback transaction)
+		if (user.getEmail() != null && !user.getEmail().isEmpty()) {
+			try {
+				emailService.sendSimpleEmail(user.getEmail(), user.getUsername(), newStatus);
+			} catch (Exception e) {
+				System.err.println("Loi gui email thong bao trang thai tai khoan: " + e.getMessage());
+			}
+		}
+	}
+
+	// Tự động tính toán và cập nhật hạng khách hàng
+	@Transactional
+	public void recalculateCustomerRank(Integer userId) {
+		User user = findById(userId);
+		if (user == null) return;
+
+		String jpql = "SELECT COALESCE(SUM(o.totalAmount + COALESCE(o.shippingFee, 0)), 0) FROM Order o WHERE o.user.id = :userId AND o.status = 'COMPLETED'";
+		java.math.BigDecimal totalSpent = manager.createQuery(jpql, java.math.BigDecimal.class)
+				.setParameter("userId", userId)
+				.getSingleResult();
+
+		user.setLifetimeValue(totalSpent);
+		user.setCustomerRank(user.calculateRank());
+		manager.merge(user);
+		System.out.println("✅ Đã cập nhật hạng khách hàng cho User ID " + userId + " -> " + user.getCustomerRank() + " (Tổng chi tiêu: " + totalSpent + ")");
+	}
 }

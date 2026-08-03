@@ -21,9 +21,11 @@ public class OrderDTO {
 	    private String paymentMethod;        
 	    private String paymentStatus;    
 	    private String cancelReason;
+	    private String orderType;
 	    private List<OrderDetailDTO> orderDetails;
 	    private java.math.BigDecimal discountAmount;
 	    private java.math.BigDecimal shippingFee;
+	    private java.math.BigDecimal memberDiscount;
 	    private boolean requiresManualRefundContact;
 	    private String refundContactMessage;
 }

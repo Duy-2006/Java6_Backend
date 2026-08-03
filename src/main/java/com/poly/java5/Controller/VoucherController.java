@@ -23,6 +23,7 @@ public class VoucherController {
 	private final VoucherService voucherService;
 	private final UserVoucherService userVoucherService;
 	private final UserService userService; // giả định có UserService
+	private final com.poly.java5.Repository.OrderRepository orderRepository;
 
 	// Helper lấy user hiện tại
 	private User getCurrentUser() {
@@ -41,6 +42,23 @@ public class VoucherController {
 	public ResponseEntity<List<VoucherResponseDTO>> getAllVouchers() {
 		List<VoucherResponseDTO> responses = voucherService.findAll().stream().map(this::toResponse)
 				.collect(Collectors.toList());
+		return ResponseEntity.ok(responses);
+	}
+
+	@GetMapping("/admin/{id}/orders")
+	public ResponseEntity<List<Map<String, Object>>> getOrdersByVoucherId(@PathVariable Integer id) {
+		List<com.poly.java5.Entity.Order> orders = orderRepository.findByVoucherIdOrderByOrderDateDesc(id);
+		List<Map<String, Object>> responses = orders.stream().map(o -> {
+			Map<String, Object> map = new java.util.HashMap<>();
+			map.put("id", o.getId());
+			map.put("orderCode", o.getOrderCode());
+			map.put("customerName", o.getCustomerName());
+			map.put("totalAmount", o.getTotalAmount());
+			map.put("shippingFee", o.getShippingFee());
+			map.put("status", o.getStatus());
+			map.put("orderDate", o.getOrderDate());
+			return map;
+		}).collect(Collectors.toList());
 		return ResponseEntity.ok(responses);
 	}
 

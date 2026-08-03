@@ -14,7 +14,7 @@ public class GeminiConfig {
     @Value("${google.api.key:}")
     private String apiKey;
 
-    @Value("${gemini.chat.model:gemini-3.5-flash-lite}")
+    @Value("${gemini.chat.model:gemini-1.5-flash}")
     private String chatModelName;
 
     @Value("${gemini.embedding.model:text-embedding-004}")
@@ -29,6 +29,7 @@ public class GeminiConfig {
                 .apiKey(apiKey)
                 .modelName(chatModelName)
                 .temperature(0.2)
+                .timeout(java.time.Duration.ofSeconds(15))
                 .build();
     }
 

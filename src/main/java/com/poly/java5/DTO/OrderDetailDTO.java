@@ -14,4 +14,5 @@ public class OrderDetailDTO {
     private Integer quantity;
     private BigDecimal price;
     private String bookImageUrl;
+    private String bookType;
 }

@@ -71,7 +71,8 @@ public class Promotion {
 	        LocalDate today = LocalDate.now();
 	        if (today.isBefore(startDate))  return "UPCOMING";
 	        if (today.isAfter(endDate))     return "EXPIRED";
-	        if (usageLimit != null && usedCount >= usageLimit) return "EXPIRED"; // Hoặc OUT_OF_STOCK
+	        int currentUsed = usedCount != null ? usedCount : 0;
+	        if (usageLimit != null && currentUsed >= usageLimit) return "EXPIRED";
 	        return "ACTIVE";
 	    }
 
@@ -81,7 +82,6 @@ public class Promotion {
 
 	    // chi tiết áp dụng cho sách / thể loại
 	    @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true)
-	    @com.fasterxml.jackson.annotation.JsonManagedReference
 	    private List<PromotionDetail> details = new ArrayList<>();
 	    
 

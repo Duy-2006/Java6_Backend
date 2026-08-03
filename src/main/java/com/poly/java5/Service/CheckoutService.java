@@ -17,6 +17,7 @@ import com.poly.java5.Entity.OrderDetail;
 import com.poly.java5.Entity.CartDetail;
 import com.poly.java5.Entity.User;
 import com.poly.java5.Entity.UserLibrary;
+import com.poly.java5.Entity.Promotion;
 import com.poly.java5.Repository.UserLibraryRepository;
 import com.poly.java5.Repository.BookFormatRepository;
 
@@ -40,8 +41,11 @@ public class CheckoutService {
 	
 	private final UserLibraryRepository userLibraryRepo;
 	private final BookFormatRepository bookFormatRepository;
+	private final UserService userService;
 
 	private final PromotionService promotionService;
+	private final VoucherService voucherService;
+	private final com.poly.java5.Repository.OrderRepository orderRepository;
 
 	// ================= 1. TẠO MÃ ĐƠN HÀNG =================
 	private String generateOrderCode() {
@@ -135,7 +139,7 @@ public class CheckoutService {
 	// ================= 5. CHECKOUT MỚI – HỖ TRỢ GIÁ KHUYẾN MÃI =================
 	@Transactional
 	public Order checkout(Integer userId, String customerName, String phone, String address, 
-	                      String paymentMethod, List<Map<String, Object>> requestItems, BigDecimal discountAmount, BigDecimal shippingFee, List<Integer> cartDetailIds) {
+	                      String paymentMethod, List<Map<String, Object>> requestItems, BigDecimal discountAmount, BigDecimal shippingFee, List<Integer> cartDetailIds, BigDecimal memberDiscount) {
 		log.info("========== START CHECKOUT (with discounted prices) ==========");
 		log.info("User ID: {}", userId);
 		log.info("Customer: {} - {} - {}", customerName, phone, address);
@@ -177,7 +181,9 @@ public class CheckoutService {
 				.totalAmount(BigDecimal.ZERO)
 				.shippingFee(shippingFee)
 				.discountAmount(discountAmount)
+				.memberDiscount(memberDiscount != null ? memberDiscount : BigDecimal.ZERO)
 				.orderDate(LocalDateTime.now())
+				.orderType("physical")
 				.build();
 		em.persist(order);
 		log.info("Order created: ID={}, Code={}", order.getId(), order.getOrderCode());
@@ -196,6 +202,20 @@ public class CheckoutService {
 			}
 			if (book.getQuantity() < quantity) {
 				throw new RuntimeException("Không đủ hàng: " + book.getTitle() + ". Còn " + book.getQuantity() + " cuốn");
+			}
+
+			// KIỂM TRA MỖI TÀI KHOẢN CHỈ ĐƯỢC MUA SÁCH KHUYẾN MÃI 1 LẦN TRONG ĐỢT
+			if (price.compareTo(book.getPrice()) < 0) {
+				// Sách này đang mua với giá giảm (Flash Sale)
+				Promotion bestPromo = promotionService.getBestActivePromotionForBook(book);
+				if (bestPromo != null && bestPromo.getStartDate() != null && bestPromo.getEndDate() != null) {
+					LocalDateTime start = bestPromo.getStartDate().atStartOfDay();
+					LocalDateTime end = bestPromo.getEndDate().atTime(23, 59, 59);
+					boolean hasPurchased = orderRepository.hasPurchasedBookDuringPromotion(userId, bookId, start, end);
+					if (hasPurchased) {
+						throw new RuntimeException("Mỗi tài khoản chỉ được mua 1 lần cho sách '" + book.getTitle() + "' trong đợt khuyến mãi này.");
+					}
+				}
 			}
 
 			// Trừ kho
@@ -259,7 +279,9 @@ public class CheckoutService {
 				.totalAmount(BigDecimal.ZERO)
 				.shippingFee(shippingFee)
 				.discountAmount(discountAmount)
+				.memberDiscount(discountAmount != null ? discountAmount : BigDecimal.ZERO) // For direct checkout, all discount is rank discount
 				.orderDate(LocalDateTime.now())
+				.orderType("audio")
 				.build();
 		em.persist(order);
 
@@ -271,6 +293,20 @@ public class CheckoutService {
 
 			Book book = em.find(Book.class, bookId);
 			if (book == null) throw new RuntimeException("Sách không tồn tại, ID: " + bookId);
+
+			// KIỂM TRA MỖI TÀI KHOẢN CHỈ ĐƯỢC MUA SÁCH KHUYẾN MÃI 1 LẦN TRONG ĐỢT
+			if (price.compareTo(book.getPrice()) < 0) {
+				// Sách này đang mua với giá giảm (Flash Sale)
+				Promotion bestPromo = promotionService.getBestActivePromotionForBook(book);
+				if (bestPromo != null && bestPromo.getStartDate() != null && bestPromo.getEndDate() != null) {
+					LocalDateTime start = bestPromo.getStartDate().atStartOfDay();
+					LocalDateTime end = bestPromo.getEndDate().atTime(23, 59, 59);
+					boolean hasPurchased = orderRepository.hasPurchasedBookDuringPromotion(userId, bookId, start, end);
+					if (hasPurchased) {
+						throw new RuntimeException("Mỗi tài khoản chỉ được mua 1 lần cho sách '" + book.getTitle() + "' trong đợt khuyến mãi này.");
+					}
+				}
+			}
 
 			OrderDetail od = OrderDetail.builder()
 					.order(order)
@@ -291,6 +327,16 @@ public class CheckoutService {
 		
 		log.info("========== DIRECT CHECKOUT COMPLETED ==========");
 		return order;
+	}
+
+	@Transactional
+	public void updateOrderVoucher(Integer orderId, Integer voucherId) {
+		Order order = em.find(Order.class, orderId);
+		com.poly.java5.Entity.Voucher voucher = em.find(com.poly.java5.Entity.Voucher.class, voucherId);
+		if (order != null && voucher != null) {
+			order.setVoucher(voucher);
+			em.merge(order);
+		}
 	}
 
 	// ================= 6. LẤY ĐƠN HÀNG THEO ID =================
@@ -327,8 +373,9 @@ public class CheckoutService {
 		if (order == null) throw new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId);
 		order.setPaymentStatus(paymentStatus);
 		if ("PAID".equals(paymentStatus)) {
-			order.setStatus("PENDING");
-			unlockAudiobooksForOrder(order, false);
+			boolean isAudioOrder = "audio".equalsIgnoreCase(order.getOrderType());
+			order.setStatus(isAudioOrder ? "COMPLETED" : "PENDING");
+			unlockAudiobooksForOrder(order, isAudioOrder);
 		} else if ("FAILED".equals(paymentStatus)) {
 			order.setStatus("CANCELLED");
 		}
@@ -366,6 +413,7 @@ public class CheckoutService {
 			unlockAudiobooksForOrder(order, isAudiobook);
 		} else if ("FAILED".equals(paymentStatus)) {
 			order.setStatus("CANCELLED");
+			rollbackVoucherForOrder(order);
 			// Hoàn kho nếu bị hủy
 			List<OrderDetail> orderDetails = getOrderDetails(orderId);
 			for (OrderDetail od : orderDetails) {
@@ -384,29 +432,13 @@ public class CheckoutService {
 	private void unlockAudiobooksForOrder(Order order, boolean isAudiobook) {
 		if (order == null || order.getUser() == null) return;
 		List<OrderDetail> orderDetails = getOrderDetails(order.getId());
-		boolean hasPhysical = false;
-		String addr = order.getCustomerAddress();
-		boolean isDigitalOrder = isAudiobook 
-				|| (addr != null && (addr.contains("Digital Delivery") || addr.contains("Sách nói")));
 		
 		for (OrderDetail od : orderDetails) {
 			Book book = od.getBook();
 			BookFormat audioVariant = bookFormatRepository.findByBookIdAndFormatType(book.getId(), "AUDIO").orElse(null);
 			if (audioVariant != null) {
-				boolean isPurchasedAsAudio = isDigitalOrder || od.getPrice().compareTo(audioVariant.getPrice()) == 0;
-				if (isPurchasedAsAudio) {
-					unlockSingleAudiobook(order.getUser(), book, audioVariant);
-				} else {
-					hasPhysical = true;
-				}
-			} else {
-				hasPhysical = true;
+				unlockSingleAudiobook(order.getUser(), book, audioVariant);
 			}
-		}
-		
-		// Nếu đơn hàng không có sản phẩm vật lý nào, tự động hoàn thành đơn hàng luôn
-		if (!hasPhysical && ("CONFIRMED".equals(order.getStatus()) || "PENDING".equals(order.getStatus()))) {
-			order.setStatus("COMPLETED");
 		}
 	}
 
@@ -424,16 +456,29 @@ public class CheckoutService {
 		}
 	}
 
+	private void rollbackVoucherForOrder(Order order) {
+		if (order != null && order.getVoucher() != null && order.getUser() != null) {
+			voucherService.rollbackVoucherUsage(order.getVoucher().getId(), order.getUser().getId());
+			log.info("Rolled back voucher usage for order: {}", order.getId());
+		}
+	}
+
 	// ================= 10. XỬ LÝ THANH TOÁN VNPAY THÀNH CÔNG =================
 	@Transactional
 	public void handleSuccessfulPayment(String orderCode, String transactionNo) {
 		Order order = getOrderByOrderCode(orderCode);
 		if (order == null) throw new RuntimeException("Không tìm thấy đơn hàng với mã: " + orderCode);
 		order.setPaymentStatus("PAID");
-		order.setStatus("PENDING");
+		boolean isAudioOrder = "audio".equalsIgnoreCase(order.getOrderType());
+		order.setStatus(isAudioOrder ? "COMPLETED" : "PENDING");
 		order.setTransactionNo(transactionNo);
+		unlockAudiobooksForOrder(order, isAudioOrder);
 		log.info("Payment successful for order: {}, transaction: {}", orderCode, transactionNo);
 		em.merge(order);
+		
+		if (isAudioOrder) {
+			userService.recalculateCustomerRank(order.getUser().getId());
+		}
 	}
 
 	// ================= 11. XỬ LÝ THANH TOÁN VNPAY THẤT BẠI =================
@@ -444,6 +489,7 @@ public class CheckoutService {
 		order.setPaymentStatus("FAILED");
 		order.setStatus("CANCELLED");
 		order.setTransactionNo(transactionNo);
+		rollbackVoucherForOrder(order);
 		// Hoàn lại số lượng sách vào kho
 		List<OrderDetail> orderDetails = getOrderDetails(order.getId());
 		for (OrderDetail od : orderDetails) {
@@ -465,6 +511,10 @@ public class CheckoutService {
 		em.merge(order);
 		log.info("Updated order status for {}: {}", orderId, status);
 		
+		if ("CANCELLED".equals(status)) {
+			rollbackVoucherForOrder(order);
+		}
+		
 		// Nếu đơn hàng chuyển sang trạng thái hoàn thành (khách đã nhận sách giấy)
 		if ("COMPLETED".equals(status)) {
 			List<OrderDetail> orderDetails = getOrderDetails(orderId);
@@ -476,6 +526,9 @@ public class CheckoutService {
 					unlockSingleAudiobook(order.getUser(), book, audioVariant);
 				}
 			}
+			
+			// Tính lại hạng thành viên
+			userService.recalculateCustomerRank(order.getUser().getId());
 		}
 	}
 
@@ -506,6 +559,7 @@ public class CheckoutService {
 			em.merge(book);
 		}
 		order.setStatus("CANCELLED");
+		rollbackVoucherForOrder(order);
 		em.merge(order);
 		log.info("Order cancelled: {}", orderId);
 	}

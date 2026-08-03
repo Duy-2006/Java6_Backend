@@ -45,10 +45,10 @@ public class Voucher {
 	    @Transient
 	    public String getComputedStatus() {
 	        LocalDate now = LocalDate.now();
-	        if (!active)                        return "INACTIVE";
-	        if (usedCount >= usageLimit)        return "EXHAUSTED";
-	        if (now.isBefore(startDate))        return "UPCOMING";
-	        if (now.isAfter(endDate))           return "EXPIRED";
+	        if (!active)                                  return "INACTIVE";
+	        if (usageLimit > 0 && usedCount >= usageLimit) return "EXHAUSTED";
+	        if (now.isBefore(startDate))                  return "UPCOMING";
+	        if (now.isAfter(endDate))                     return "EXPIRED";
 	        return "ACTIVE";
 	    }
 

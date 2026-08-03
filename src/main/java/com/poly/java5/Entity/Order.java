@@ -57,6 +57,9 @@ public class Order {
 	@Column(name = "order_date")
 	private LocalDateTime orderDate;
 
+	@Column(name = "order_type", length = 20)
+	private String orderType;
+
 	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
 	@ToString.Exclude
 	@JsonIgnore
@@ -74,6 +77,13 @@ public class Order {
 
 	@Column(name = "discount_amount", precision = 10, scale = 2)
 	private BigDecimal discountAmount;
+
+	@Column(name = "member_discount", precision = 10, scale = 2)
+	private BigDecimal memberDiscount;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "voucher_id")
+	private Voucher voucher;
 
 	@Column(name = "delivered_at")
 	private LocalDateTime deliveredAt;

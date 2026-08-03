@@ -114,12 +114,40 @@ public class VoucherService {
 		}
 	}
 
+	@Transactional
+	public void rollbackVoucherUsage(Integer voucherId, Integer userId) {
+		Voucher v = voucherRepository.findById(voucherId).orElse(null);
+		if (v == null) return;
+
+		if (v.getUsedCount() > 0) {
+			v.setUsedCount(v.getUsedCount() - 1);
+			voucherRepository.save(v);
+		}
+
+		if (userId != null) {
+			com.poly.java5.Entity.User user = userRepository.findById(userId).orElse(null);
+			if (user != null) {
+				com.poly.java5.Entity.UserVoucher userVoucher = userVoucherRepository.findByUserAndVoucher(user, v)
+						.orElse(null);
+				if (userVoucher != null) {
+					userVoucher.setIsUsed(false);
+					userVoucher.setUsedDate(null);
+					userVoucherRepository.save(userVoucher);
+				}
+			}
+		}
+	}
+
 	public List<Voucher> findActiveVouchers() {
 		return voucherRepository.findActiveVouchers(LocalDate.now());
 	}
 
 	// ── Helper: map body → entity ────────────────────────────
 	private Voucher buildFromBody(Voucher v, Map<String, Object> body) {
+		if (body.containsKey("code") && body.get("code") != null) {
+			v.setCode(body.get("code").toString());
+		}
+
 		if (body.containsKey("discountType"))
 			v.setDiscountType(body.get("discountType").toString());
 
@@ -161,23 +189,23 @@ public class VoucherService {
 	private static Map<String, Double> suggestVoucherSettings(double percentage) {
 		Map<String, Double> map = new HashMap<>();
 		if (percentage <= 10) {
-			map.put("minOrderValue", 200000.0);
-			map.put("maxDiscount", 100000.0);
+			map.put("minOrderValue", 20000.0);
+			map.put("maxDiscount", 10000.0);
 		} else if (percentage <= 15) {
-			map.put("minOrderValue", 300000.0);
-			map.put("maxDiscount", 200000.0);
+			map.put("minOrderValue", 30000.0);
+			map.put("maxDiscount", 20000.0);
 		} else if (percentage <= 20) {
-			map.put("minOrderValue", 400000.0);
-			map.put("maxDiscount", 250000.0);
+			map.put("minOrderValue", 40000.0);
+			map.put("maxDiscount", 25000.0);
 		} else if (percentage <= 25) {
-			map.put("minOrderValue", 500000.0);
-			map.put("maxDiscount", 250000.0);
+			map.put("minOrderValue", 50000.0);
+			map.put("maxDiscount", 25000.0);
 		} else if (percentage <= 30) {
-			map.put("minOrderValue", 600000.0);
-			map.put("maxDiscount", 300000.0);
+			map.put("minOrderValue", 60000.0);
+			map.put("maxDiscount", 30000.0);
 		} else {
-			map.put("minOrderValue", 1000000.0);
-			map.put("maxDiscount", 500000.0);
+			map.put("minOrderValue", 100000.0);
+			map.put("maxDiscount", 50000.0);
 		}
 		return map;
 	}
@@ -187,8 +215,8 @@ public class VoucherService {
 		if (v.getDiscountValue() == null) {
 			throw new IllegalArgumentException("Giá trị phần trăm giảm không được để trống.");
 		}
-		// Phần trăm giảm phải trong khoảng 10% - 50%
-		if (v.getDiscountValue() < 10 || v.getDiscountValue() > 50) {
+		// Phần trăm giảm phải trong khoảng 5% - 50%
+		if (v.getDiscountValue() < 5 || v.getDiscountValue() > 50) {
 			throw new IllegalArgumentException("Phần trăm giảm phải trong khoảng 10% - 50%.");
 		}
 		// Tiền giảm tối đa phải trong khoảng 10.000đ - 1.000.000đ (nếu cung cấp)
@@ -200,9 +228,9 @@ public class VoucherService {
 				throw new IllegalArgumentException("Tiền giảm tối đa không được vượt quá 1.000.000 VND.");
 			}
 		}
-		// Giá trị đơn hàng tối thiểu phải ít nhất 300.000 VND
-		if (v.getMinOrderValue() != null && v.getMinOrderValue() < 300000) {
-			throw new IllegalArgumentException("Giá trị đơn hàng tối thiểu phải ít nhất 300.000 VND.");
+		// Giá trị đơn hàng tối thiểu phải ít nhất 30.000 VND
+		if (v.getMinOrderValue() != null && v.getMinOrderValue() < 30000) {
+			throw new IllegalArgumentException("Giá trị đơn hàng tối thiểu phải ít nhất 30.000 VND.");
 		}
 		// Phần trăm giảm không được vượt quá 80%
 		if (v.getDiscountValue() != null && v.getDiscountValue() > 80) {

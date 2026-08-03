@@ -5,12 +5,12 @@ import com.poly.java5.ai.dto.ChatResponse;
 import com.poly.java5.ai.service.ChatbotService;
 import com.poly.java5.Utils.AuthUtil;
 import com.poly.java5.Service.UserService;
-import com.poly.java5.ai.tool.BookstoreTools;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 
+import com.poly.java5.ai.tool.BookstoreTools;
 @RestController
 @RequestMapping("/api/chatbot")
 public class ChatbotController {
@@ -29,12 +29,24 @@ public class ChatbotController {
     public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest request, HttpServletRequest httpRequest) {
         Integer userId = null;
         try {
-            userId = AuthUtil.getAuthenticatedUserId(userService); 
+            // Lấy userId từ request attribute (do AuthFilter đã parse từ JWT)
+            Object userIdAttr = httpRequest.getAttribute("userId");
+            if (userIdAttr != null) {
+                userId = Integer.parseInt(userIdAttr.toString());
+            } else {
+                // Fallback nếu cần
+                userId = AuthUtil.getAuthenticatedUserId(userService);
+            }
         } catch (Exception e) {
-            // Ignore error, guest users can chat
+            System.err.println("Error extracting user ID: " + e.getMessage());
         }
 
         ChatResponse response = chatbotService.handleChat(request, userId);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/debug-promo")
+    public ResponseEntity<?> debugPromo() {
+        return ResponseEntity.ok(bookstoreTools.getActivePromotions());
     }
 }
