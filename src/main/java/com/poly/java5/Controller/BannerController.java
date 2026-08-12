@@ -69,27 +69,59 @@ public class BannerController {
             @RequestParam(value = "end_date", required = false) String endDateStr,
             @RequestParam(value = "imageFile", required = false) MultipartFile imageFile) {
         
+        if (title == null || title.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Tên banner không được để trống."));
+        }
+        if ((imageFile == null || imageFile.isEmpty()) && (imageUrl == null || imageUrl.trim().isEmpty())) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng tải lên hình ảnh hoặc nhập URL hình ảnh."));
+        }
+        if (startDateStr == null || startDateStr.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng chọn ngày bắt đầu."));
+        }
+        if (endDateStr == null || endDateStr.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng chọn ngày kết thúc."));
+        }
+
+        java.time.LocalDate startDate;
+        java.time.LocalDate endDate;
+        try {
+            startDate = java.time.LocalDate.parse(startDateStr.substring(0, 10));
+            endDate = java.time.LocalDate.parse(endDateStr.substring(0, 10));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Định dạng ngày không hợp lệ."));
+        }
+
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (startDate.isBefore(today)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Ngày bắt đầu không được nằm trong quá khứ."));
+        }
+        if (endDate.isBefore(startDate)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Ngày kết thúc không được trước ngày bắt đầu."));
+        }
+
         Banner banner = new Banner();
-        banner.setTitle(title);
+        banner.setTitle(title.trim());
         banner.setDescription(description);
         banner.setLink(link);
-        banner.setPosition(position);
-        banner.setActive(active);
-        
-        if (startDateStr != null && !startDateStr.isEmpty()) {
-            banner.setStart_date(java.time.LocalDate.parse(startDateStr.substring(0, 10)));
-        }
-        if (endDateStr != null && !endDateStr.isEmpty()) {
-            banner.setEnd_date(java.time.LocalDate.parse(endDateStr.substring(0, 10)));
-        }
+        banner.setPosition(position != null ? position : 0);
+        banner.setActive(active != null ? active : true);
+        banner.setStart_date(startDate);
+        banner.setEnd_date(endDate);
 
         // Thay đổi ở đây: Upload thẳng lên Cloudinary
         if (imageFile != null && !imageFile.isEmpty()) {
+            if (imageFile.getSize() > 5 * 1024 * 1024) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Dung lượng ảnh vượt quá giới hạn cho phép (tối đa 5MB)."));
+            }
+            String contentType = imageFile.getContentType();
+            if (contentType != null && !contentType.startsWith("image/")) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Tệp tải lên không phải là định dạng hình ảnh hợp lệ."));
+            }
             try {
                 String cloudinaryUrl = uploadToCloudinary(imageFile);
                 banner.setImage_url(cloudinaryUrl); // URL lưu vào DB bây giờ là link https://res.cloudinary...
             } catch (IOException e) {
-                return ResponseEntity.status(500).body("{\"message\": \"Lỗi upload lên Cloudinary: " + e.getMessage() + "\"}");
+                return ResponseEntity.status(500).body(Map.of("message", "Lỗi upload lên Cloudinary: " + e.getMessage()));
             }
         } else {
             banner.setImage_url(imageUrl);
@@ -115,31 +147,58 @@ public class BannerController {
         Banner banner = bannerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy banner có ID: " + id));
         
-        banner.setTitle(title);
+        if (title == null || title.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Tên banner không được để trống."));
+        }
+        if ((imageFile == null || imageFile.isEmpty()) && (imageUrl == null || imageUrl.trim().isEmpty())) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng tải lên hình ảnh hoặc nhập URL hình ảnh."));
+        }
+        if (startDateStr == null || startDateStr.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng chọn ngày bắt đầu."));
+        }
+        if (endDateStr == null || endDateStr.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng chọn ngày kết thúc."));
+        }
+
+        java.time.LocalDate startDate;
+        java.time.LocalDate endDate;
+        try {
+            startDate = java.time.LocalDate.parse(startDateStr.substring(0, 10));
+            endDate = java.time.LocalDate.parse(endDateStr.substring(0, 10));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Định dạng ngày không hợp lệ."));
+        }
+
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (startDate.isBefore(today) && (banner.getStart_date() == null || !startDate.equals(banner.getStart_date()))) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Ngày bắt đầu không được nằm trong quá khứ."));
+        }
+        if (endDate.isBefore(startDate)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Ngày kết thúc không được trước ngày bắt đầu."));
+        }
+
+        banner.setTitle(title.trim());
         banner.setDescription(description);
         banner.setLink(link);
-        banner.setPosition(position);
-        banner.setActive(active);
-        
-        if (startDateStr != null && !startDateStr.isEmpty()) {
-            banner.setStart_date(java.time.LocalDate.parse(startDateStr.substring(0, 10)));
-        } else {
-            banner.setStart_date(null);
-        }
-        
-        if (endDateStr != null && !endDateStr.isEmpty()) {
-            banner.setEnd_date(java.time.LocalDate.parse(endDateStr.substring(0, 10)));
-        } else {
-            banner.setEnd_date(null);
-        }
+        banner.setPosition(position != null ? position : 0);
+        banner.setActive(active != null ? active : true);
+        banner.setStart_date(startDate);
+        banner.setEnd_date(endDate);
 
         // Thay đổi ở đây: Upload thẳng lên Cloudinary khi cập nhật ảnh mới
         if (imageFile != null && !imageFile.isEmpty()) {
+            if (imageFile.getSize() > 5 * 1024 * 1024) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Dung lượng ảnh vượt quá giới hạn cho phép (tối đa 5MB)."));
+            }
+            String contentType = imageFile.getContentType();
+            if (contentType != null && !contentType.startsWith("image/")) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Tệp tải lên không phải là định dạng hình ảnh hợp lệ."));
+            }
             try {
                 String cloudinaryUrl = uploadToCloudinary(imageFile);
                 banner.setImage_url(cloudinaryUrl);
             } catch (IOException e) {
-                return ResponseEntity.status(500).body("{\"message\": \"Lỗi upload lên Cloudinary: " + e.getMessage() + "\"}");
+                return ResponseEntity.status(500).body(Map.of("message", "Lỗi upload lên Cloudinary: " + e.getMessage()));
             }
         } else {
             banner.setImage_url(imageUrl);
@@ -156,5 +215,16 @@ public class BannerController {
         
         bannerRepository.delete(banner);
         return ResponseEntity.ok().body("{\"message\": \"Xóa banner thành công!\"}");
+    }
+
+    // 6. Bật / Tắt (Ẩn / Hiện) trạng thái banner nhanh
+    @RequestMapping(value = "/{id}/toggle", method = {RequestMethod.PUT, RequestMethod.POST, RequestMethod.PATCH})
+    public ResponseEntity<?> toggleBannerStatus(@PathVariable Integer id) {
+        Banner banner = bannerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy banner có ID: " + id));
+        
+        banner.setActive(!Boolean.TRUE.equals(banner.getActive()));
+        Banner saved = bannerRepository.save(banner);
+        return ResponseEntity.ok(saved);
     }
 }

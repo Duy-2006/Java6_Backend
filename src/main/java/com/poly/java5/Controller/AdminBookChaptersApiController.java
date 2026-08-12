@@ -503,7 +503,6 @@ public class AdminBookChaptersApiController {
 
 		return ResponseEntity.ok(dtos);
 	}
-
     @PostMapping("/{bookId}/chapters/{chapterId}/tts-append")
     public ResponseEntity<?> appendTtsSegment(@PathVariable Integer bookId, @PathVariable Integer chapterId, @RequestBody Map<String, String> body) {
         BookChapter chapter = chapterRepository.findById(chapterId).orElse(null);
@@ -533,9 +532,11 @@ public class AdminBookChaptersApiController {
             return ResponseEntity.badRequest().body(Map.of("error", "Không tìm thấy giọng đọc phù hợp."));
         }
         
+        
         // Determine next sequence order
         List<AudioBook> existing = audioBookRepository.findByChapterIdOrderBySequenceOrderAsc(chapter.getId().intValue());
         int nextSeq = (existing == null || existing.isEmpty()) ? 1 : existing.get(existing.size() - 1).getSequenceOrder() + 1;
+        
         // Create and save the new AudioBook segment synchronously first
         AudioBook newAudio = AudioBook.builder()
                 .chapter(chapter)
@@ -561,7 +562,6 @@ public class AdminBookChaptersApiController {
                 });
         return ResponseEntity.ok(convertToDTO(chapter));
     }
-
 	// ===========================
 	// 6. CẬP NHẬT CHƯƠNG (SỬA TEXT)
 	// ===========================

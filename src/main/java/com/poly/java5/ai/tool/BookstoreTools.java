@@ -16,8 +16,6 @@ import com.poly.java5.Entity.User;
 import java.time.LocalDate;
 import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.List;
@@ -71,7 +69,6 @@ public class BookstoreTools {
 Lấy giá hiện tại, giá giảm (nếu có), tồn kho và các định dạng (sách giấy, sách nói, giọng đọc) của một quyển sách bằng ID sách.
 Sử dụng khi khách hỏi sách còn hàng không, giá bao nhiêu hoặc có bản audio không.
 """)
-    @Transactional(readOnly = true)
     public String getBookRealtimeInfo(Integer bookId) {
         if (bookId == null) return "Không có ID sách.";
         Optional<Book> bookOpt = bookRepository.findById(bookId);
@@ -128,7 +125,6 @@ Sử dụng khi khách hỏi sách còn hàng không, giá bao nhiêu hoặc có
 Tìm kiếm và gợi ý sách (sách giấy, sách nói) theo tên sách hoặc từ khóa.
 Trả về danh sách tối đa 5 kết quả đang còn kinh doanh.
 """)
-    @Transactional(readOnly = true)
     public String searchBooks(String keyword) {
         if (keyword == null || keyword.isBlank()) return "Vui lòng cung cấp từ khóa để tìm sách.";
         List<Book> books = bookRepository.searchByKeyword(keyword);
@@ -152,56 +148,92 @@ Trả về danh sách tối đa 5 kết quả đang còn kinh doanh.
     }
 
     @Tool("""
-Lấy trạng thái đơn hàng của người dùng đang đăng nhập bằng mã đơn hàng (orderId).
-Không được sử dụng công cụ này nếu chưa có orderId. Không cho phép tra cứu đơn của người khác.
+Lấy trạng thái và chi tiết một đơn hàng cụ thể của người dùng đang đăng nhập bằng mã ID đơn hàng hoặc mã code đơn hàng (orderCode).
 """)
-    @Transactional(readOnly = true)
-    public String getOrderStatus(Integer orderId) {
-        Optional<User> userOpt = getCurrentUser();
-        if (userOpt.isEmpty()) {
+    public String getOrderStatus(String orderIdentifier) {
+        Integer userId = currentUserId.get();
+        if (userId == null) {
             return "AUTH_REQUIRED: Vui lòng đăng nhập để kiểm tra trạng thái đơn hàng.";
         }
-        Optional<Order> orderOpt = orderRepository.findById(orderId);
+        if (orderIdentifier == null || orderIdentifier.isBlank()) {
+            return "Vui lòng cung cấp mã đơn hàng để tra cứu.";
+        }
+
+        String cleanId = orderIdentifier.trim();
+        Optional<Order> orderOpt = Optional.empty();
+
+        if (cleanId.matches("\\d+")) {
+            orderOpt = orderRepository.findByIdAndUserId(Integer.parseInt(cleanId), userId);
+        }
+        
         if (orderOpt.isEmpty()) {
-            return "Không tìm thấy đơn hàng với mã " + orderId;
+            orderOpt = orderRepository.findByOrderCodeFull(cleanId, userId);
         }
+
+        if (orderOpt.isEmpty()) {
+            return "Không tìm thấy đơn hàng '" + cleanId + "' thuộc tài khoản của bạn.";
+        }
+
         Order order = orderOpt.get();
-        if (order.getUser() == null || !order.getUser().getId().equals(userOpt.get().getId())) {
-            return "Bạn không có quyền truy cập đơn hàng này hoặc đơn hàng không phải của bạn.";
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("Thông tin đơn hàng %s (ID: %d):\n", 
+                order.getOrderCode() != null ? order.getOrderCode() : "", order.getId()));
+        sb.append(String.format("- Ngày đặt: %s\n", order.getOrderDate() != null ? order.getOrderDate().toLocalDate() : "Không rõ"));
+        sb.append(String.format("- Tổng tiền: %s VND\n", new java.text.DecimalFormat("#,###").format(order.getTotalAmount()).replace(",", ".")));
+        sb.append(String.format("- Trạng thái giao hàng: %s\n", order.getStatus() != null ? order.getStatus() : "Đang xử lý"));
+        sb.append(String.format("- Trạng thái thanh toán: %s\n", order.getPaymentStatus() != null ? order.getPaymentStatus() : "Chưa thanh toán"));
+
+        if (order.getOrderDetails() != null && !order.getOrderDetails().isEmpty()) {
+            sb.append("- Sản phẩm trong đơn:\n");
+            for (var detail : order.getOrderDetails()) {
+                String bookTitle = detail.getBook() != null ? detail.getBook().getTitle() : "Sách";
+                sb.append(String.format("  + %s (Số lượng: %d, Giá: %s VND)\n",
+                        bookTitle, detail.getQuantity(), 
+                        new java.text.DecimalFormat("#,###").format(detail.getPrice()).replace(",", ".")));
+            }
         }
-        return String.format("Đơn hàng %s (ID: %d): Tổng tiền %s VND, Trạng thái: %s, Thanh toán: %s", 
-                order.getOrderCode() != null ? order.getOrderCode() : "",
-                order.getId(), 
-                new java.text.DecimalFormat("#,###").format(order.getTotalAmount()).replace(",", "."), 
-                order.getStatus() != null ? order.getStatus() : "Không rõ",
-                order.getPaymentStatus() != null ? order.getPaymentStatus() : "Chưa thanh toán");
+        return sb.toString();
     }
 
     @Tool("""
-Lấy danh sách tối đa 5 đơn hàng gần nhất của người dùng đang đăng nhập.
-Sử dụng khi khách hỏi lịch sử mua hàng hoặc đơn hàng mới nhất.
+Lấy danh sách tối đa 5 đơn hàng gần nhất của người dùng đang đăng nhập (bao gồm cả đơn sách giấy và đơn sách nói, kèm tên sách và phân loại sách).
+Sử dụng khi khách hỏi lịch sử mua hàng, danh sách đơn hàng, hỏi "tài khoản này có đơn hàng nào không", "có đơn hàng sách nói nào không", "đơn hàng của tôi đâu", "kiểm tra đơn hàng của tôi" mà không đưa ra mã đơn cụ thể.
 """)
-    @Transactional(readOnly = true)
     public String getMyRecentOrders() {
-        Optional<User> userOpt = getCurrentUser();
-        if (userOpt.isEmpty()) {
+        Integer userId = currentUserId.get();
+        System.out.println("=== TOOL EXECUTED: getMyRecentOrders | currentUserId = " + userId + " ===");
+        if (userId == null) {
             return "AUTH_REQUIRED: Vui lòng đăng nhập để xem lịch sử mua hàng.";
         }
-        List<Order> orders = userOpt.get().getOrders();
+        List<Order> orders = orderRepository.findOrdersByType(userId, null, null);
         if (orders == null || orders.isEmpty()) {
-            return "Bạn chưa có đơn hàng nào.";
+            return "Tài khoản của bạn hiện chưa có đơn hàng nào trong hệ thống.";
         }
-        List<Order> recentOrders = orders.stream()
-                .sorted((o1, o2) -> o2.getOrderDate().compareTo(o1.getOrderDate()))
-                .limit(5)
-                .toList();
+        List<Order> recentOrders = orders.stream().limit(5).toList();
         StringBuilder sb = new StringBuilder("Lịch sử đơn hàng gần đây của bạn:\n");
         for (Order o : recentOrders) {
-            sb.append(String.format("- Đơn %s: Đặt ngày %s, Tổng tiền: %s VND, Trạng thái: %s\n",
+            String typeStr = "audio".equalsIgnoreCase(o.getOrderType()) ? "Sách nói (Audiobook)" : "Sách giấy";
+            
+            StringBuilder booksSb = new StringBuilder();
+            if (o.getOrderDetails() != null && !o.getOrderDetails().isEmpty()) {
+                for (var d : o.getOrderDetails()) {
+                    if (d.getBook() != null) {
+                        if (booksSb.length() > 0) booksSb.append(", ");
+                        booksSb.append(d.getBook().getTitle()).append(" (ID: ").append(d.getBook().getId()).append(")");
+                    }
+                }
+            }
+            String bookList = booksSb.length() > 0 ? booksSb.toString() : "Chưa có chi tiết sách";
+
+            sb.append(String.format("- Đơn %s (ID: %d): Đặt ngày %s, Phân loại: %s, Sản phẩm: [%s], Tổng tiền: %s VND, Trạng thái: %s, Thanh toán: %s\n",
                     o.getOrderCode() != null ? o.getOrderCode() : String.valueOf(o.getId()),
-                    o.getOrderDate().toLocalDate().toString(),
+                    o.getId(),
+                    o.getOrderDate() != null ? o.getOrderDate().toLocalDate().toString() : "Không rõ",
+                    typeStr,
+                    bookList,
                     new java.text.DecimalFormat("#,###").format(o.getTotalAmount()).replace(",", "."),
-                    o.getStatus()));
+                    o.getStatus() != null ? o.getStatus() : "Đang xử lý",
+                    o.getPaymentStatus() != null ? o.getPaymentStatus() : "Chưa thanh toán"));
         }
         return sb.toString();
     }
@@ -281,7 +313,6 @@ Sử dụng khi khách hỏi mã giảm giá, điều kiện áp dụng, giá tr
 Kiểm tra một mã voucher cụ thể có hợp lệ với người dùng và giá trị đơn hàng hay không.
 Trả về nguyên nhân cụ thể nếu voucher không thể sử dụng.
 """)
-    @Transactional(readOnly = true)
     public String validateVoucherForUser(String code, Double orderAmount) {
         if (code == null || code.isBlank()) return "Vui lòng cung cấp mã voucher.";
         Optional<Voucher> voucherOpt = voucherRepository.findByCode(code.trim());
@@ -308,7 +339,6 @@ Trả về nguyên nhân cụ thể nếu voucher không thể sử dụng.
 Lấy thông tin tài khoản, hạng thành viên, tổng chi tiêu, số lượng đơn của người dùng đang đăng nhập.
 Không sử dụng cho người dùng chưa đăng nhập.
 """)
-    @Transactional(readOnly = true)
     public String getUserProfileInfo() {
         Optional<User> userOpt = getCurrentUser();
         if (userOpt.isEmpty()) {
@@ -326,9 +356,9 @@ Không sử dụng cho người dùng chưa đăng nhập.
     }
 
     @Tool("""
-Lấy danh sách sách nói mà người dùng đang đăng nhập đã sở hữu hoặc được mở khóa trong thư viện cá nhân.
+Lấy danh sách các cuốn sách nói (audiobook) mà người dùng đang đăng nhập đã mua, đã sở hữu hoặc được mở khóa trong thư viện cá nhân.
+Sử dụng khi khách hỏi "tôi có sách nói nào không", "sách nói của tôi", "thư viện sách nói", "đã mua sách nói nào", "tủ sách nói".
 """)
-    @Transactional(readOnly = true)
     public String getMyAudiobookLibrary() {
         Optional<User> userOpt = getCurrentUser();
         if (userOpt.isEmpty()) {

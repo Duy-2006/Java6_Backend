@@ -81,9 +81,8 @@ public StatsSummaryDTO getSummary(String range, String startDateStr, String endD
     // Cập nhật getMonthlyRevenue nhận range
 public List<MonthlyRevenueDTO> getMonthlyRevenue(String range, String startDateStr, String endDateStr) {
     LocalDateTime start = getResolvedStartDate(range, startDateStr);
-    // Revenue stats repository might not support end date filtering easily via getMonthlyRevenueStats if it only takes startDate,
-    // but the query seems to only take startDate in the existing code.
-    List<Object[]> results = orderRepository.getMonthlyRevenueStats(start);
+    LocalDateTime end = getResolvedEndDate(endDateStr);
+    List<Object[]> results = orderRepository.getMonthlyRevenueStats(start, end);
     List<MonthlyRevenueDTO> list = new ArrayList<>();
     for (Object[] row : results) {
         int year = ((Number) row[0]).intValue();

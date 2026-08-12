@@ -119,10 +119,10 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 
     @Query("SELECT FUNCTION('YEAR', o.orderDate) as year, FUNCTION('MONTH', o.orderDate) as month, " +
            "SUM(o.totalAmount + COALESCE(o.shippingFee, 0)) as revenue, COUNT(o) as orders " +
-           "FROM Order o WHERE o.status = 'COMPLETED' AND o.orderDate >= :startDate " +
+           "FROM Order o WHERE o.status = 'COMPLETED' AND o.orderDate >= :startDate AND o.orderDate <= :endDate " +
            "GROUP BY FUNCTION('YEAR', o.orderDate), FUNCTION('MONTH', o.orderDate) " +
            "ORDER BY year DESC, month DESC")
-    List<Object[]> getMonthlyRevenueStats(LocalDateTime startDate);
+    List<Object[]> getMonthlyRevenueStats(LocalDateTime startDate, LocalDateTime endDate);
 
     @Query("SELECT c.name, SUM(od.price * od.quantity) " +
            "FROM OrderDetail od JOIN od.book b JOIN b.category c JOIN od.order o " +

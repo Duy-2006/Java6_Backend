@@ -39,11 +39,19 @@ public class RagService {
                 .minScore(0.65)
                 .build();
 
+        Object realTools = bookstoreTools;
+        if (org.springframework.aop.support.AopUtils.isAopProxy(bookstoreTools)) {
+            Object target = org.springframework.aop.framework.AopProxyUtils.getSingletonTarget(bookstoreTools);
+            if (target != null) {
+                realTools = target;
+            }
+        }
+
         this.assistant = AiServices.builder(BookstoreAssistant.class)
                 .chatLanguageModel(chatLanguageModel)
                 .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(10))
                 .contentRetriever(contentRetriever)
-                .tools(bookstoreTools)
+                .tools(realTools)
                 .build();
     }
 

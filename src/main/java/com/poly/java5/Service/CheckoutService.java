@@ -204,26 +204,41 @@ public class CheckoutService {
 				throw new RuntimeException("Không đủ hàng: " + book.getTitle() + ". Còn " + book.getQuantity() + " cuốn");
 			}
 
-			// KIỂM TRA MỖI TÀI KHOẢN CHỈ ĐƯỢC MUA SÁCH KHUYẾN MÃI 1 LẦN TRONG ĐỢT
-			if (price.compareTo(book.getPrice()) < 0) {
+			// 1. Kiểm tra tính hợp lệ của giá bán (Price Manipulation Validation)
+			BigDecimal originalPrice = book.getPrice();
+			BigDecimal expectedPromoPrice = promotionService.getFinalPrice(bookId);
+			boolean isValidPrice = price.compareTo(originalPrice) == 0 || price.compareTo(expectedPromoPrice) == 0;
+			if (!isValidPrice) {
+				throw new RuntimeException("Giá bán của sách '" + book.getTitle() + "' không hợp lệ hoặc đã thay đổi. Vui lòng kiểm tra lại.");
+			}
+
+			// 2. KIỂM TRA MỖI TÀI KHOẢN CHỈ ĐƯỢC MUA SÁCH KHUYẾN MÃI 1 LẦN TRONG ĐỢT
+			if (price.compareTo(originalPrice) < 0) {
 				// Sách này đang mua với giá giảm (Flash Sale)
 				Promotion bestPromo = promotionService.getBestActivePromotionForBook(book);
 				if (bestPromo != null && bestPromo.getStartDate() != null && bestPromo.getEndDate() != null) {
+					// Chặn nếu mua quantity > 1 với giá khuyến mãi trong cùng một dòng đặt hàng
+					if (quantity > 1) {
+						throw new RuntimeException("Chỉ được mua tối đa 1 cuốn sách '" + book.getTitle() + "' với giá khuyến mãi.");
+					}
+
 					LocalDateTime start = bestPromo.getStartDate().atStartOfDay();
 					LocalDateTime end = bestPromo.getEndDate().atTime(23, 59, 59);
 					boolean hasPurchased = orderRepository.hasPurchasedBookDuringPromotion(userId, bookId, start, end);
 					if (hasPurchased) {
 						throw new RuntimeException("Mỗi tài khoản chỉ được mua 1 lần cho sách '" + book.getTitle() + "' trong đợt khuyến mãi này.");
 					}
+
+					// Tăng lượt sử dụng khuyến mãi (chỉ tăng khi thực sự được hưởng giá giảm)
+					promotionService.incrementPromotionUsage(bookId, quantity);
+				} else {
+					throw new RuntimeException("Giá bán của sách '" + book.getTitle() + "' không hợp lệ hoặc chương trình khuyến mãi đã kết thúc.");
 				}
 			}
 
 			// Trừ kho
 			book.setQuantity(book.getQuantity() - quantity);
 			log.info("Stock reduced for: {}, remaining: {}", book.getTitle(), book.getQuantity());
-
-			// Tăng lượt sử dụng khuyến mãi (nếu có áp dụng)
-			promotionService.incrementPromotionUsage(bookId, quantity);
 
 			// Tạo OrderDetail với giá đã giảm
 			OrderDetail od = OrderDetail.builder()

@@ -39,6 +39,9 @@ public class AdminBooksApiController {
 	private BookIndexingService bookIndexingService;
 
 	@Autowired
+	private com.poly.java5.Service.ImageSearchService imageSearchService;
+
+	@Autowired
 	private com.poly.java5.Repository.AuthorRepository authorRepository;
 
 	@Autowired
@@ -102,6 +105,7 @@ public class AdminBooksApiController {
 		CompletableFuture.runAsync(() -> {
 			try {
 				bookIndexingService.indexBook(book.getId());
+				imageSearchService.updateBookIndex(book.getId(), book.getImageUrl());
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -190,6 +194,7 @@ public class AdminBooksApiController {
 		CompletableFuture.runAsync(() -> {
 			try {
 				bookIndexingService.indexBook(existing.getId());
+				imageSearchService.updateBookIndex(existing.getId(), existing.getImageUrl());
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -212,6 +217,7 @@ public class AdminBooksApiController {
 		CompletableFuture.runAsync(() -> {
 			try {
 				bookIndexingService.indexBook(id);
+				imageSearchService.deleteBookIndex(id);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -233,6 +239,7 @@ public class AdminBooksApiController {
 		CompletableFuture.runAsync(() -> {
 			try {
 				bookIndexingService.indexBook(id);
+				imageSearchService.updateBookIndex(book.getId(), book.getImageUrl());
 			} catch (Exception e) {
 				e.printStackTrace();
 			}

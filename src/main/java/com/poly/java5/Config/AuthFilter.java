@@ -130,7 +130,16 @@ public class AuthFilter extends OncePerRequestFilter {
 	                    System.out.println("Username from token: " + username);
 	                    
 	                    if (username != null) {
-	                        Integer userId = (Integer) claims.get("userId");
+	                        Object uidObj = claims.get("userId");
+	                        Integer userId = null;
+	                        if (uidObj instanceof Number) {
+	                            userId = ((Number) uidObj).intValue();
+	                        } else if (uidObj instanceof String) {
+	                            try {
+	                                userId = Integer.parseInt((String) uidObj);
+	                            } catch (NumberFormatException ignored) {}
+	                        }
+	                        
 	                        if (userId != null) {
 	                            request.setAttribute("userId", userId);
 	                        }
