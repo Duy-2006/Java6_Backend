@@ -29,32 +29,14 @@ public class ChatbotController {
     public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest request, HttpServletRequest httpRequest) {
         Integer userId = null;
         try {
-            // 1. Lấy userId từ request attribute (do AuthFilter đã parse từ JWT)
+            // 1. Lấy userId từ request attribute (do AuthFilter đã parse và validate từ JWT Cookie / Bearer Header)
             Object userIdAttr = httpRequest.getAttribute("userId");
             if (userIdAttr != null) {
                 userId = Integer.parseInt(userIdAttr.toString());
             }
-            // 2. Fallback từ SecurityContext
+            // 2. Fallback từ SecurityContext (được đặt bởi Spring Security AuthFilter)
             if (userId == null) {
                 userId = AuthUtil.getAuthenticatedUserId(userService);
-            }
-            // 3. Fallback thêm từ Header X-User-Id (được truyền từ localStorage frontend)
-            if (userId == null) {
-                String headerUid = httpRequest.getHeader("X-User-Id");
-                if (headerUid != null && !headerUid.isBlank()) {
-                    try {
-                        userId = Integer.parseInt(headerUid.trim());
-                    } catch (NumberFormatException ignored) {}
-                }
-            }
-            // 4. Fallback thêm từ Parameter
-            if (userId == null) {
-                String paramUid = httpRequest.getParameter("userId");
-                if (paramUid != null && !paramUid.isBlank()) {
-                    try {
-                        userId = Integer.parseInt(paramUid.trim());
-                    } catch (NumberFormatException ignored) {}
-                }
             }
         } catch (Exception e) {
             System.err.println("Error extracting user ID: " + e.getMessage());

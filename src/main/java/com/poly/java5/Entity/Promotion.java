@@ -67,6 +67,7 @@ public class Promotion {
 	    
 	    @Transient
 	    public String getComputedStatus() {
+	        if (status != null && !status) return "PAUSED";
 	        if (startDate == null || endDate == null) return "UNKNOWN";
 	        LocalDate today = LocalDate.now();
 	        if (today.isBefore(startDate))  return "UPCOMING";

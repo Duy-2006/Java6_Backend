@@ -79,7 +79,9 @@ public class UserBookChaptersApiController {
         boolean hasAccess = false;
         if (userId != null) {
             User user = userService.findById(userId);
-            hasAccess = user != null && (user.isAdmin() || orderRepository.hasPurchasedBook(userId, bookId));
+            hasAccess = user != null && (user.isAdmin() 
+                || orderRepository.hasPurchasedBook(userId, bookId) 
+                || userLibraryRepository.existsByUser_IdAndBook_IdAndVariant_FormatType(userId, bookId, "AUDIO"));
         }
 
         List<BookChapter> chapters = chapterRepository.findByBookIdOrderByChapterNumberAsc(bookId);
@@ -112,7 +114,9 @@ public class UserBookChaptersApiController {
         boolean hasAccess = false;
         if (userId != null) {
             User user = userService.findById(userId);
-            hasAccess = user != null && (user.isAdmin() || orderRepository.hasPurchasedBook(userId, bookId));
+            hasAccess = user != null && (user.isAdmin() 
+                || orderRepository.hasPurchasedBook(userId, bookId) 
+                || userLibraryRepository.existsByUser_IdAndBook_IdAndVariant_FormatType(userId, bookId, "AUDIO"));
         }
 
         List<BookChapter> chapters = chapterRepository.findByBookIdOrderByChapterNumberAsc(bookId);
@@ -173,7 +177,7 @@ public class UserBookChaptersApiController {
     @GetMapping("/audio/stream/{audioId}")
     public ResponseEntity<Resource> streamAudio(@PathVariable Integer audioId, HttpServletRequest request) {
         try {
-            // 🛡️ BẢO MẬT: Hotlink Protection (Kiểm tra Referer)
+            //  BẢO MẬT: Hotlink Protection (Kiểm tra Referer)
             // Ngăn chặn copy link dán trực tiếp vào tab mới hoặc nhúng vào web khác
             String referer = request.getHeader("Referer");
             if (referer == null || (!referer.contains("localhost") && !referer.contains("192.168."))) {
@@ -199,7 +203,9 @@ public class UserBookChaptersApiController {
                     return ResponseEntity.status(401).build();
                 }
                 User user = userService.findById(userId);
-                boolean hasAccess = user != null && (user.isAdmin() || orderRepository.hasPurchasedBook(userId, book.getId()));
+                boolean hasAccess = user != null && (user.isAdmin() 
+                    || orderRepository.hasPurchasedBook(userId, book.getId()) 
+                    || userLibraryRepository.existsByUser_IdAndBook_IdAndVariant_FormatType(userId, book.getId(), "AUDIO"));
                 if (!hasAccess) {
                     return ResponseEntity.status(403).build();
                 }
@@ -285,7 +291,7 @@ public class UserBookChaptersApiController {
             if (hasAccess) {
                 audios = audioBookRepository.findByChapterIdAndTtsStatusInOrderBySequenceOrderAsc(
                     chapter.getId().intValue(), 
-                    java.util.List.of("SUCCESS", "PROCESSING", "INACTIVE")
+                    java.util.List.of("SUCCESS", "PROCESSING", "INACTIVE", "DELETED")
                 );
             } else {
                 audios = audioBookRepository.findByChapterIdAndTtsStatusInOrderBySequenceOrderAsc(
@@ -297,7 +303,7 @@ public class UserBookChaptersApiController {
             if (hasAccess) {
                 audios = audioBookRepository.findByChapterIdAndTtsStatusInOrderBySequenceOrderAsc(
                     chapter.getId().intValue(), 
-                    java.util.List.of("SUCCESS", "INACTIVE")
+                    java.util.List.of("SUCCESS", "INACTIVE", "DELETED")
                 );
             } else {
                 audios = audioBookRepository.findByChapterIdAndTtsStatusOrderBySequenceOrderAsc(
@@ -311,8 +317,17 @@ public class UserBookChaptersApiController {
             List<AudioSegmentDTO> segments = audios.stream()
                     .map(a -> {
                         String langCode = "vi";
-                        if (a.getLanguage() != null && a.getLanguage().getSystemLanguage() != null) {
-                            langCode = a.getLanguage().getSystemLanguage().getCode();
+                        if (a.getLanguage() != null) {
+                            if (a.getLanguage().getSystemLanguage() != null) {
+                                langCode = a.getLanguage().getSystemLanguage().getCode();
+                            } else if (a.getLanguage().getNarratorCode() != null) {
+                                String code = a.getLanguage().getNarratorCode().toLowerCase();
+                                if (code.contains("en_") || code.contains("john") || code.contains("en-")) {
+                                    langCode = "en";
+                                } else if (code.contains("ja_") || code.contains("ja-")) {
+                                    langCode = "ja";
+                                }
+                            }
                         }
                         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
                         String token = request.getHeader("Authorization");

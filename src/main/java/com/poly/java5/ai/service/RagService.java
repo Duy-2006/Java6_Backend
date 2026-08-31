@@ -66,7 +66,7 @@ public class RagService {
         }
         try {
             // Chuẩn bị dữ liệu động nạp vào prompt để dự phòng hoặc làm thông tin bổ sung
-            String systemData = "CHÍNH SÁCH VÀ FAQ:\n" + faqLoader.getFaqContent();
+            String systemData = "NGÀY HIỆN TẠI CỦA HỆ THỐNG: " + java.time.LocalDate.now().toString() + "\n\nCHÍNH SÁCH VÀ FAQ:\n" + faqLoader.getFaqContent();
             return assistant.chat(conversationId, systemData, message);
         } finally {
             bookstoreTools.clearCurrentUserId();

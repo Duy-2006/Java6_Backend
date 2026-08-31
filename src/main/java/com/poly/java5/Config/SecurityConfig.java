@@ -58,7 +58,7 @@ public class SecurityConfig {
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/error").permitAll()
                 
                 // 2. Mở cửa cho các API Auth công khai
-                .requestMatchers("/api/auth/forgot-password", "/api/auth/verify-otp", "/api/auth/login", "/api/auth/register").permitAll()
+                .requestMatchers("/api/auth/forgot-password", "/api/auth/verify-otp", "/api/auth/login", "/api/auth/register", "/api/auth/logout").permitAll()
                 
                 .requestMatchers("/api/categories/**", "/api/books/**", "/uploads/**", 
                                  "/api/admin/authors/**", "/api/admin/books/**", 
@@ -109,11 +109,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of(
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-            "http://192.168.*:3000"
-        ));
+        // thao tác trên điện thoại 
+        config.setAllowedOriginPatterns(List.of("*"));
+        
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
@@ -164,9 +162,14 @@ public class SecurityConfig {
         String jwtToken = jwtService.create(user, TOKEN_EXPIRY_SECONDS);
         request.getSession().invalidate();
 
-        // ✅ Gắn JWT vào HTTP-Only Cookie (an toàn hơn truyền qua URL)
-        response.setHeader("Set-Cookie",
-            String.format("jwt=%s; Path=/; HttpOnly; Max-Age=%d; SameSite=Lax", jwtToken, TOKEN_EXPIRY_SECONDS));
+        // ✅ Gắn JWT vào HTTP-Only Cookie (an toàn hơn truyền qua URL) bằng ResponseCookie
+        org.springframework.http.ResponseCookie cookie = org.springframework.http.ResponseCookie.from("jwt", jwtToken)
+            .path("/")
+            .httpOnly(true)
+            .maxAge(TOKEN_EXPIRY_SECONDS)
+            .sameSite("Lax")
+            .build();
+        response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString());
 
         Map<String, Object> userData = new HashMap<>();
         userData.put("id", user.getId());

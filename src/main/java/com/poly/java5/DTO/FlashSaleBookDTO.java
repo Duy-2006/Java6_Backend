@@ -24,4 +24,5 @@ public class FlashSaleBookDTO {
     private java.time.LocalDate endDate; // Ngày kết thúc khuyến mãi
     private Integer usedCount;          // Số lượt đã dùng
     private Integer promotionId;        // ID của chương trình khuyến mãi
+    private String authorName;          // Tên tác giả để hiển thị
 }

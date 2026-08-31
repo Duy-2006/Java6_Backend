@@ -113,7 +113,16 @@ public class VoucherController {
 	@PostMapping("/apply")
 	public ResponseEntity<?> applyVoucher(@RequestBody ApplyVoucherRequestDTO req) {
 		try {
-			Map<String, Object> result = voucherService.applyVoucher(req.getCode(), req.getOrderAmount(), null);
+			Integer userId = null;
+			try {
+				User user = getCurrentUser();
+				if (user != null) {
+					userId = user.getId();
+				}
+			} catch (Exception ignored) {
+			}
+
+			Map<String, Object> result = voucherService.applyVoucher(req.getCode(), req.getOrderAmount(), userId);
 
 			ApplyVoucherResponseDTO response = ApplyVoucherResponseDTO.builder()
 					.voucherId((Integer) result.get("voucherId")).code(String.valueOf(result.get("code")))

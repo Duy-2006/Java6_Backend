@@ -47,6 +47,9 @@ public class AdminBooksApiController {
 	@Autowired
 	private com.poly.java5.Repository.PublisherRepository publisherRepository;
 
+	@Autowired
+	private com.poly.java5.Repository.UserLibraryRepository userLibraryRepository;
+
 	private static final String UPLOAD_DIR = "src/main/resources/static/uploads/books/";
 
 	// ================= GET ALL =================
@@ -255,7 +258,10 @@ public class AdminBooksApiController {
 		if (existing == null) {
 			return ResponseEntity.status(404).body("Không tìm thấy sách");
 		}
-		
+		if (audioPrice == null || audioPrice.compareTo(java.math.BigDecimal.ZERO) < 0) {
+			return ResponseEntity.badRequest().body("Giá sách nói phải >= 0");
+		}
+
 		BookFormat audio = bookFormatRepository.findByBookIdAndFormatType(existing.getId(), "AUDIO")
 				.orElse(new BookFormat());
 		audio.setBook(existing);
@@ -320,6 +326,9 @@ public class AdminBooksApiController {
 		// Fetch format prices
 		bookFormatRepository.findByBookIdAndFormatType(book.getId(), "AUDIO")
 				.ifPresent(f -> dto.setAudioPrice(f.getPrice()));
+
+		// Check if book is purchased by any user
+		dto.setIsPurchased(userLibraryRepository.existsByBook_Id(book.getId()));
 
 		return dto;
 	}

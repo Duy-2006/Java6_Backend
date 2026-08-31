@@ -85,7 +85,7 @@ public class AudioController {
                             AudioBook segment = new AudioBook();
                             segment.setChapter(chapter);          // Liên kết với chương sách
                             segment.setLanguage(language);        // Liên kết với giọng đọc đã dùng
-                            segment.setTtsStatus("SUCCESS");      // Đánh dấu trạng thái: Thành công
+                            segment.setTtsStatus("PENDING_REVIEW");      // Đánh dấu trạng thái: Chờ duyệt
                             segment.setAudioUrl(audioUrls.get(i)); // URL MP3 trên Cloudinary CDN
                             segment.setSequenceOrder(i + 1);      // Thứ tự phát (bắt đầu từ 1)
                             audioBookRepository.save(segment);    // Lưu vào SQL Server

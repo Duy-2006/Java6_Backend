@@ -32,9 +32,10 @@ public interface BookRepository extends JpaRepository<Book, Integer> {
     List<Object[]> getSoldCountByBookIds(@Param("bookIds") List<Integer> bookIds);
     
     // 3. Top sách bán chạy chỉ tính sách active = true, đơn hàng hoàn thành
-    @Query("SELECT b, SUM(od.quantity) as sold " +
-           "FROM OrderDetail od JOIN od.book b JOIN od.order o " +
-           "WHERE b.active = true AND o.status = 'COMPLETED' " +
+    @Query("SELECT b, COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN od.quantity ELSE 0 END), 0) as sold " +
+           "FROM Book b LEFT JOIN OrderDetail od ON od.book = b " +
+           "LEFT JOIN od.order o ON o = od.order " +
+           "WHERE b.active = true " +
            "GROUP BY b ORDER BY sold DESC")
     Page<Object[]> findTopSellingBooksActiveOnly(Pageable pageable);
     

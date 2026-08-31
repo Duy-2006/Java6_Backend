@@ -95,8 +95,12 @@ public class BookIndexingService {
             }
         }
 
+        String createdDateStr = book.getCreatedDate() != null 
+            ? book.getCreatedDate().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")) 
+            : "Unknown";
+
         String content = String.format(
-                "Book ID: %d\nTitle: %s\nAuthors: %s\nCategories: %s\nPublisher: %s\nFormats: %s%s\nDescription: %s",
+                "Book ID: %d\nTitle: %s\nAuthors: %s\nCategories: %s\nPublisher: %s\nFormats: %s%s\nDescription: %s\nCreated Date: %s",
                 book.getId(),
                 book.getTitle(),
                 authorNames,
@@ -104,13 +108,15 @@ public class BookIndexingService {
                 publisherName,
                 formatInfo,
                 chapterInfo,
-                book.getDescription() != null ? book.getDescription() : ""
+                book.getDescription() != null ? book.getDescription() : "",
+                createdDateStr
         );
 
         Metadata metadata = new Metadata()
                 .put("bookId", book.getId())
                 .put("title", book.getTitle())
-                .put("active", book.getActive().toString());
+                .put("active", book.getActive().toString())
+                .put("createdDate", createdDateStr);
 
         Document document = Document.from(content, metadata);
 

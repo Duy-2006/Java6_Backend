@@ -60,9 +60,14 @@ public class LoginController {
 	        String token = jwtService.create(user, 86400);
 	        System.out.println("Token created for user: " + user.getUsername());
 	        
-	        // ✅ Gắn JWT vào HTTP-Only Cookie (bảo mật chống XSS)
-	        httpResponse.setHeader("Set-Cookie",
-	            String.format("jwt=%s; Path=/; HttpOnly; Max-Age=86400; SameSite=Lax", token));
+	        // ✅ Gắn JWT vào HTTP-Only Cookie (bảo mật chống XSS) bằng ResponseCookie
+	        org.springframework.http.ResponseCookie cookie = org.springframework.http.ResponseCookie.from("jwt", token)
+	            .path("/")
+	            .httpOnly(true)
+	            .maxAge(86400)
+	            .sameSite("Lax")
+	            .build();
+	        httpResponse.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString());
 	        
 	        UserDTO userRes = new UserDTO(
 	        		user.getId(),
@@ -79,7 +84,13 @@ public class LoginController {
 	@PostMapping("/logout")
 	public ResponseEntity<?> logout(HttpServletResponse httpResponse) {
 		// ✅ Xóa cookie bằng cách set Max-Age=0
-		httpResponse.setHeader("Set-Cookie", "jwt=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax");
+		org.springframework.http.ResponseCookie cookie = org.springframework.http.ResponseCookie.from("jwt", "")
+				.path("/")
+				.httpOnly(true)
+				.maxAge(0)
+				.sameSite("Lax")
+				.build();
+		httpResponse.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString());
 		return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công"));
 	}
 

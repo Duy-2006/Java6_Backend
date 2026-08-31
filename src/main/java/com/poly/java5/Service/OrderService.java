@@ -37,6 +37,7 @@ public class OrderService {
     private final BookFormatRepository bookFormatRepository;
     private final UserLibraryRepository userLibraryRepo;
     private final UserService userService;
+    private final EmailService emailService;
 
     @PersistenceContext
     private EntityManager em;
@@ -193,6 +194,29 @@ public class OrderService {
 
         order.setStatus(target);
         orderRepository.save(order);
+
+        // Gửi email thông báo hủy đơn nếu trạng thái chuyển sang CANCELLED và thanh toán bằng VNPAY hoặc PAYOS
+        if ("CANCELLED".equals(target)) {
+            String method = order.getPaymentMethod();
+            boolean isOnlinePayment = method != null && 
+                ("VNPAY".equalsIgnoreCase(method) || "PAYOS".equalsIgnoreCase(method));
+
+            if (isOnlinePayment && order.getUser() != null && order.getUser().getEmail() != null && !order.getUser().getEmail().isEmpty()) {
+                try {
+                    emailService.sendOrderCancelledEmail(
+                        order.getUser().getEmail(),
+                        order.getCustomerName(),
+                        order.getOrderCode(),
+                        cancelReason,
+                        order.getPaymentStatus(),
+                        order.getPaymentMethod(),
+                        order.getTotalAmount()
+                    );
+                } catch (Exception e) {
+                    log.error("Lỗi gửi email thông báo hủy đơn từ Admin: {}", e.getMessage());
+                }
+            }
+        }
     }
 
     // ─────────────────────────────────────────────

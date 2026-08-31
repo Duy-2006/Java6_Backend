@@ -379,6 +379,27 @@ Sử dụng khi khách hỏi "tôi có sách nói nào không", "sách nói củ
     }
 
     @Tool("""
+Lấy danh sách các quyển sách mới nhất vừa được cửa hàng thêm vào hệ thống gần đây.
+Sử dụng khi khách hỏi "sách mới", "sách mới ra", "có sách mới nào hôm nay", "những sách nào mới ra hôm nay".
+""")
+    public String getNewBooks() {
+        List<Book> newBooks = bookRepository.findTop10ByOrderByCreatedDateDesc().stream()
+                .filter(Book::isAvailable)
+                .collect(Collectors.toList());
+        if (newBooks.isEmpty()) {
+            return "Hiện tại cửa hàng chưa có sách mới nào.";
+        }
+        StringBuilder sb = new StringBuilder("Danh sách sách mới nhất của nhà sách:\n");
+        for (Book b : newBooks) {
+            sb.append(String.format("- %s (ID: %d), Giá: %s VND, Thêm vào ngày: %s\n",
+                    b.getTitle(), b.getId(),
+                    new java.text.DecimalFormat("#,###").format(b.getPrice()).replace(",", "."),
+                    b.getCreatedDate() != null ? b.getCreatedDate().toLocalDate().toString() : "Gần đây"));
+        }
+        return sb.toString();
+    }
+
+    @Tool("""
 Lấy thông tin liên hệ chính thức, giờ hoạt động và các kênh hỗ trợ của cửa hàng.
 """)
     public String getStoreInformation() {

@@ -27,6 +27,12 @@ import com.poly.java5.Repository.BookRepository;
 import com.poly.java5.Repository.CategoryRepository;
 import com.poly.java5.Service.ReviewService;
 
+import com.poly.java5.Entity.User;
+import com.poly.java5.Repository.OrderRepository;
+import com.poly.java5.Repository.UserLibraryRepository;
+import com.poly.java5.Service.UserService;
+import com.poly.java5.Utils.AuthUtil;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import com.poly.java5.DTO.ReviewResponseDTO;
@@ -47,6 +53,9 @@ public class BookApiController {
     private final AuthorRepository authorRepo;
     private final ReviewService reviewService;
     private final com.poly.java5.Repository.BookFormatRepository bookFormatRepo;
+    private final OrderRepository orderRepository;
+    private final UserLibraryRepository userLibraryRepository;
+    private final UserService userService;
 
     @GetMapping("/{bookId}/reviews")
     public ResponseEntity<List<ReviewResponseDTO>> getReviews(@PathVariable Integer bookId) {
@@ -144,12 +153,28 @@ public class BookApiController {
 
     @GetMapping("/{id}")
     public ResponseEntity<BookDTO> getBook(@PathVariable Integer id) {
-        // Chỉ trả về nếu sách tồn tại và active = true
-        Book b = bookRepo.findByIdAndActiveTrue(id).orElse(null);
+        Book b = bookRepo.findById(id).orElse(null);
         if (b == null) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(convertToDTO(b));
+
+        // Nếu sách đang active = true, cho phép xem công khai
+        if (Boolean.TRUE.equals(b.getActive())) {
+            return ResponseEntity.ok(convertToDTO(b));
+        }
+
+        // Nếu sách bị ẩn (active = false), cho phép xem nếu người dùng đã mua hoặc là admin
+        Integer userId = AuthUtil.getAuthenticatedUserId(userService);
+        if (userId != null) {
+            User user = userService.findById(userId);
+            if (user != null && (user.isAdmin() 
+                    || orderRepository.hasPurchasedBook(userId, id) 
+                    || userLibraryRepository.existsByUser_IdAndBook_IdAndVariant_FormatType(userId, id, "AUDIO"))) {
+                return ResponseEntity.ok(convertToDTO(b));
+            }
+        }
+
+        return ResponseEntity.notFound().build();
     }
 
     @GetMapping("/form-data")

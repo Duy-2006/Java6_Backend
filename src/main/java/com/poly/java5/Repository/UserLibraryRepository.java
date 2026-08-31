@@ -21,5 +21,5 @@ public interface UserLibraryRepository extends JpaRepository<UserLibrary, Intege
             String formatType
     );
 
-	
+	boolean existsByBook_Id(Integer bookId);
 }

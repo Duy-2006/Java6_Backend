@@ -144,6 +144,7 @@ public class FlashSaleController {
 					.audioPrice(audioPrice)
 					.soldCount(soldCount)
 					.endDate(promoEndDate)
+					.authorName(book.getAuthor() != null ? book.getAuthor().getName() : null)
 					.build());
 		}
 

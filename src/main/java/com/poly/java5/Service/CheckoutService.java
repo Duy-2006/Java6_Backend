@@ -212,24 +212,11 @@ public class CheckoutService {
 				throw new RuntimeException("Giá bán của sách '" + book.getTitle() + "' không hợp lệ hoặc đã thay đổi. Vui lòng kiểm tra lại.");
 			}
 
-			// 2. KIỂM TRA MỖI TÀI KHOẢN CHỈ ĐƯỢC MUA SÁCH KHUYẾN MÃI 1 LẦN TRONG ĐỢT
+			// 2. XỬ LÝ SÁCH KHUYẾN MÃI (Cho phép mua số lượng tùy ý & mua nhiều lần)
 			if (price.compareTo(originalPrice) < 0) {
-				// Sách này đang mua với giá giảm (Flash Sale)
 				Promotion bestPromo = promotionService.getBestActivePromotionForBook(book);
 				if (bestPromo != null && bestPromo.getStartDate() != null && bestPromo.getEndDate() != null) {
-					// Chặn nếu mua quantity > 1 với giá khuyến mãi trong cùng một dòng đặt hàng
-					if (quantity > 1) {
-						throw new RuntimeException("Chỉ được mua tối đa 1 cuốn sách '" + book.getTitle() + "' với giá khuyến mãi.");
-					}
-
-					LocalDateTime start = bestPromo.getStartDate().atStartOfDay();
-					LocalDateTime end = bestPromo.getEndDate().atTime(23, 59, 59);
-					boolean hasPurchased = orderRepository.hasPurchasedBookDuringPromotion(userId, bookId, start, end);
-					if (hasPurchased) {
-						throw new RuntimeException("Mỗi tài khoản chỉ được mua 1 lần cho sách '" + book.getTitle() + "' trong đợt khuyến mãi này.");
-					}
-
-					// Tăng lượt sử dụng khuyến mãi (chỉ tăng khi thực sự được hưởng giá giảm)
+					// Tăng lượt sử dụng khuyến mãi theo số lượng mua
 					promotionService.incrementPromotionUsage(bookId, quantity);
 				} else {
 					throw new RuntimeException("Giá bán của sách '" + book.getTitle() + "' không hợp lệ hoặc chương trình khuyến mãi đã kết thúc.");
@@ -305,20 +292,23 @@ public class CheckoutService {
 			Integer bookId = Integer.parseInt(reqItem.get("bookId").toString());
 			Integer quantity = Integer.parseInt(reqItem.get("quantity").toString());
 			BigDecimal price = new BigDecimal(reqItem.get("price").toString());
+			String formatType = reqItem.containsKey("formatType") ? reqItem.get("formatType").toString() : "AUDIO";
 
 			Book book = em.find(Book.class, bookId);
 			if (book == null) throw new RuntimeException("Sách không tồn tại, ID: " + bookId);
 
-			// KIỂM TRA MỖI TÀI KHOẢN CHỈ ĐƯỢC MUA SÁCH KHUYẾN MÃI 1 LẦN TRONG ĐỢT
-			if (price.compareTo(book.getPrice()) < 0) {
-				// Sách này đang mua với giá giảm (Flash Sale)
-				Promotion bestPromo = promotionService.getBestActivePromotionForBook(book);
-				if (bestPromo != null && bestPromo.getStartDate() != null && bestPromo.getEndDate() != null) {
-					LocalDateTime start = bestPromo.getStartDate().atStartOfDay();
-					LocalDateTime end = bestPromo.getEndDate().atTime(23, 59, 59);
-					boolean hasPurchased = orderRepository.hasPurchasedBookDuringPromotion(userId, bookId, start, end);
-					if (hasPurchased) {
-						throw new RuntimeException("Mỗi tài khoản chỉ được mua 1 lần cho sách '" + book.getTitle() + "' trong đợt khuyến mãi này.");
+			BigDecimal basePrice = book.getPrice();
+			if ("AUDIO".equalsIgnoreCase(formatType)) {
+				BookFormat audioFormat = bookFormatRepository.findByBookIdAndFormatType(bookId, "AUDIO").orElse(null);
+				if (audioFormat != null && audioFormat.getPrice() != null) {
+					basePrice = audioFormat.getPrice();
+				}
+			} else {
+				// KIỂM TRA MỖI TÀI KHOẢN CHỈ ĐƯỢC MUA SÁCH KHUYẾN MÃI 1 LẦN TRONG ĐỢT (Chỉ áp dụng sách giấy)
+				if (price.compareTo(basePrice) < 0) {
+					Promotion bestPromo = promotionService.getBestActivePromotionForBook(book);
+					if (bestPromo == null || bestPromo.getStartDate() == null || bestPromo.getEndDate() == null) {
+						throw new RuntimeException("Giá bán của sách '" + book.getTitle() + "' không hợp lệ hoặc chương trình khuyến mãi đã kết thúc.");
 					}
 				}
 			}
@@ -391,8 +381,9 @@ public class CheckoutService {
 			boolean isAudioOrder = "audio".equalsIgnoreCase(order.getOrderType());
 			order.setStatus(isAudioOrder ? "COMPLETED" : "PENDING");
 			unlockAudiobooksForOrder(order, isAudioOrder);
-		} else if ("FAILED".equals(paymentStatus)) {
+		} else if ("FAILED".equalsIgnoreCase(paymentStatus) || "CANCELLED".equalsIgnoreCase(paymentStatus)) {
 			order.setStatus("CANCELLED");
+			rollbackVoucherForOrder(order);
 		}
 		if (transactionNo != null && !transactionNo.isEmpty()) order.setTransactionNo(transactionNo);
 		log.info("Updated payment status for order {}: {}, transaction: {}", orderId, paymentStatus, transactionNo);

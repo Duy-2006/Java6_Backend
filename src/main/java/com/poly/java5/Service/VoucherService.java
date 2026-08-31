@@ -85,7 +85,9 @@ public class VoucherService {
 	public Voucher update(Integer id, Map<String, Object> body) {
 		Voucher v = voucherRepository.findById(id)
 				.orElseThrow(() -> new RuntimeException("Không tìm thấy voucher ID: " + id));
-		return voucherRepository.save(buildFromBody(v, body));
+		buildFromBody(v, body);
+		validateVoucherConstraints(v);
+		return voucherRepository.save(v);
 	}
 
 	@Transactional
@@ -212,14 +214,23 @@ public class VoucherService {
 
 	// ── Validation ────────────────────────────────────────
 	private void validateVoucherConstraints(Voucher v) {
+		// 1. Kiểm tra mã voucher không để trống & trùng lặp
+		if (v.getCode() == null || v.getCode().trim().isEmpty()) {
+			throw new IllegalArgumentException("Mã voucher không được để trống.");
+		}
+		if (v.getId() == null && voucherRepository.existsByCode(v.getCode().trim().toUpperCase())) {
+			throw new IllegalArgumentException("Mã voucher '" + v.getCode().trim().toUpperCase() + "' đã tồn tại trong hệ thống.");
+		}
+
+		// 2. Kiểm tra phần trăm giảm
 		if (v.getDiscountValue() == null) {
 			throw new IllegalArgumentException("Giá trị phần trăm giảm không được để trống.");
 		}
-		// Phần trăm giảm phải trong khoảng 5% - 50%
 		if (v.getDiscountValue() < 5 || v.getDiscountValue() > 50) {
-			throw new IllegalArgumentException("Phần trăm giảm phải trong khoảng 10% - 50%.");
+			throw new IllegalArgumentException("Phần trăm giảm phải trong khoảng 5% - 50%.");
 		}
-		// Tiền giảm tối đa phải trong khoảng 10.000đ - 1.000.000đ (nếu cung cấp)
+
+		// 3. Tiền giảm tối đa phải trong khoảng 10.000đ - 1.000.000đ (nếu cung cấp)
 		if (v.getMaxDiscount() != null) {
 			if (v.getMaxDiscount() < 10000) {
 				throw new IllegalArgumentException("Tiền giảm tối đa không được dưới 10.000 VND.");
@@ -228,13 +239,34 @@ public class VoucherService {
 				throw new IllegalArgumentException("Tiền giảm tối đa không được vượt quá 1.000.000 VND.");
 			}
 		}
-		// Giá trị đơn hàng tối thiểu phải ít nhất 30.000 VND
-		if (v.getMinOrderValue() != null && v.getMinOrderValue() < 30000) {
+
+		// 4. Giá trị đơn hàng tối thiểu
+		if (v.getMinOrderValue() == null) {
+			throw new IllegalArgumentException("Giá trị đơn hàng tối thiểu không được để trống.");
+		}
+		if (v.getMinOrderValue() < 30000) {
 			throw new IllegalArgumentException("Giá trị đơn hàng tối thiểu phải ít nhất 30.000 VND.");
 		}
-		// Phần trăm giảm không được vượt quá 80%
-		if (v.getDiscountValue() != null && v.getDiscountValue() > 80) {
-			throw new IllegalArgumentException("Phần trăm giảm không được vượt quá 80%.");
+
+		// 5. Số lượt sử dụng
+		if (v.getUsageLimit() == null || v.getUsageLimit() <= 0) {
+			throw new IllegalArgumentException("Số lượt sử dụng phải lớn hơn 0.");
+		}
+
+		// 6. Kiểm tra ngày bắt đầu và ngày kết thúc
+		if (v.getStartDate() == null) {
+			throw new IllegalArgumentException("Vui lòng chọn ngày bắt đầu.");
+		}
+		if (v.getEndDate() == null) {
+			throw new IllegalArgumentException("Vui lòng chọn ngày kết thúc.");
+		}
+		// Không được chọn ngày trong quá khứ khi tạo mới
+		if (v.getId() == null && v.getStartDate().isBefore(LocalDate.now())) {
+			throw new IllegalArgumentException("Ngày bắt đầu không được ở trong quá khứ.");
+		}
+		// Ngày kết thúc phải sau hoặc bằng ngày bắt đầu
+		if (v.getEndDate().isBefore(v.getStartDate())) {
+			throw new IllegalArgumentException("Ngày kết thúc không được trước ngày bắt đầu.");
 		}
 	}
 }

@@ -31,6 +31,7 @@ public class BookDTO {
 	    @Min(value = 0, message = "Số lượng phải >= 0")
 	    private Integer quantity;
 
+	    @Min(value = 0, message = "Giá sách nói phải >= 0")
 	    private BigDecimal audioPrice;
 
 	    private Boolean active = true;
@@ -48,6 +49,7 @@ public class BookDTO {
 	    private String categoryName;      // chỉ để hiển thị   
 
         private Long soldCount;           // số lượng đã bán thực tế
+        private Boolean isPurchased;      // trạng thái đã có người mua hay chưa
 
 	    private java.util.List<Long> authorIds;
 	    private java.util.List<String> authorNames;

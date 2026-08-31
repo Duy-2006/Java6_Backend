@@ -116,6 +116,7 @@ public class PayOsController {
         String code = params.get("code");
         String orderCodeStr = params.get("orderCode");
         String status = params.get("status");
+        String cancel = params.get("cancel");
 
         if (orderCodeStr == null) {
             response.sendRedirect(frontendUrl + "/user/checkout");
@@ -125,7 +126,14 @@ public class PayOsController {
         Long orderCode = Long.parseLong(orderCodeStr);
         String redirectUrl = frontendUrl + "/user/checkout";
 
-        if ("00".equals(code) || "PAID".equals(status)) {
+        // PayOS params when user cancels: cancel=true, status=CANCELLED, code=00
+        boolean isCancelled = "true".equalsIgnoreCase(cancel) 
+                           || "CANCELLED".equalsIgnoreCase(status)
+                           || "FAILED".equalsIgnoreCase(status);
+
+        boolean isPaid = !isCancelled && ("PAID".equalsIgnoreCase(status) || ("00".equals(code) && (status == null || "PAID".equalsIgnoreCase(status))));
+
+        if (isPaid) {
             paymentOrderRepository.updateStatusByOrderCode(orderCode, PaymentOrder.PaymentStatus.PAID);
             
             try {
@@ -149,11 +157,28 @@ public class PayOsController {
             }
         } else {
             // failed or cancelled
+            paymentOrderRepository.updateStatusByOrderCode(orderCode, PaymentOrder.PaymentStatus.CANCELLED);
             try {
                 checkoutService.updatePaymentStatus(orderCode.intValue(), "FAILED", "PAYOS-" + orderCode);
             } catch (Exception ex) {
+                System.err.println("Lỗi cập nhật FAILED cho Order ID " + orderCode + ": " + ex.getMessage());
             }
-            redirectUrl = frontendUrl + "/user/checkout";
+
+            try {
+                com.poly.java5.Entity.Order order = checkoutService.getOrderById(orderCode.intValue());
+                if (order != null && "audio".equalsIgnoreCase(order.getOrderType())) {
+                    if (order.getOrderDetails() != null && !order.getOrderDetails().isEmpty()) {
+                        Integer bookId = order.getOrderDetails().iterator().next().getBook().getId();
+                        redirectUrl = String.format("%s/user/books/%s/audiobook?payment=cancelled", frontendUrl, bookId);
+                    } else {
+                        redirectUrl = frontendUrl + "/user/checkout?cancelled=true";
+                    }
+                } else {
+                    redirectUrl = frontendUrl + "/user/checkout?cancelled=true";
+                }
+            } catch (Exception ex) {
+                redirectUrl = frontendUrl + "/user/checkout?cancelled=true";
+            }
         }
         
         response.sendRedirect(redirectUrl);

@@ -376,7 +376,7 @@ public class CheckoutController {
             ));
         } catch (Exception e) {
             log.error("Direct checkout error: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Lỗi hệ thống", "message", e.getMessage() != null ? e.getMessage() : "Lỗi hệ thống"));
         }
     }
 

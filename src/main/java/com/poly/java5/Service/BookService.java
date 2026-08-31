@@ -81,20 +81,78 @@ public class BookService {
     public List<Book> searchBooks(String keyword) {
         if (keyword == null || keyword.isBlank()) return new ArrayList<>();
         List<Book> allBooks = bookRepository.findByDeletedFalse(); 
-        String normalizedKeyword = normalize(keyword);
         return allBooks.stream()
                 .filter(b -> {
-                    String title = normalize(b.getTitle());
-                    String author = b.getAuthor() != null ? normalize(b.getAuthor().getName()) : "";
-                    String category = b.getCategory() != null ? normalize(b.getCategory().getName()) : "";
-                    String isbn = normalize(b.getIsbn());
-                    return title.contains(normalizedKeyword)
-                            || author.contains(normalizedKeyword)
-                            || category.contains(normalizedKeyword)
-                            || isbn.contains(normalizedKeyword);
+                    return fuzzyMatch(b.getTitle(), keyword)
+                            || (b.getAuthor() != null && fuzzyMatch(b.getAuthor().getName(), keyword))
+                            || (b.getCategory() != null && fuzzyMatch(b.getCategory().getName(), keyword))
+                            || fuzzyMatch(b.getIsbn(), keyword);
                 })
                 .filter(Book::getActive)
                 .collect(Collectors.toList());
+    }
+
+    private boolean fuzzyMatch(String target, String query) {
+        if (target == null || query == null || query.isBlank()) return false;
+        
+        String normTarget = normalize(target);
+        String normQuery = normalize(query);
+        
+        if (normTarget.contains(normQuery)) return true;
+        
+        String[] queryWords = normQuery.split("\\s+");
+        String[] targetWords = normTarget.split("\\s+");
+        
+        int matchCount = 0;
+        for (String qw : queryWords) {
+            boolean foundMatch = false;
+            for (String tw : targetWords) {
+                if (isWordSimilar(qw, tw)) {
+                    foundMatch = true;
+                    break;
+                }
+            }
+            if (foundMatch) {
+                matchCount++;
+            }
+        }
+        return (double) matchCount / queryWords.length >= 0.6;
+    }
+    
+    private boolean isWordSimilar(String w1, String w2) {
+        if (w1.equals(w2)) return true;
+        if (w2.contains(w1)) return true;
+        
+        int len1 = w1.length();
+        int len2 = w2.length();
+        
+        if (len1 <= 2 || len2 <= 2) {
+            return false;
+        }
+        
+        int maxDistance = (len1 > 4) ? 2 : 1;
+        return getLevenshteinDistance(w1, w2) <= maxDistance;
+    }
+
+    private int getLevenshteinDistance(String s1, String s2) {
+        int[] dp = new int[s2.length() + 1];
+        for (int j = 0; j <= s2.length(); j++) {
+            dp[j] = j;
+        }
+        for (int i = 1; i <= s1.length(); i++) {
+            int prev = dp[0];
+            dp[0] = i;
+            for (int j = 1; j <= s2.length(); j++) {
+                int temp = dp[j];
+                if (s1.charAt(i - 1) == s2.charAt(j - 1)) {
+                    dp[j] = prev;
+                } else {
+                    dp[j] = Math.min(Math.min(dp[j - 1], dp[j]), prev) + 1;
+                }
+                prev = temp;
+            }
+        }
+        return dp[s2.length()];
     }
 
     private String normalize(String text) {

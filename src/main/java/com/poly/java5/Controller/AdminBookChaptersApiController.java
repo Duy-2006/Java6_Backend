@@ -10,6 +10,7 @@ import com.poly.java5.Repository.AudioBookRepository;
 import com.poly.java5.Repository.AudioLanguageRepository;
 import com.poly.java5.Repository.BookChapterRepository;
 import com.poly.java5.Repository.BookRepository;
+import com.poly.java5.Repository.UserLibraryRepository;
 import com.poly.java5.Service.CloudinaryAudioService;
 import com.poly.java5.Service.TtsService;
 import jakarta.annotation.PostConstruct;
@@ -37,6 +38,7 @@ public class AdminBookChaptersApiController {
 	private final AudioLanguageRepository languageRepository;
 	private final TtsService ttsService;
 	private final CloudinaryAudioService cloudinaryAudioService;
+	private final UserLibraryRepository userLibraryRepository;
 
 	// ===========================
 	// INIT DEFAULT LANGUAGES
@@ -238,7 +240,7 @@ public class AdminBookChaptersApiController {
 			// Lấy lại entity từ DB để đảm bảo nó chưa bị xóa (ví dụ: người dùng bấm "Dịch lại" hoặc xóa chương)
 			audioBookRepository.findById(audioBook.getId().intValue()).ifPresent(existingAudio -> {
 				existingAudio.setAudioUrl(audioUrl); // audioUrl is already the final Cloudinary URL from Python
-				existingAudio.setTtsStatus("SUCCESS");
+				existingAudio.setTtsStatus("PENDING_REVIEW");
 				existingAudio.setIsOutdated(false);
 				int wordCount = chapter.getContentText() != null ? chapter.getContentText().split("\\s+").length : 0;
 				existingAudio.setDurationSeconds(Math.max(5, wordCount / 2));
@@ -300,7 +302,19 @@ public class AdminBookChaptersApiController {
 		String content = textContent;
 		if (textFile != null && !textFile.isEmpty()) {
 			try {
-				content = new String(textFile.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
+				byte[] bytes = textFile.getBytes();
+				// Check for ZIP/DOCX signature: 50 4B 03 04 (PK\x03\x04)
+				if (bytes.length > 4 && bytes[0] == 0x50 && bytes[1] == 0x4B && bytes[2] == 0x03 && bytes[3] == 0x04) {
+					String docxText = extractTextFromDocx(bytes);
+					if (docxText != null) {
+						content = docxText;
+					} else {
+						return ResponseEntity.badRequest()
+								.body(Map.of("error", "Không thể trích xuất văn bản từ file Word (.docx)"));
+					}
+				} else {
+					content = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+				}
 			} catch (Exception e) {
 				return ResponseEntity.badRequest()
 						.body(Map.of("error", "Không thể đọc file văn bản: " + e.getMessage()));
@@ -322,6 +336,26 @@ public class AdminBookChaptersApiController {
 
 		BookChapter saved = chapterRepository.save(chapter);
 		return ResponseEntity.ok(convertToDTO(saved));
+	}
+
+	@PostMapping("/parse-docx")
+	public ResponseEntity<?> parseDocxFile(@RequestParam("file") MultipartFile file) {
+		if (file == null || file.isEmpty()) {
+			return ResponseEntity.badRequest().body(Map.of("error", "File trống."));
+		}
+		try {
+			byte[] bytes = file.getBytes();
+			if (bytes.length > 4 && bytes[0] == 0x50 && bytes[1] == 0x4B && bytes[2] == 0x03 && bytes[3] == 0x04) {
+				String text = extractTextFromDocx(bytes);
+				if (text != null) {
+					return ResponseEntity.ok(Map.of("text", text));
+				}
+			}
+			return ResponseEntity.badRequest().body(Map.of("error", "Định dạng file không phải Word (.docx) hợp lệ."));
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(Map.of("error", "Lỗi xử lý file: " + e.getMessage()));
+		}
 	}
 
 	// ===========================
@@ -366,14 +400,50 @@ public class AdminBookChaptersApiController {
 			).collect(Collectors.toList());
 
 			if (!toToggle.isEmpty()) {
-				for (AudioBook a : toToggle) {
-					a.setTtsStatus("DELETED");
+				boolean isPurchased = userLibraryRepository.existsByBook_Id(bookId);
+				if (isPurchased) {
+					for (AudioBook a : toToggle) {
+						a.setTtsStatus("DELETED");
+					}
+					audioBookRepository.saveAll(toToggle);
+				} else {
+					audioBookRepository.deleteAll(toToggle);
 				}
-				audioBookRepository.saveAll(toToggle);
 			}
 		}
 		
 		// Trả về DTO cập nhật mới nhất
+		return ResponseEntity.ok(convertToDTO(chapter));
+	}
+
+	@PutMapping("/{bookId}/chapters/{chapterId}/audio/{langCode}/approve")
+	public ResponseEntity<?> approveChapterAudio(
+			@PathVariable Integer bookId, 
+			@PathVariable Integer chapterId,
+			@PathVariable String langCode) {
+		
+		BookChapter chapter = chapterRepository.findById(chapterId).orElse(null);
+		if (chapter == null) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		}
+
+		List<AudioBook> audios = audioBookRepository.findByChapterId(chapterId);
+		if (audios != null) {
+			List<AudioBook> toApprove = audios.stream().filter(a -> 
+				a.getLanguage() != null && 
+				a.getLanguage().getSystemLanguage() != null && 
+				langCode.equalsIgnoreCase(a.getLanguage().getSystemLanguage().getCode()) &&
+				"PENDING_REVIEW".equalsIgnoreCase(a.getTtsStatus())
+			).collect(Collectors.toList());
+
+			if (!toApprove.isEmpty()) {
+				for (AudioBook a : toApprove) {
+					a.setTtsStatus("SUCCESS");
+				}
+				audioBookRepository.saveAll(toApprove);
+			}
+		}
+		
 		return ResponseEntity.ok(convertToDTO(chapter));
 	}
 
@@ -489,10 +559,11 @@ public class AdminBookChaptersApiController {
 		for (BookChapter chapter : chapters) {
 			List<AudioBook> existings = audioBookRepository.findByChapterId(chapter.getId().intValue());
 
-			// Bỏ qua nếu đã SUCCESS hoặc đang PROCESSING (tránh chạy đôi)
+			// Bỏ qua nếu đã SUCCESS, PROCESSING hoặc PENDING_REVIEW (tránh chạy đôi)
 			boolean skipChapter = existings != null
 					&& existings.stream().anyMatch(a -> "SUCCESS".equalsIgnoreCase(a.getTtsStatus())
-							|| "PROCESSING".equalsIgnoreCase(a.getTtsStatus()));
+							|| "PROCESSING".equalsIgnoreCase(a.getTtsStatus())
+							|| "PENDING_REVIEW".equalsIgnoreCase(a.getTtsStatus()));
 
 			if (!skipChapter) {
 				triggerTts(chapter, language);
@@ -624,5 +695,79 @@ public class AdminBookChaptersApiController {
 		triggerTts(chapter, language);
 
 		return ResponseEntity.ok(convertToDTO(chapter));
+	}
+
+	private String extractTextFromDocx(byte[] bytes) {
+		try (java.util.zip.ZipInputStream zip = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(bytes))) {
+			java.util.zip.ZipEntry entry;
+			while ((entry = zip.getNextEntry()) != null) {
+				if ("word/document.xml".equals(entry.getName())) {
+					java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+					byte[] buffer = new byte[4096];
+					int len;
+					while ((len = zip.read(buffer)) != -1) {
+						bos.write(buffer, 0, len);
+					}
+					return parseDocxXml(bos.toByteArray());
+				}
+			}
+		} catch (Exception e) {
+			System.err.println("Error parsing docx file: " + e.getMessage());
+		}
+		return null;
+	}
+
+	private String parseDocxXml(byte[] xmlBytes) {
+		try {
+			javax.xml.parsers.SAXParserFactory factory = javax.xml.parsers.SAXParserFactory.newInstance();
+			factory.setNamespaceAware(true);
+			javax.xml.parsers.SAXParser saxParser = factory.newSAXParser();
+			StringBuilder sb = new StringBuilder();
+
+			org.xml.sax.helpers.DefaultHandler handler = new org.xml.sax.helpers.DefaultHandler() {
+				private boolean isText = false;
+
+				@Override
+				public void startElement(String uri, String localName, String qName, org.xml.sax.Attributes attributes) throws org.xml.sax.SAXException {
+					String name = localName != null && !localName.isEmpty() ? localName : qName;
+					if (name.endsWith(":t") || name.equals("t")) {
+						isText = true;
+					} else if (name.endsWith(":p") || name.equals("p") || name.endsWith(":br") || name.equals("br") || name.endsWith(":cr") || name.equals("cr")) {
+						sb.append("\n");
+					}
+				}
+
+				@Override
+				public void characters(char[] ch, int start, int length) throws org.xml.sax.SAXException {
+					if (isText) {
+						sb.append(ch, start, length);
+					}
+				}
+
+				@Override
+				public void endElement(String uri, String localName, String qName) throws org.xml.sax.SAXException {
+					String name = localName != null && !localName.isEmpty() ? localName : qName;
+					if (name.endsWith(":t") || name.equals("t")) {
+						isText = false;
+					}
+				}
+			};
+
+			saxParser.parse(new java.io.ByteArrayInputStream(xmlBytes), handler);
+			return sb.toString().trim();
+		} catch (Exception e) {
+			try {
+				String xml = new String(xmlBytes, java.nio.charset.StandardCharsets.UTF_8);
+				java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("<w:t[^>]*>(.*?)</w:t>");
+				java.util.regex.Matcher matcher = pattern.matcher(xml);
+				StringBuilder sb = new StringBuilder();
+				while (matcher.find()) {
+					sb.append(matcher.group(1));
+				}
+				return sb.toString();
+			} catch (Exception ex) {
+				return "";
+			}
+		}
 	}
 }
